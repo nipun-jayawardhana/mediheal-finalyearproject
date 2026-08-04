@@ -8,7 +8,7 @@ dotenv.config();
  * Ensures required environment variables are defined before starting the app.
  */
 const validateEnv = () => {
-  const requiredEnvVars = ['PORT', 'MONGODB_URI'];
+  const requiredEnvVars = ['PORT', 'MONGODB_URI', 'JWT_SECRET'];
   const missing = [];
 
   requiredEnvVars.forEach((key) => {
