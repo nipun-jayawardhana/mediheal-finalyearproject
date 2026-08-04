@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const healthRoutes = require('./routes/healthRoutes');
 const authRoutes = require('./routes/authRoutes');
+const patientRoutes = require('./routes/patientRoutes');
 const notFoundHandler = require('./middleware/notFoundHandler');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -19,6 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 // Register Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/patients', patientRoutes);
 
 // Centralized 404 handler for undefined routes
 app.use(notFoundHandler);
