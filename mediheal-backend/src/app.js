@@ -7,6 +7,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
+const caregiverRoutes = require('./routes/caregiverRoutes');
 const notFoundHandler = require('./middleware/notFoundHandler');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -27,6 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/caregivers', caregiverRoutes);
 app.use('/api', appointmentRoutes);
 app.use('/api', consultationRoutes);
 
