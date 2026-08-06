@@ -4,6 +4,8 @@ const PatientProfile = require('../models/PatientProfile');
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
 const Consultation = require('../models/Consultation');
+const Medication = require('../models/Medication');
+const MedicationLog = require('../models/MedicationLog');
 
 /**
  * @desc    Link a caregiver to a patient using caregiverLinkCode
@@ -154,7 +156,7 @@ const getLinkedPatients = async (req, res, next) => {
 };
 
 /**
- * @desc    Get detailed patient information for a linked patient
+ * @desc    Get detailed patient information for a linked patient (including medications & adherence summary)
  * @route   GET /api/caregivers/patients/:patientId
  * @access  Private / Caregiver
  */
@@ -210,6 +212,28 @@ const getPatientDetailsForCaregiver = async (req, res, next) => {
       .populate('appointmentId', 'appointmentDate timeSlot status reason')
       .sort({ createdAt: -1 });
 
+    // 5. Active medications
+    const activeMedications = await Medication.find({
+      patientId,
+      isActive: true,
+    }).sort({ createdAt: -1 });
+
+    // 6. Recent medication logs
+    const recentMedicationLogs = await MedicationLog.find({ patientId })
+      .populate('medicationId', 'medicineName dosage frequency timeSlots')
+      .sort({ scheduledDate: -1, createdAt: -1 })
+      .limit(20);
+
+    // 7. Adherence summary calculation from existing MedicationLog records
+    const allLogs = await MedicationLog.find({ patientId });
+    const totalScheduled = allLogs.length;
+    const totalTaken = allLogs.filter((l) => l.status === 'taken').length;
+    const totalMissed = allLogs.filter((l) => l.status === 'missed').length;
+    const adherencePercentage =
+      totalScheduled > 0
+        ? Number(((totalTaken / totalScheduled) * 100).toFixed(2))
+        : 0;
+
     return res.status(200).json({
       success: true,
       data: {
@@ -219,6 +243,14 @@ const getPatientDetailsForCaregiver = async (req, res, next) => {
         patientProfile,
         upcomingAppointments,
         recentConsultations,
+        activeMedications,
+        recentMedicationLogs,
+        adherenceSummary: {
+          totalScheduled,
+          totalTaken,
+          totalMissed,
+          adherencePercentage,
+        },
       },
     });
   } catch (error) {

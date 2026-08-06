@@ -8,6 +8,7 @@ const doctorRoutes = require('./routes/doctorRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const consultationRoutes = require('./routes/consultationRoutes');
 const caregiverRoutes = require('./routes/caregiverRoutes');
+const medicationRoutes = require('./routes/medicationRoutes');
 const notFoundHandler = require('./middleware/notFoundHandler');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -31,6 +32,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/caregivers', caregiverRoutes);
 app.use('/api', appointmentRoutes);
 app.use('/api', consultationRoutes);
+app.use('/api', medicationRoutes);
 
 // Centralized 404 handler for undefined routes
 app.use(notFoundHandler);
