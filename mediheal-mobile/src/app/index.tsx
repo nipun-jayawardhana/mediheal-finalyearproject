@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { AppButton } from '../components/AppButton';
 import { StatusBadge } from '../components/StatusBadge';
 import { colors, spacing, typography, borderRadius } from '../constants/theme';
 import { checkBackendHealth } from '../services/healthService';
+import { useAuth } from '../context/AuthContext';
 import { API_URL } from '../config/env';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [healthStatus, setHealthStatus] = useState<'checking' | 'connected' | 'failed'>('checking');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -33,6 +35,26 @@ export default function SplashScreen() {
   useEffect(() => {
     testBackendConnection();
   }, []);
+
+  // Session auto-routing if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      switch (user.role) {
+        case 'patient':
+          router.replace('/(patient)');
+          break;
+        case 'caregiver':
+          router.replace('/(caregiver)');
+          break;
+        case 'doctor':
+          router.replace('/(doctor)');
+          break;
+        case 'admin':
+          router.replace('/(admin)');
+          break;
+      }
+    }
+  }, [isLoading, isAuthenticated, user]);
 
   return (
     <ScreenContainer backgroundColor={colors.primary}>
@@ -88,13 +110,21 @@ export default function SplashScreen() {
           )}
         </View>
 
-        {/* Action Button */}
+        {/* Action Buttons */}
         <View style={styles.actionSection}>
           <AppButton
-            title="Get Started / Select Language"
-            onPress={() => router.push('/language')}
+            title="Sign In to MediHeal"
+            onPress={() => router.push('/(auth)/login')}
             variant="secondary"
-            style={styles.continueBtn}
+            style={styles.signInBtn}
+          />
+
+          <AppButton
+            title="Select Language"
+            onPress={() => router.push('/language')}
+            variant="outline"
+            textStyle={styles.langBtnText}
+            style={styles.langBtn}
           />
         </View>
       </View>
@@ -183,7 +213,14 @@ const styles = StyleSheet.create({
   actionSection: {
     marginBottom: spacing.sm,
   },
-  continueBtn: {
+  signInBtn: {
     backgroundColor: colors.textWhite,
+  },
+  langBtn: {
+    borderColor: colors.textWhite,
+    marginTop: spacing.xs,
+  },
+  langBtnText: {
+    color: colors.textWhite,
   },
 });
