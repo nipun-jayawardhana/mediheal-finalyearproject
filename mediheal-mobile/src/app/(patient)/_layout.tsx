@@ -45,6 +45,9 @@ export default function PatientLayout() {
       <Stack.Screen name="complete-profile" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
       <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+      <Stack.Screen name="voice-onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="symptom-checker" options={{ headerShown: false }} />
+      <Stack.Screen name="analysis-result" options={{ headerShown: false }} />
     </Stack>
   );
 }

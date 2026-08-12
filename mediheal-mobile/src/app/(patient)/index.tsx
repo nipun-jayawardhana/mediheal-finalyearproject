@@ -5,9 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getPatientDashboardApi } from '../../services/patientService';
 import { PatientDashboardData } from '../../types/patient';
+import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 
 export default function PatientHomeScreen() {
   const router = useRouter();
@@ -23,12 +24,10 @@ export default function PatientHomeScreen() {
 
   const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const fetchDashboard = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const fetchDashboard = useCallback(async () => {
+    setLoading(true);
     setErrorMsg('');
 
     try {
@@ -39,19 +38,32 @@ export default function PatientHomeScreen() {
     } catch (err: any) {
       if (err.statusCode === 404) {
         // Profile not found -> Redirect to Complete Profile
-        router.replace('/(patient)/complete-profile');
+        router.replace('/(patient)/complete-profile' as any);
         return;
       }
       setErrorMsg(err.message || 'Unable to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [router]);
 
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  // Navigate to Symptom Checker or Voice Onboarding
+  const handleCheckSymptomsPress = async () => {
+    try {
+      const seen = await AsyncStorage.getItem(VOICE_ONBOARDING_STORAGE_KEY);
+      if (seen === 'true') {
+        router.push('/(patient)/symptom-checker' as any);
+      } else {
+        router.push('/(patient)/voice-onboarding' as any);
+      }
+    } catch (err) {
+      router.push('/(patient)/symptom-checker' as any);
+    }
+  };
 
   // Quick Action Handler for future modules
   const handleFeaturePress = (featureName: string) => {
@@ -73,7 +85,7 @@ export default function PatientHomeScreen() {
       <View style={styles.headerBar}>
         <TouchableOpacity
           style={styles.headerIconBtn}
-          onPress={() => router.push('/(patient)/profile')}
+          onPress={() => router.push('/(patient)/profile' as any)}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
         >
@@ -84,7 +96,7 @@ export default function PatientHomeScreen() {
 
         <TouchableOpacity
           style={styles.headerIconBtn}
-          onPress={() => router.push('/(patient)/profile')}
+          onPress={() => router.push('/(patient)/profile' as any)}
           accessibilityRole="button"
           accessibilityLabel="View profile"
         >
@@ -98,13 +110,17 @@ export default function PatientHomeScreen() {
         ) : null}
 
         {/* Voice Guidance Banner */}
-        <View style={styles.voiceBanner}>
+        <TouchableOpacity
+          style={styles.voiceBanner}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(patient)/voice-onboarding' as any)}
+        >
           <Text style={styles.speakerIcon}>🔊</Text>
           <View style={styles.voiceTextCol}>
             <Text style={styles.voiceTitle}>Voice Guidance Active</Text>
-            <Text style={styles.voiceSub}>Tap any blue icon to hear instructions</Text>
+            <Text style={styles.voiceSub}>Tap to open Voice Onboarding Tutorial</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Greeting */}
         <View style={styles.greetingBox}>
@@ -131,7 +147,7 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={() => handleFeaturePress('Symptom Analysis')}
+            onPress={handleCheckSymptomsPress}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
               <Text style={styles.actionIconText}>🛡️</Text>
