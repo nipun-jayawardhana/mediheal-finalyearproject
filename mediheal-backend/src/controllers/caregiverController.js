@@ -6,6 +6,7 @@ const Appointment = require('../models/Appointment');
 const Consultation = require('../models/Consultation');
 const Medication = require('../models/Medication');
 const MedicationLog = require('../models/MedicationLog');
+const EmergencyAlert = require('../models/EmergencyAlert');
 
 /**
  * @desc    Link a caregiver to a patient using caregiverLinkCode
@@ -224,7 +225,12 @@ const getPatientDetailsForCaregiver = async (req, res, next) => {
       .sort({ scheduledDate: -1, createdAt: -1 })
       .limit(20);
 
-    // 7. Adherence summary calculation from existing MedicationLog records
+    // 7. Recent emergency alerts for this patient (latest 5)
+    const recentEmergencyAlerts = await EmergencyAlert.find({ patientId })
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    // 8. Adherence summary calculation from existing MedicationLog records
     const allLogs = await MedicationLog.find({ patientId });
     const totalScheduled = allLogs.length;
     const totalTaken = allLogs.filter((l) => l.status === 'taken').length;
@@ -245,6 +251,7 @@ const getPatientDetailsForCaregiver = async (req, res, next) => {
         recentConsultations,
         activeMedications,
         recentMedicationLogs,
+        recentEmergencyAlerts,
         adherenceSummary: {
           totalScheduled,
           totalTaken,

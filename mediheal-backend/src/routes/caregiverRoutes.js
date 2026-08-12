@@ -5,6 +5,7 @@ const {
   getPatientDetailsForCaregiver,
   removeCaregiverLink,
 } = require('../controllers/caregiverController');
+const { getCaregiverEmergencyAlerts } = require('../controllers/emergencyController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 
@@ -17,6 +18,7 @@ router.use(authorize('caregiver'));
 // Caregiver Endpoints
 router.post('/link', linkPatient);
 router.get('/patients', getLinkedPatients);
+router.get('/emergency-alerts', getCaregiverEmergencyAlerts);
 router.get('/patients/:patientId', getPatientDetailsForCaregiver);
 router.delete('/patients/:patientId/link', removeCaregiverLink);
 

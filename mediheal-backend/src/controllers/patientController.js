@@ -1,4 +1,5 @@
 const PatientProfile = require('../models/PatientProfile');
+const EmergencyAlert = require('../models/EmergencyAlert');
 const generateLinkCode = require('../utils/generateLinkCode');
 
 /**
@@ -170,6 +171,10 @@ const getPatientDashboard = async (req, res, next) => {
     const userId = req.user._id;
 
     const profile = await PatientProfile.findOne({ userId });
+    const activeEmergencyAlert = await EmergencyAlert.findOne({
+      patientId: userId,
+      status: 'active',
+    }).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -180,7 +185,7 @@ const getPatientDashboard = async (req, res, next) => {
         medications: [],
         upcomingAppointments: [],
         latestSymptomCheck: null,
-        activeEmergencyAlert: null,
+        activeEmergencyAlert: activeEmergencyAlert || null,
       },
     });
   } catch (error) {
