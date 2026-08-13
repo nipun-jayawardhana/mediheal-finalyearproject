@@ -42,114 +42,170 @@ function makeRequest(path, method, body = null, token = null) {
 }
 
 async function runDoctorTests() {
-  console.log('=== STARTING DOCTOR MODULE API AUDIT ===\n');
+  console.log('=== STARTING DOCTOR FRONTEND & BACKEND AUDIT ===\n');
+  const timestamp = Date.now();
 
-  // 1. Login Admin to seed doctors
-  const adminLogin = await makeRequest('/api/auth/login', 'POST', {
+  // 1. Admin Login
+  const adminLoginRes = await makeRequest('/api/auth/login', 'POST', {
     email: 'admin@mediheal.com',
     password: 'AdminPass123!',
   });
-  const tokenAdmin = adminLogin.data?.data?.token;
+  const tokenAdmin = adminLoginRes.data?.data?.token;
 
-  // Create General Physician if not present
-  const doc1Res = await makeRequest('/api/admin/doctors', 'POST', {
-    fullName: 'Dr. Sunil Perera',
-    email: `sunil.${Date.now()}@mediheal.com`,
-    password: 'Password123!',
-    phoneNumber: '0771112233',
-    slmcNumber: `SLMC-${Date.now()}-1`,
-    specialization: 'General Physician',
-    hospital: 'Asiri Hospital',
-    yearsOfExperience: 12,
-    consultationFee: 3000,
-    languages: ['English', 'Sinhala'],
-    availableDays: ['Monday', 'Wednesday', 'Friday'],
-    availableTimeSlots: ['09:00 AM', '10:00 AM', '11:00 AM'],
-    biography: 'Experienced General Physician specializing in adult care.',
-    location: 'Colombo 05',
-  }, tokenAdmin);
-
-  // Create Cardiologist
-  const doc2Res = await makeRequest('/api/admin/doctors', 'POST', {
-    fullName: 'Dr. Anoma Fernando',
-    email: `anoma.${Date.now()}@mediheal.com`,
-    password: 'Password123!',
-    phoneNumber: '0774445566',
-    slmcNumber: `SLMC-${Date.now()}-2`,
+  // 2. Admin Creates Doctor A & Doctor B
+  const docAEmail = `docA_${timestamp}@mediheal.com`;
+  const docARes = await makeRequest('/api/admin/doctors', 'POST', {
+    fullName: 'Dr. Nishan Silva',
+    email: docAEmail,
+    phoneNumber: '+94771122334',
+    slmcNumber: `SLMC-${timestamp}-A`,
+    password: 'DoctorPass123!',
     specialization: 'Cardiologist',
-    hospital: 'Lanka Hospitals',
-    yearsOfExperience: 18,
-    consultationFee: 4500,
-    languages: ['English', 'Sinhala', 'Tamil'],
-    availableDays: ['Tuesday', 'Thursday'],
-    availableTimeSlots: ['02:00 PM', '03:30 PM'],
-    biography: 'Leading cardiologist with 18+ years of clinical experience.',
-    location: 'Colombo 05',
+    hospital: 'Asiri Hospital Colombo',
+    consultationFee: 2500,
+    languages: ['English', 'Sinhala'],
   }, tokenAdmin);
+  const docAUserId = docARes.data?.data?.doctor?.userId?._id;
 
-  // 2. Register & Login Patient
-  const patientEmail = `patient.${Date.now()}@test.com`;
+  const docBEmail = `docB_${timestamp}@mediheal.com`;
+  const docBRes = await makeRequest('/api/admin/doctors', 'POST', {
+    fullName: 'Dr. Chathuri Perera',
+    email: docBEmail,
+    phoneNumber: '+94771122335',
+    slmcNumber: `SLMC-${timestamp}-B`,
+    password: 'DoctorPass123!',
+    specialization: 'Neurologist',
+    hospital: 'Lanka Hospital Colombo',
+    consultationFee: 3000,
+    languages: ['English'],
+  }, tokenAdmin);
+  const docBUserId = docBRes.data?.data?.doctor?.userId?._id;
+
+  // Login Doctor A & Doctor B
+  const docALogin = await makeRequest('/api/auth/login', 'POST', {
+    email: docAEmail,
+    password: 'DoctorPass123!',
+  });
+  const tokenDocA = docALogin.data?.data?.token;
+
+  const docBLogin = await makeRequest('/api/auth/login', 'POST', {
+    email: docBEmail,
+    password: 'DoctorPass123!',
+  });
+  const tokenDocB = docBLogin.data?.data?.token;
+  console.log(`Doctor A & Doctor B Created. Token A present: ${!!tokenDocA}, Token B present: ${!!tokenDocB}\n`);
+
+  // 3. Register & Login Patient
+  const patientEmail = `patient_doc_${timestamp}@mediheal.com`;
   await makeRequest('/api/auth/register', 'POST', {
-    fullName: 'Test Patient',
+    fullName: 'Kanthi Jayawardena',
     email: patientEmail,
-    phoneNumber: '+94779998877',
+    phoneNumber: '+94775544332',
     password: 'PatientPass123!',
     role: 'patient',
   });
-
-  const loginPatient = await makeRequest('/api/auth/login', 'POST', {
+  const patLoginRes = await makeRequest('/api/auth/login', 'POST', {
     email: patientEmail,
     password: 'PatientPass123!',
   });
-  const tokenPatient = loginPatient.data?.data?.token;
+  const tokenPatient = patLoginRes.data?.data?.token;
+  const patientId = patLoginRes.data?.data?.user?._id;
 
-  // TEST A: GET /api/doctors (All Doctors Flow)
-  console.log('--- TEST A: Home Doctor Flow (GET /api/doctors) ---');
-  const allDocs = await makeRequest('/api/doctors', 'GET', null, tokenPatient);
-  console.log(`Status: ${allDocs.status}, Count: ${allDocs.data?.count}`);
-  console.log(`PASS: ${allDocs.status === 200 && allDocs.data?.count >= 2}\n`);
+  // TEST 1: Patient Books Appointment with Doctor A
+  console.log('--- TEST 1: Patient Books Appointment with Doctor A (POST /api/appointments) ---');
+  const apptRes = await makeRequest('/api/appointments', 'POST', {
+    doctorId: docAUserId,
+    appointmentDate: '2026-08-20',
+    timeSlot: '10:00 AM',
+    reason: 'Chest tightness and shortness of breath',
+  }, tokenPatient);
+  const appointmentId = apptRes.data?.data?._id;
+  console.log(`Status: ${apptRes.status}, Appointment ID: ${appointmentId}`);
+  console.log(`PASS: ${apptRes.status === 201 && !!appointmentId}\n`);
 
-  // TEST B: GET /api/doctors?specialization=General Physician
-  console.log('--- TEST B: Recommended Specialist Flow (General Physician) ---');
-  const genPhysDocs = await makeRequest('/api/doctors?specialization=General Physician', 'GET', null, tokenPatient);
-  console.log(`Status: ${genPhysDocs.status}, Count: ${genPhysDocs.data?.count}`);
-  console.log(`Specialization: ${genPhysDocs.data?.data?.[0]?.specialization}`);
-  console.log(`PASS: ${genPhysDocs.status === 200 && genPhysDocs.data?.count >= 1}\n`);
+  // TEST 2: Assigned Doctor Appointment Isolation (Doctor A sees appointment, Doctor B does not)
+  console.log('--- TEST 2: Assigned Doctor Appointment Isolation (GET /api/doctor/appointments) ---');
+  const docAAppts = await makeRequest('/api/doctor/appointments', 'GET', null, tokenDocA);
+  const docBAppts = await makeRequest('/api/doctor/appointments', 'GET', null, tokenDocB);
 
-  // TEST C: GET /api/doctors?specialization=Cardiologist
-  console.log('--- TEST C: Cardiologist Flow ---');
-  const cardioDocs = await makeRequest('/api/doctors?specialization=Cardiologist', 'GET', null, tokenPatient);
-  console.log(`Status: ${cardioDocs.status}, Count: ${cardioDocs.data?.count}`);
-  console.log(`Specialization: ${cardioDocs.data?.data?.[0]?.specialization}`);
-  console.log(`PASS: ${cardioDocs.status === 200 && cardioDocs.data?.count >= 1}\n`);
+  console.log(`Doctor A Appts Count: ${docAAppts.data?.count}`);
+  console.log(`Doctor B Appts Count: ${docBAppts.data?.count}`);
+  console.log(`PASS: ${docAAppts.data?.count === 1 && docBAppts.data?.count === 0}\n`);
 
-  // TEST D: GET /api/doctors/:doctorId
-  console.log('--- TEST D: Doctor Details Flow ---');
-  const targetDocProfileId = cardioDocs.data?.data?.[0]?._id;
-  const targetDocUserId = cardioDocs.data?.data?.[0]?.userId?._id;
-  console.log(`DoctorProfile._id: ${targetDocProfileId}`);
-  console.log(`Doctor User._id: ${targetDocUserId}`);
+  // TEST 3: Doctor Confirm Appointment
+  console.log('--- TEST 3: Doctor Confirms Appointment (PATCH /api/doctor/appointments/:id/status) ---');
+  const confirmRes = await makeRequest(`/api/doctor/appointments/${appointmentId}/status`, 'PATCH', {
+    status: 'confirmed',
+  }, tokenDocA);
+  console.log(`Status: ${confirmRes.status}, Message: ${confirmRes.data?.message}`);
+  console.log(`New Status: ${confirmRes.data?.data?.status}`);
+  console.log(`PASS: ${confirmRes.status === 200 && confirmRes.data?.data?.status === 'confirmed'}\n`);
 
-  const docDetailsById = await makeRequest(`/api/doctors/${targetDocProfileId}`, 'GET', null, tokenPatient);
-  console.log(`By DoctorProfile ID -> Status: ${docDetailsById.status}, Name: ${docDetailsById.data?.data?.userId?.fullName}`);
-  
-  const docDetailsByUserId = await makeRequest(`/api/doctors/${targetDocUserId}`, 'GET', null, tokenPatient);
-  console.log(`By Doctor User ID -> Status: ${docDetailsByUserId.status}, Name: ${docDetailsByUserId.data?.data?.userId?.fullName}`);
-  console.log(`PASS: ${docDetailsById.status === 200 && docDetailsByUserId.status === 200}\n`);
+  // TEST 4: Create Active Consultation with Multiple Prescriptions
+  console.log('--- TEST 4: Create Consultation & Multiple Prescriptions (POST /api/consultations) ---');
+  const consultRes = await makeRequest('/api/consultations', 'POST', {
+    appointmentId,
+    diagnosis: 'Angina Pectoris',
+    clinicalNotes: 'ECG shows mild ST depression. Patient advised to rest.',
+    prescriptions: [
+      {
+        medicineName: 'Aspirin 75mg',
+        dosage: '75mg',
+        frequency: 'Once daily',
+        duration: '30 days',
+        instructions: 'Take after breakfast',
+      },
+      {
+        medicineName: 'Atorvastatin 20mg',
+        dosage: '20mg',
+        frequency: 'Nightly',
+        duration: '30 days',
+        instructions: 'Take before sleep',
+      },
+    ],
+    recommendations: ['Avoid heavy physical exertion', 'Follow low-salt diet'],
+    followUpDate: '2026-09-20',
+  }, tokenDocA);
+  const consultationId = consultRes.data?.data?._id;
+  console.log(`Status: ${consultRes.status}, Consultation ID: ${consultationId}`);
+  console.log(`Prescriptions Count: ${consultRes.data?.data?.prescriptions?.length}`);
+  console.log(`PASS: ${consultRes.status === 201 && consultRes.data?.data?.prescriptions?.length === 2}\n`);
 
-  // TEST E: No Matching Doctors
-  console.log('--- TEST E: No Matching Doctors ---');
-  const noMatchDocs = await makeRequest('/api/doctors?specialization=NonExistentSpecialty123', 'GET', null, tokenPatient);
-  console.log(`Status: ${noMatchDocs.status}, Count: ${noMatchDocs.data?.count}`);
-  console.log(`PASS: ${noMatchDocs.status === 200 && noMatchDocs.data?.count === 0}\n`);
+  // TEST 5: Automatic Appointment Status Completion
+  console.log('--- TEST 5: Automatic Appointment Status Completion (GET /api/appointments/:id) ---');
+  const checkApptRes = await makeRequest(`/api/appointments/${appointmentId}`, 'GET', null, tokenDocA);
+  console.log(`Appointment Status: ${checkApptRes.data?.data?.status}`);
+  console.log(`PASS: ${checkApptRes.data?.data?.status === 'completed'}\n`);
 
-  // TEST F: Role Protection / Unauthenticated
-  console.log('--- TEST F: Unauthenticated Request ---');
-  const unauthRes = await makeRequest('/api/doctors', 'GET', null, null);
-  console.log(`Status: ${unauthRes.status}`);
-  console.log(`PASS: ${unauthRes.status === 401}\n`);
+  // TEST 6: Patient Side Consultation Result Integration
+  console.log('--- TEST 6: Patient Side Consultation History (GET /api/consultations/my) ---');
+  const patConsultsRes = await makeRequest('/api/consultations/my', 'GET', null, tokenPatient);
+  console.log(`Status: ${patConsultsRes.status}, Patient Consults Count: ${patConsultsRes.data?.count}`);
+  console.log(`Diagnosis Seen by Patient: ${patConsultsRes.data?.data?.[0]?.diagnosis}`);
+  console.log(`PASS: ${patConsultsRes.status === 200 && patConsultsRes.data?.data?.[0]?.diagnosis === 'Angina Pectoris'}\n`);
 
-  console.log('=== DOCTOR MODULE API AUDIT COMPLETE ===');
+  // TEST 7: Duplicate Consultation Protection
+  console.log('--- TEST 7: Duplicate Consultation Protection (POST /api/consultations) ---');
+  const dupConsultRes = await makeRequest('/api/consultations', 'POST', {
+    appointmentId,
+    diagnosis: 'Duplicate Attempt',
+  }, tokenDocA);
+  console.log(`Status: ${dupConsultRes.status}, Message: ${dupConsultRes.data?.message}`);
+  console.log(`PASS: ${dupConsultRes.status === 400}\n`);
+
+  // TEST 8: Doctor Patient History Retrieval
+  console.log('--- TEST 8: Doctor Patient History (GET /api/doctor/patients/:patientId/history) ---');
+  const historyRes = await makeRequest(`/api/doctor/patients/${patientId}/history`, 'GET', null, tokenDocA);
+  console.log(`Status: ${historyRes.status}, History Count: ${historyRes.data?.count}`);
+  console.log(`PASS: ${historyRes.status === 200 && historyRes.data?.count === 1}\n`);
+
+  // TEST 9: Unauthorized Doctor Access Control (Doctor B cannot access Doctor A's patient history)
+  console.log('--- TEST 9: Unauthorized Doctor Access Control (GET /api/doctor/patients/:patientId/history) ---');
+  const unauthHistoryRes = await makeRequest(`/api/doctor/patients/${patientId}/history`, 'GET', null, tokenDocB);
+  console.log(`Status: ${unauthHistoryRes.status}, Message: ${unauthHistoryRes.data?.message}`);
+  console.log(`PASS: ${unauthHistoryRes.status === 403}\n`);
+
+  console.log('=== DOCTOR FRONTEND & BACKEND AUDIT COMPLETE ===');
 }
 
 runDoctorTests().catch(console.error);
