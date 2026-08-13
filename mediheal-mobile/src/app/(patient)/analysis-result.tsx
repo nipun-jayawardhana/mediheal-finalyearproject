@@ -105,6 +105,22 @@ export default function AnalysisResultScreen() {
                 </Text>
               </View>
             </View>
+            <TouchableOpacity
+              style={{
+                backgroundColor: colors.danger,
+                borderRadius: borderRadius.md,
+                paddingVertical: spacing.sm,
+                paddingHorizontal: spacing.md,
+                alignItems: 'center',
+                marginTop: spacing.md,
+              }}
+              activeOpacity={0.8}
+              onPress={() => router.push('/(patient)/emergency-countdown' as any)}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }}>
+                🚨 Trigger Emergency SOS
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 

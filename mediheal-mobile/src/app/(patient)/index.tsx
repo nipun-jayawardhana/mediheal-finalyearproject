@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getPatientDashboardApi } from '../../services/patientService';
 import { PatientDashboardData } from '../../types/patient';
+import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 
 export default function PatientHomeScreen() {
@@ -71,6 +72,22 @@ export default function PatientHomeScreen() {
       `${featureName}`,
       `The ${featureName} feature module will be integrated in the upcoming development phase.`
     );
+  };
+
+  const handleEmergencySOSPress = async () => {
+    try {
+      const active = await getActiveEmergencyAlert();
+      if (active) {
+        router.push({
+          pathname: '/(patient)/emergency-active' as any,
+          params: { id: active._id },
+        });
+      } else {
+        router.push('/(patient)/emergency-countdown' as any);
+      }
+    } catch (e) {
+      router.push('/(patient)/emergency-countdown' as any);
+    }
   };
 
   if (loading) {
@@ -183,7 +200,7 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={[styles.actionCard, styles.sosCard]}
             activeOpacity={0.8}
-            onPress={() => handleFeaturePress('Emergency SOS')}
+            onPress={handleEmergencySOSPress}
           >
             <View style={styles.sosIconCircle}>
               <Text style={styles.sosIconText}>🚨</Text>

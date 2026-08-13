@@ -55,6 +55,8 @@ export default function PatientLayout() {
       <Stack.Screen name="consultations" options={{ headerShown: false }} />
       <Stack.Screen name="consultation-summary" options={{ headerShown: false }} />
       <Stack.Screen name="medications" options={{ headerShown: false }} />
+      <Stack.Screen name="emergency-countdown" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="emergency-active" options={{ headerShown: false, animation: 'slide_from_right' }} />
     </Stack>
   );
 }
