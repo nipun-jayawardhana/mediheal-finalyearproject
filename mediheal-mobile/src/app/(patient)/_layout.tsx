@@ -54,6 +54,7 @@ export default function PatientLayout() {
       <Stack.Screen name="my-bookings" options={{ headerShown: false }} />
       <Stack.Screen name="consultations" options={{ headerShown: false }} />
       <Stack.Screen name="consultation-summary" options={{ headerShown: false }} />
+      <Stack.Screen name="medications" options={{ headerShown: false }} />
     </Stack>
   );
 }

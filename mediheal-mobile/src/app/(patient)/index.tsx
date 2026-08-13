@@ -171,7 +171,7 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={() => handleFeaturePress('Medications')}
+            onPress={() => router.push('/(patient)/medications' as any)}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.success }]}>
               <Text style={styles.actionIconText}>💊</Text>
@@ -221,21 +221,25 @@ export default function PatientHomeScreen() {
         </TouchableOpacity>
 
         {/* Next Medication Preview Card */}
-        <View style={styles.previewCard}>
+        <TouchableOpacity
+          style={styles.previewCard}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(patient)/medications' as any)}
+        >
           <View style={styles.previewHeaderRow}>
             <Text style={styles.previewIcon}>⏰</Text>
             <View style={styles.previewTextCol}>
               <Text style={styles.previewTitle}>Next Scheduled Medication</Text>
               {dashboardData?.medications && dashboardData.medications.length > 0 ? (
                 <Text style={styles.previewSub}>
-                  {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage}
+                  {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || 'Scheduled'})
                 </Text>
               ) : (
                 <Text style={styles.previewSub}>No active medications scheduled</Text>
               )}
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     </ScreenContainer>
   );
