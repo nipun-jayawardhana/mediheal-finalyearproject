@@ -49,10 +49,11 @@ export default function AnalysisResultScreen() {
   }, [fetchResult]);
 
   const handleSpecialistPress = () => {
-    Alert.alert(
-      'Specialist Recommendation',
-      `Recommended Specialist: ${result?.recommendedSpecialist || 'General Physician'}.\n\nDoctor list and booking module will be enabled in the upcoming Doctor Management phase.`
-    );
+    const specialization = result?.recommendedSpecialist || 'General Physician';
+    router.push({
+      pathname: '/(patient)/specialists' as any,
+      params: { specialization },
+    });
   };
 
   const handleRecheckSymptoms = () => {

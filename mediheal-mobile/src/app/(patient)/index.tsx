@@ -159,7 +159,7 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={() => handleFeaturePress('Doctor & Specialist Consultation')}
+            onPress={() => router.push('/(patient)/specialists' as any)}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
               <Text style={styles.actionIconText}>🩺</Text>
