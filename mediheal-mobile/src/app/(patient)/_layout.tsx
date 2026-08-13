@@ -57,6 +57,10 @@ export default function PatientLayout() {
       <Stack.Screen name="medications" options={{ headerShown: false }} />
       <Stack.Screen name="emergency-countdown" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="emergency-active" options={{ headerShown: false, animation: 'slide_from_right' }} />
+      <Stack.Screen name="community" options={{ headerShown: false }} />
+      <Stack.Screen name="community-create" options={{ headerShown: false }} />
+      <Stack.Screen name="community-edit" options={{ headerShown: false }} />
+      <Stack.Screen name="community-post" options={{ headerShown: false }} />
     </Stack>
   );
 }

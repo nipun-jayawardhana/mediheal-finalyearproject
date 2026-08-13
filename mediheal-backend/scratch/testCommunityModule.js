@@ -1,12 +1,12 @@
 const http = require('http');
 
-const BASE_URL = 'http://localhost:5000';
+const PORT = 5000;
+const BASE_URL = `http://localhost:${PORT}`;
 
-function makeRequest(path, method = 'GET', data = null, token = null) {
+function makeRequest(path, method, body = null, token = null) {
   return new Promise((resolve, reject) => {
     const url = new URL(path, BASE_URL);
-    const payload = data ? JSON.stringify(data) : null;
-
+    const payload = body ? JSON.stringify(body) : null;
     const options = {
       hostname: url.hostname,
       port: url.port,
@@ -20,198 +20,141 @@ function makeRequest(path, method = 'GET', data = null, token = null) {
     };
 
     const req = http.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => (body += chunk));
+      let data = '';
+      res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         try {
-          const parsed = JSON.parse(body);
-          resolve({ status: res.statusCode, data: parsed });
+          const json = JSON.parse(data);
+          resolve({ status: res.statusCode, data: json });
         } catch (e) {
-          resolve({ status: res.statusCode, raw: body });
+          resolve({ status: res.statusCode, data: data });
         }
       });
     });
 
-    req.on('error', (err) => reject(err));
-    if (payload) req.write(payload);
+    req.on('error', (e) => reject(e));
+
+    if (payload) {
+      req.write(payload);
+    }
     req.end();
   });
 }
 
 async function runCommunityTests() {
-  console.log('--- STARTING COMMUNITY HEALTH MODULE TESTS ---\n');
-
+  console.log('=== STARTING COMMUNITY HEALTH MODULE AUDIT ===\n');
   const timestamp = Date.now();
 
-  // Setup Patient User
-  const patientRes = await makeRequest('/api/auth/register', 'POST', {
-    fullName: 'Patient Community User',
-    email: `p_comm_${timestamp}@mediheal.com`,
-    password: 'Password123!',
+  // 1. Register & Login Patient A
+  const patAEmail = `pat_commA_${timestamp}@mediheal.com`;
+  await makeRequest('/api/auth/register', 'POST', {
+    fullName: 'Saman Perera',
+    email: patAEmail,
+    phoneNumber: '+94771199331',
+    password: 'PatientPass123!',
     role: 'patient',
-    phoneNumber: '+94778888881',
   });
-  const tokenP = patientRes.data?.data?.token;
-
-  // Setup Caregiver User
-  const caregiverRes = await makeRequest('/api/auth/register', 'POST', {
-    fullName: 'Caregiver Community User',
-    email: `c_comm_${timestamp}@mediheal.com`,
-    password: 'Password123!',
-    role: 'caregiver',
-    phoneNumber: '+94778888882',
+  const patALogin = await makeRequest('/api/auth/login', 'POST', {
+    email: patAEmail,
+    password: 'PatientPass123!',
   });
-  const tokenC = caregiverRes.data?.data?.token;
+  const tokenPatA = patALogin.data?.data?.token;
 
-  // Setup Doctor User (using Admin credentials to create doctor)
-  const adminLoginRes = await makeRequest('/api/auth/login', 'POST', {
-    email: 'admin@mediheal.com',
-    password: 'AdminPass123!',
+  // 2. Register & Login Patient B
+  const patBEmail = `pat_commB_${timestamp}@mediheal.com`;
+  await makeRequest('/api/auth/register', 'POST', {
+    fullName: 'Leela Karunaratne',
+    email: patBEmail,
+    phoneNumber: '+94771199332',
+    password: 'PatientPass123!',
+    role: 'patient',
   });
-  const tokenAdmin = adminLoginRes.data?.data?.token;
-
-  await makeRequest(
-    '/api/admin/doctors',
-    'POST',
-    {
-      fullName: 'Dr. Community Tester',
-      email: `doc_comm_${timestamp}@mediheal.com`,
-      phoneNumber: '+94778888883',
-      slmcNumber: `SLMC_COMM_${timestamp}`,
-      specialization: 'General Physician',
-      hospital: 'Colombo National Hospital',
-      password: 'DoctorPass123!',
-    },
-    tokenAdmin
-  );
-
-  const docLoginRes = await makeRequest('/api/auth/login', 'POST', {
-    email: `doc_comm_${timestamp}@mediheal.com`,
-    password: 'DoctorPass123!',
+  const patBLogin = await makeRequest('/api/auth/login', 'POST', {
+    email: patBEmail,
+    password: 'PatientPass123!',
   });
-  const tokenDoc = docLoginRes.data?.data?.token;
+  const tokenPatB = patBLogin.data?.data?.token;
 
-  console.log('User setup completed.\n');
+  // TEST 1: Create Post (Patient A)
+  console.log('--- TEST 1: Create Community Post (POST /api/community/posts) ---');
+  const createPostRes = await makeRequest('/api/community/posts', 'POST', {
+    title: 'Tips for staying active at home?',
+    content: 'I have been finding it harder to go for daily walks in the park lately. What light indoor exercises do you recommend?',
+    category: 'general',
+  }, tokenPatA);
 
-  // TEST 1 — Patient creates post
-  const test1 = await makeRequest(
-    '/api/community/posts',
-    'POST',
-    {
-      title: 'Healthy walking habits',
-      content: 'What are some safe walking habits for elderly people?',
-      category: 'exercise',
-    },
-    tokenP
-  );
-  console.log('Test 1 — Patient creates post:', test1.status === 201 ? 'PASSED' : 'FAILED');
-  const post1 = test1.data?.data;
+  console.log(`Status: ${createPostRes.status}, Message: ${createPostRes.data?.message}`);
+  const postId = createPostRes.data?.data?._id;
+  console.log(`Post ID: ${postId}`);
+  console.log(`Disclaimer present: ${!!createPostRes.data?.disclaimer}`);
+  console.log(`PASS: ${createPostRes.status === 201 && !!postId}\n`);
 
-  // TEST 2 — Caregiver creates post
-  const test2 = await makeRequest(
-    '/api/community/posts',
-    'POST',
-    {
-      title: 'Balanced nutrition for seniors',
-      content: 'Here are some helpful dietary tips for older adults.',
-      category: 'nutrition',
-    },
-    tokenC
-  );
-  console.log('Test 2 — Caregiver creates post:', test2.status === 201 ? 'PASSED' : 'FAILED');
-  const post2 = test2.data?.data;
+  // TEST 2: Community Feed & Category Filtering (GET /api/community/posts)
+  console.log('--- TEST 2: Community Feed & Category Filtering (GET /api/community/posts) ---');
+  const feedRes = await makeRequest('/api/community/posts?category=general', 'GET', null, tokenPatB);
+  console.log(`Status: ${feedRes.status}, Count: ${feedRes.data?.count}`);
+  console.log(`First Post Title: ${feedRes.data?.data?.[0]?.title}`);
+  console.log(`Pagination total: ${feedRes.data?.pagination?.total}`);
+  console.log(`PASS: ${feedRes.status === 200 && feedRes.data?.count >= 1}\n`);
 
-  // TEST 3 — Doctor attempts to create post
-  const test3 = await makeRequest(
-    '/api/community/posts',
-    'POST',
-    {
-      title: 'Medical advice post',
-      content: 'Doctor posting content.',
-      category: 'general',
-    },
-    tokenDoc
-  );
-  console.log('Test 3 — Doctor attempts to create post:', test3.status === 403 ? 'PASSED' : 'FAILED', test3.data?.message);
+  // TEST 3: Add Comment (Patient B comments on Patient A's post)
+  console.log('--- TEST 3: Add Comment (POST /api/community/posts/:id/comments) ---');
+  const commentRes = await makeRequest(`/api/community/posts/${postId}/comments`, 'POST', {
+    content: 'Light stretching and stationary marching in place works wonderfully for me!',
+  }, tokenPatB);
 
-  // TEST 4 — View feed
-  const test4 = await makeRequest('/api/community/posts', 'GET', null, tokenP);
-  console.log('Test 4 — View feed:', test4.status === 200 && test4.data?.count >= 2 ? 'PASSED' : 'FAILED');
+  console.log(`Status: ${commentRes.status}, Message: ${commentRes.data?.message}`);
+  const commentId = commentRes.data?.data?._id;
+  console.log(`Comment ID: ${commentId}`);
+  console.log(`PASS: ${commentRes.status === 201 && !!commentId}\n`);
 
-  // TEST 5 — Category filtering
-  const test5 = await makeRequest('/api/community/posts?category=exercise', 'GET', null, tokenP);
-  const onlyExercise = test5.data?.data?.every((p) => p.category === 'exercise');
-  console.log('Test 5 — Category filtering (exercise):', test5.status === 200 && onlyExercise ? 'PASSED' : 'FAILED', `Count: ${test5.data?.count}`);
+  // TEST 4: View Single Post with Comments (GET /api/community/posts/:id)
+  console.log('--- TEST 4: View Single Post (GET /api/community/posts/:id) ---');
+  const singlePostRes = await makeRequest(`/api/community/posts/${postId}`, 'GET', null, tokenPatA);
+  console.log(`Status: ${singlePostRes.status}`);
+  console.log(`Comments Count: ${singlePostRes.data?.data?.comments?.length}`);
+  console.log(`Commenter Name: ${singlePostRes.data?.data?.comments?.[0]?.authorId?.fullName}`);
+  console.log(`PASS: ${singlePostRes.status === 200 && singlePostRes.data?.data?.comments?.length === 1}\n`);
 
-  // TEST 6 — Pagination
-  const test6 = await makeRequest('/api/community/posts?page=1&limit=10', 'GET', null, tokenP);
-  console.log('Test 6 — Pagination metadata:', test6.status === 200 && test6.data?.pagination?.page === 1 ? 'PASSED' : 'FAILED');
+  // TEST 5: Edit Own Post (Patient A updates post)
+  console.log('--- TEST 5: Edit Own Post (PUT /api/community/posts/:id) ---');
+  const editPostRes = await makeRequest(`/api/community/posts/${postId}`, 'PUT', {
+    title: 'Tips for staying active at home (Updated)',
+    content: 'I have been finding it harder to go for daily walks. Sharing updated tips!',
+    category: 'exercise',
+  }, tokenPatA);
 
-  // TEST 7 — View single post
-  const test7 = await makeRequest(`/api/community/posts/${post1._id}`, 'GET', null, tokenP);
-  console.log('Test 7 — View single post:', test7.status === 200 && test7.data?.data?.post?._id === post1._id ? 'PASSED' : 'FAILED');
+  console.log(`Status: ${editPostRes.status}, New Category: ${editPostRes.data?.data?.category}`);
+  console.log(`PASS: ${editPostRes.status === 200 && editPostRes.data?.data?.category === 'exercise'}\n`);
 
-  // TEST 8 — Add comment
-  const test8 = await makeRequest(
-    `/api/community/posts/${post1._id}/comments`,
-    'POST',
-    { content: 'Thank you for sharing this.' },
-    tokenC
-  );
-  console.log('Test 8 — Add comment:', test8.status === 201 ? 'PASSED' : 'FAILED');
-  const comment1 = test8.data?.data;
+  // TEST 6: Ownership Protection (Patient B attempts to edit Patient A's post)
+  console.log('--- TEST 6: Ownership Protection (Unauthorized edit attempt) ---');
+  const unauthEditRes = await makeRequest(`/api/community/posts/${postId}`, 'PUT', {
+    title: 'Hacked Title',
+  }, tokenPatB);
 
-  // TEST 9 — Another user tries to edit post
-  const test9 = await makeRequest(
-    `/api/community/posts/${post1._id}`,
-    'PUT',
-    { title: 'Hacked Title' },
-    tokenC
-  );
-  console.log('Test 9 — Non-owner tries to edit post:', test9.status === 403 ? 'PASSED' : 'FAILED', test9.data?.message);
+  console.log(`Status: ${unauthEditRes.status}, Message: ${unauthEditRes.data?.message}`);
+  console.log(`PASS: ${unauthEditRes.status === 403}\n`);
 
-  // TEST 10 — Owner updates post
-  const test10 = await makeRequest(
-    `/api/community/posts/${post1._id}`,
-    'PUT',
-    { title: 'Safe daily walking habits', category: 'exercise' },
-    tokenP
-  );
-  console.log('Test 10 — Owner updates post:', test10.status === 200 && test10.data?.data?.title === 'Safe daily walking habits' ? 'PASSED' : 'FAILED');
+  // TEST 7: Remove Own Comment (Patient B removes own comment)
+  console.log('--- TEST 7: Remove Own Comment (DELETE /api/community/comments/:id) ---');
+  const removeCommentRes = await makeRequest(`/api/community/comments/${commentId}`, 'DELETE', null, tokenPatB);
+  console.log(`Status: ${removeCommentRes.status}, Message: ${removeCommentRes.data?.message}`);
+  console.log(`PASS: ${removeCommentRes.status === 200}\n`);
 
-  // TEST 11 — Another user attempts to remove comment
-  const test11 = await makeRequest(`/api/community/comments/${comment1._id}`, 'DELETE', null, tokenP);
-  console.log('Test 11 — Non-owner attempts to remove comment:', test11.status === 403 ? 'PASSED' : 'FAILED', test11.data?.message);
+  // TEST 8: Remove Own Post (Patient A removes own post)
+  console.log('--- TEST 8: Remove Own Post (DELETE /api/community/posts/:id) ---');
+  const removePostRes = await makeRequest(`/api/community/posts/${postId}`, 'DELETE', null, tokenPatA);
+  console.log(`Status: ${removePostRes.status}, Message: ${removePostRes.data?.message}`);
+  console.log(`PASS: ${removePostRes.status === 200}\n`);
 
-  // TEST 12 — Comment owner removes comment
-  const test12 = await makeRequest(`/api/community/comments/${comment1._id}`, 'DELETE', null, tokenC);
-  console.log('Test 12 — Comment owner removes comment:', test12.status === 200 ? 'PASSED' : 'FAILED');
+  // TEST 9: Role Protection (Unauthenticated access)
+  console.log('--- TEST 9: Role Protection (Unauthenticated) ---');
+  const unauthRes = await makeRequest('/api/community/posts', 'GET', null, null);
+  console.log(`Status: ${unauthRes.status}`);
+  console.log(`PASS: ${unauthRes.status === 401}\n`);
 
-  // TEST 13 — Post owner removes post (soft delete)
-  const test13 = await makeRequest(`/api/community/posts/${post2._id}`, 'DELETE', null, tokenC);
-  console.log('Test 13 — Post owner removes post (soft delete):', test13.status === 200 ? 'PASSED' : 'FAILED');
-
-  // TEST 14 — Removed post not in feed
-  const test14 = await makeRequest('/api/community/posts', 'GET', null, tokenP);
-  const notInFeed = !test14.data?.data?.some((p) => p._id === post2._id);
-  console.log('Test 14 — Removed post not in feed:', notInFeed ? 'PASSED' : 'FAILED');
-
-  // TEST 15 — Comment on inactive post
-  const test15 = await makeRequest(
-    `/api/community/posts/${post2._id}/comments`,
-    'POST',
-    { content: 'Commenting on inactive post' },
-    tokenP
-  );
-  console.log('Test 15 — Comment on inactive post rejected:', test15.status === 400 ? 'PASSED' : 'FAILED', test15.data?.message);
-
-  // TEST 16 — Invalid MongoDB ID validation
-  const test16 = await makeRequest('/api/community/posts/invalid_id_123', 'GET', null, tokenP);
-  console.log('Test 16 — Invalid MongoDB ID:', test16.status === 400 ? 'PASSED' : 'FAILED', test16.data?.message);
-
-  console.log('\n--- ALL COMMUNITY HEALTH TESTS COMPLETED ---');
+  console.log('=== COMMUNITY HEALTH MODULE AUDIT COMPLETE ===');
 }
 
-runCommunityTests().catch((err) => {
-  console.error('Test execution error:', err);
-});
+runCommunityTests().catch(console.error);

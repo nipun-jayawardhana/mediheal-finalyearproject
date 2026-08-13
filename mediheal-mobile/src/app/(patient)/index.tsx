@@ -237,6 +237,20 @@ export default function PatientHomeScreen() {
           <Text style={styles.appointmentsArrow}>→</Text>
         </TouchableOpacity>
 
+        {/* Community Health Banner */}
+        <TouchableOpacity
+          style={[styles.myAppointmentsBanner, { borderColor: colors.primary, marginTop: spacing.sm }]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(patient)/community' as any)}
+        >
+          <Text style={styles.appointmentsIcon}>💬</Text>
+          <View style={styles.appointmentsTextCol}>
+            <Text style={styles.appointmentsTitle}>Community Health Forum</Text>
+            <Text style={styles.appointmentsSub}>Ask questions, discuss topics & share support</Text>
+          </View>
+          <Text style={styles.appointmentsArrow}>→</Text>
+        </TouchableOpacity>
+
         {/* Next Medication Preview Card */}
         <TouchableOpacity
           style={styles.previewCard}
