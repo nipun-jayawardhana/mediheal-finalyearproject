@@ -201,7 +201,21 @@ export default function PatientHomeScreen() {
           <Text style={styles.appointmentsIcon}>📅</Text>
           <View style={styles.appointmentsTextCol}>
             <Text style={styles.appointmentsTitle}>My Appointments & Bookings</Text>
-            <Text style={styles.appointmentsSub}>View upcoming consultations, status & history</Text>
+            <Text style={styles.appointmentsSub}>View upcoming consultations & booking status</Text>
+          </View>
+          <Text style={styles.appointmentsArrow}>→</Text>
+        </TouchableOpacity>
+
+        {/* Consultation History Banner */}
+        <TouchableOpacity
+          style={[styles.myAppointmentsBanner, { borderColor: colors.accent, marginTop: spacing.sm }]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(patient)/consultations' as any)}
+        >
+          <Text style={styles.appointmentsIcon}>📑</Text>
+          <View style={styles.appointmentsTextCol}>
+            <Text style={styles.appointmentsTitle}>Consultation History</Text>
+            <Text style={styles.appointmentsSub}>View doctor notes, diagnoses & prescriptions</Text>
           </View>
           <Text style={styles.appointmentsArrow}>→</Text>
         </TouchableOpacity>

@@ -9,26 +9,46 @@ import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, typography } from '../../constants/theme';
 import { getMyAppointments, cancelAppointment } from '../../services/appointmentService';
+import { getMyConsultations } from '../../services/consultationService';
 import { Appointment } from '../../types/appointment';
+import { Consultation } from '../../types/consultation';
 
 export default function MyBookingsScreen() {
   const router = useRouter();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [consultationMap, setConsultationMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  const fetchAppointments = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
 
     try {
-      const res = await getMyAppointments();
-      if (res && res.success) {
-        setAppointments(res.data || []);
+      // Fetch both appointments and consultations in parallel
+      const [apptsRes, consultsRes] = await Promise.all([
+        getMyAppointments(),
+        getMyConsultations().catch(() => null), // Fail-safe if no consultations exist
+      ]);
+
+      if (apptsRes && apptsRes.success) {
+        setAppointments(apptsRes.data || []);
       } else {
         setErrorMsg('Failed to retrieve your appointments.');
+      }
+
+      // Build map of appointmentId._id -> consultation._id
+      if (consultsRes && consultsRes.success && Array.isArray(consultsRes.data)) {
+        const map: Record<string, string> = {};
+        consultsRes.data.forEach((c: Consultation) => {
+          const apptId = typeof c.appointmentId === 'object' ? c.appointmentId?._id : c.appointmentId;
+          if (apptId) {
+            map[apptId] = c._id;
+          }
+        });
+        setConsultationMap(map);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Unable to load appointments.');
@@ -40,8 +60,8 @@ export default function MyBookingsScreen() {
   // Refresh appointments whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      fetchAppointments();
-    }, [fetchAppointments])
+      fetchData();
+    }, [fetchData])
   );
 
   const handleCancelPress = (appointment: Appointment) => {
@@ -70,7 +90,6 @@ export default function MyBookingsScreen() {
       const res = await cancelAppointment(appointmentId, 'Cancelled by patient via mobile app');
       if (res && res.success) {
         Alert.alert('Appointment Cancelled', 'Your appointment has been cancelled successfully.');
-        // Update state locally
         setAppointments((prev) =>
           prev.map((app) =>
             app._id === appointmentId
@@ -85,6 +104,21 @@ export default function MyBookingsScreen() {
       Alert.alert('Cancellation Error', err.message || 'Unable to process cancellation.');
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleViewSummary = (appointment: Appointment) => {
+    const consultationId = consultationMap[appointment._id];
+    if (consultationId) {
+      router.push({
+        pathname: '/(patient)/consultation-summary' as any,
+        params: { id: consultationId },
+      });
+    } else {
+      Alert.alert(
+        'Consultation Summary',
+        'No detailed consultation notes have been recorded for this appointment yet.'
+      );
     }
   };
 
@@ -111,7 +145,7 @@ export default function MyBookingsScreen() {
 
       <View style={styles.container}>
         {errorMsg ? (
-          <ErrorView message={errorMsg} onRetry={fetchAppointments} />
+          <ErrorView message={errorMsg} onRetry={fetchData} />
         ) : null}
 
         {!errorMsg && isEmpty && (
@@ -155,7 +189,11 @@ export default function MyBookingsScreen() {
                       Completed Consultations ({completedAppointments.length})
                     </Text>
                     {completedAppointments.map((app) => (
-                      <AppointmentCard key={app._id} appointment={app} />
+                      <AppointmentCard
+                        key={app._id}
+                        appointment={app}
+                        onViewSummary={handleViewSummary}
+                      />
                     ))}
                   </View>
                 )}

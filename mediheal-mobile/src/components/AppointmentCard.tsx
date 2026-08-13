@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Appointment } from '../types/appointment';
 import { StatusBadge } from './StatusBadge';
 import { AppButton } from './AppButton';
@@ -8,12 +8,14 @@ import { colors, spacing, borderRadius, typography, shadows } from '../constants
 interface AppointmentCardProps {
   appointment: Appointment;
   onCancel?: (appointment: Appointment) => void;
+  onViewSummary?: (appointment: Appointment) => void;
   cancellingId?: string | null;
 }
 
 export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   appointment,
   onCancel,
+  onViewSummary,
   cancellingId,
 }) => {
   const doctorNameRaw = appointment.doctorId?.fullName || 'Medical Specialist';
@@ -49,6 +51,9 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const isCancellable =
     (appointment.status === 'pending' || appointment.status === 'confirmed') &&
     !!onCancel;
+
+  const isCompletedWithSummary =
+    appointment.status === 'completed' && !!onViewSummary;
 
   const isCurrentlyCancelling = cancellingId === appointment._id;
 
@@ -124,7 +129,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         ) : null}
       </View>
 
-      {/* Action Footer (Cancel Appointment button for Pending/Confirmed) */}
+      {/* Action Footer */}
       {isCancellable && (
         <View style={styles.actionFooter}>
           <AppButton
@@ -133,6 +138,17 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
             variant="danger"
             disabled={isCurrentlyCancelling}
             style={styles.cancelBtn}
+          />
+        </View>
+      )}
+
+      {isCompletedWithSummary && (
+        <View style={styles.actionFooter}>
+          <AppButton
+            title="View Summary"
+            onPress={() => onViewSummary && onViewSummary(appointment)}
+            variant="outline"
+            style={styles.summaryBtn}
           />
         </View>
       )}
@@ -261,6 +277,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   cancelBtn: {
+    minHeight: 40,
+  },
+  summaryBtn: {
     minHeight: 40,
   },
 });
