@@ -1,0 +1,204 @@
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { ScreenContainer } from '../../components/ScreenContainer';
+import { AppHeader } from '../../components/AppHeader';
+import { AppointmentCard } from '../../components/AppointmentCard';
+import { LoadingView } from '../../components/LoadingView';
+import { ErrorView } from '../../components/ErrorView';
+import { EmptyState } from '../../components/EmptyState';
+import { colors, spacing, typography } from '../../constants/theme';
+import { getMyAppointments, cancelAppointment } from '../../services/appointmentService';
+import { Appointment } from '../../types/appointment';
+
+export default function MyBookingsScreen() {
+  const router = useRouter();
+
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const fetchAppointments = useCallback(async () => {
+    setLoading(true);
+    setErrorMsg('');
+
+    try {
+      const res = await getMyAppointments();
+      if (res && res.success) {
+        setAppointments(res.data || []);
+      } else {
+        setErrorMsg('Failed to retrieve your appointments.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Unable to load appointments.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Refresh appointments whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchAppointments();
+    }, [fetchAppointments])
+  );
+
+  const handleCancelPress = (appointment: Appointment) => {
+    const doctorNameRaw = appointment.doctorId?.fullName || 'Doctor';
+    const doctorName = doctorNameRaw.toLowerCase().startsWith('dr.')
+      ? doctorNameRaw
+      : `Dr. ${doctorNameRaw}`;
+
+    Alert.alert(
+      'Cancel Appointment',
+      `Are you sure you want to cancel your appointment with ${doctorName} on ${appointment.timeSlot}?`,
+      [
+        { text: 'Keep Appointment', style: 'cancel' },
+        {
+          text: 'Cancel Appointment',
+          style: 'destructive',
+          onPress: () => performCancellation(appointment._id),
+        },
+      ]
+    );
+  };
+
+  const performCancellation = async (appointmentId: string) => {
+    setCancellingId(appointmentId);
+    try {
+      const res = await cancelAppointment(appointmentId, 'Cancelled by patient via mobile app');
+      if (res && res.success) {
+        Alert.alert('Appointment Cancelled', 'Your appointment has been cancelled successfully.');
+        // Update state locally
+        setAppointments((prev) =>
+          prev.map((app) =>
+            app._id === appointmentId
+              ? { ...app, status: 'cancelled', cancellationReason: 'Cancelled by patient' }
+              : app
+          )
+        );
+      } else {
+        Alert.alert('Cancellation Error', res.message || 'Failed to cancel appointment.');
+      }
+    } catch (err: any) {
+      Alert.alert('Cancellation Error', err.message || 'Unable to process cancellation.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  // Group appointments into sections
+  const upcomingAppointments = appointments.filter(
+    (app) => app.status === 'pending' || app.status === 'confirmed'
+  );
+  const completedAppointments = appointments.filter((app) => app.status === 'completed');
+  const cancelledAppointments = appointments.filter((app) => app.status === 'cancelled');
+
+  if (loading && appointments.length === 0) {
+    return <LoadingView message="Loading your appointments..." />;
+  }
+
+  const isEmpty = appointments.length === 0;
+
+  return (
+    <ScreenContainer backgroundColor={colors.background}>
+      <AppHeader
+        title="My Bookings"
+        subtitle="Your Doctor Appointments"
+        onBackPress={() => router.back()}
+      />
+
+      <View style={styles.container}>
+        {errorMsg ? (
+          <ErrorView message={errorMsg} onRetry={fetchAppointments} />
+        ) : null}
+
+        {!errorMsg && isEmpty && (
+          <EmptyState
+            icon="📅"
+            title="You Don't Have Any Appointments Yet"
+            description="Book consultations with registered doctors and specialists."
+            actionText="Find a Doctor"
+            onAction={() => router.push('/(patient)/specialists' as any)}
+          />
+        )}
+
+        {!errorMsg && !isEmpty && (
+          <FlatList
+            data={[{ key: 'content' }]}
+            keyExtractor={(item) => item.key}
+            showsVerticalScrollIndicator={false}
+            renderItem={() => (
+              <View style={styles.listSection}>
+                {/* Upcoming Appointments Section */}
+                {upcomingAppointments.length > 0 && (
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>
+                      Upcoming Appointments ({upcomingAppointments.length})
+                    </Text>
+                    {upcomingAppointments.map((app) => (
+                      <AppointmentCard
+                        key={app._id}
+                        appointment={app}
+                        onCancel={handleCancelPress}
+                        cancellingId={cancellingId}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                {/* Completed Appointments Section */}
+                {completedAppointments.length > 0 && (
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>
+                      Completed Consultations ({completedAppointments.length})
+                    </Text>
+                    {completedAppointments.map((app) => (
+                      <AppointmentCard key={app._id} appointment={app} />
+                    ))}
+                  </View>
+                )}
+
+                {/* Cancelled Appointments Section */}
+                {cancelledAppointments.length > 0 && (
+                  <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>
+                      Cancelled Appointments ({cancelledAppointments.length})
+                    </Text>
+                    {cancelledAppointments.map((app) => (
+                      <AppointmentCard key={app._id} appointment={app} />
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+            contentContainerStyle={styles.listContent}
+          />
+        )}
+      </View>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+  },
+  listSection: {
+    paddingBottom: spacing.xl,
+  },
+  sectionContainer: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    ...typography.subheader,
+    fontSize: 18,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  listContent: {
+    paddingBottom: spacing.xl,
+  },
+});

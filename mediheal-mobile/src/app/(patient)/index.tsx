@@ -192,6 +192,20 @@ export default function PatientHomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* My Appointments Quick Action Banner */}
+        <TouchableOpacity
+          style={styles.myAppointmentsBanner}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(patient)/my-bookings' as any)}
+        >
+          <Text style={styles.appointmentsIcon}>📅</Text>
+          <View style={styles.appointmentsTextCol}>
+            <Text style={styles.appointmentsTitle}>My Appointments & Bookings</Text>
+            <Text style={styles.appointmentsSub}>View upcoming consultations, status & history</Text>
+          </View>
+          <Text style={styles.appointmentsArrow}>→</Text>
+        </TouchableOpacity>
+
         {/* Next Medication Preview Card */}
         <View style={styles.previewCard}>
           <View style={styles.previewHeaderRow}>
@@ -378,5 +392,39 @@ const styles = StyleSheet.create({
   previewSub: {
     ...typography.caption,
     marginTop: 2,
+  },
+  myAppointmentsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    ...shadows.card,
+  },
+  appointmentsIcon: {
+    fontSize: 26,
+    marginRight: spacing.md,
+  },
+  appointmentsTextCol: {
+    flex: 1,
+  },
+  appointmentsTitle: {
+    ...typography.bodyBold,
+    color: colors.primaryDark,
+    fontSize: 16,
+  },
+  appointmentsSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  appointmentsArrow: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: spacing.xs,
   },
 });
