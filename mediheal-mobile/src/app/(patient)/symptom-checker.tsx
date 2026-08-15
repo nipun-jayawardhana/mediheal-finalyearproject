@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -15,6 +14,8 @@ import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { analyzeSymptomsApi } from '../../services/symptomService';
 import { SeverityLevel } from '../../types/symptom';
+import { useVoice } from '../../hooks/useVoice';
+import { useAuth } from '../../context/AuthContext';
 
 const SEVERITY_OPTIONS: { label: string; value: SeverityLevel }[] = [
   { label: 'Mild', value: 'mild' },
@@ -24,8 +25,10 @@ const SEVERITY_OPTIONS: { label: string; value: SeverityLevel }[] = [
 
 export default function SymptomCheckerScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
 
-  // State
+  // Manual Symptom State
   const [symptomInput, setSymptomInput] = useState('');
   const [symptomsList, setSymptomsList] = useState<string[]>([]);
   const [duration, setDuration] = useState('2 days');
@@ -35,7 +38,57 @@ export default function SymptomCheckerScreen() {
   const [errorMsg, setErrorMsg] = useState('');
   const [inputError, setInputError] = useState('');
 
-  // Add symptom chip handler
+  // Real Voice Hook
+  const {
+    voiceState,
+    isListening,
+    transcript,
+    errorMessage: voiceError,
+    startListening,
+    stopListening,
+    resetVoice,
+  } = useVoice({
+    language: userLang,
+    onTranscript: (capturedText, _isFinal) => {
+      if (capturedText) {
+        setSymptomInput(capturedText);
+      }
+    },
+  });
+
+  // Toggle Microphone Listening
+  const handleToggleMic = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // Convert recognized or typed text into symptom chips (conservative splitting by comma / "and")
+  const handleConvertVoiceToChips = () => {
+    const rawText = (symptomInput || transcript).trim();
+    if (!rawText) return;
+
+    // Conservative split by comma, semicolon, or "and" / "සහ" / "මෙන්ම"
+    const splitTokens = rawText
+      .split(/[,;\n]| and | සහ | සහව | සහත් /i)
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0 && s.length <= 100);
+
+    const updated = [...symptomsList];
+    splitTokens.forEach((token) => {
+      if (!updated.includes(token) && updated.length < 20) {
+        updated.push(token);
+      }
+    });
+
+    setSymptomsList(updated);
+    setSymptomInput('');
+    resetVoice();
+  };
+
+  // Add single symptom chip handler (manual)
   const handleAddSymptom = () => {
     setInputError('');
     const clean = symptomInput.trim();
@@ -70,6 +123,7 @@ export default function SymptomCheckerScreen() {
 
   // Reset form
   const handleRestart = () => {
+    resetVoice();
     setSymptomInput('');
     setSymptomsList([]);
     setDuration('2 days');
@@ -78,15 +132,16 @@ export default function SymptomCheckerScreen() {
     setInputError('');
   };
 
-  // Submit Analysis
+  // Submit Analysis to existing backend rule-based engine
   const handleAnalyze = async () => {
     setErrorMsg('');
     setInputError('');
 
-    // Check if user typed a symptom without pressing "Add"
+    // Check if user typed or spoke a symptom without pressing "+ Add"
     let currentSymptoms = [...symptomsList];
-    if (symptomInput.trim() && !currentSymptoms.includes(symptomInput.trim())) {
-      currentSymptoms.push(symptomInput.trim());
+    const pendingInput = symptomInput.trim();
+    if (pendingInput && !currentSymptoms.includes(pendingInput.toLowerCase())) {
+      currentSymptoms.push(pendingInput);
       setSymptomsList(currentSymptoms);
       setSymptomInput('');
     }
@@ -149,14 +204,72 @@ export default function SymptomCheckerScreen() {
           />
         ) : null}
 
-        {/* Conversational Bot Bubble */}
+        {/* Conversational Bot Bubble & Voice Trigger */}
         <View style={styles.chatBubbleBot}>
-          <Text style={styles.botIcon}>🤖</Text>
           <View style={styles.botTextCol}>
             <Text style={styles.botBubbleTitle}>Where does it hurt today?</Text>
-            <Text style={styles.botBubbleSub}>අද ඔබට රිදෙන්නේ කොතැනද?</Text>
+            <Text style={styles.botBubbleSub}>අද ඔබට රිදෙන්නේ කොතැනද? (Tap mic or type below)</Text>
           </View>
+
+          <TouchableOpacity
+            style={[
+              styles.headerMicBtn,
+              isListening && styles.headerMicBtnActive,
+            ]}
+            onPress={handleToggleMic}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={isListening ? 'Stop listening' : 'Tap to speak symptoms'}
+          >
+            <Text style={styles.headerMicIcon}>{isListening ? '⏹️' : '🎙️'}</Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Voice Feedback Banner */}
+        {(isListening || voiceState === 'recognized' || voiceState === 'no_speech' || voiceState === 'error') && (
+          <View
+            style={[
+              styles.voiceFeedbackCard,
+              isListening && styles.voiceFeedbackListening,
+              voiceState === 'recognized' && styles.voiceFeedbackRecognized,
+              (voiceState === 'no_speech' || voiceState === 'error') && styles.voiceFeedbackError,
+            ]}
+          >
+            <Text style={styles.voiceFeedbackTitle}>
+              {isListening
+                ? '🎙️ Listening... Speak your symptoms clearly'
+                : voiceState === 'recognized'
+                ? '✅ Speech Recognized'
+                : voiceState === 'no_speech'
+                ? '⚠️ No Speech Detected'
+                : 'ℹ️ Voice Notice'}
+            </Text>
+
+            {voiceError ? (
+              <Text style={styles.voiceFeedbackText}>{voiceError}</Text>
+            ) : transcript ? (
+              <Text style={styles.voiceFeedbackText}>"{transcript}"</Text>
+            ) : null}
+
+            {voiceState === 'recognized' && (
+              <TouchableOpacity
+                style={styles.convertChipBtn}
+                onPress={handleConvertVoiceToChips}
+              >
+                <Text style={styles.convertChipBtnText}>➕ Add "{transcript}" to Symptoms List</Text>
+              </TouchableOpacity>
+            )}
+
+            {(voiceState === 'no_speech' || voiceState === 'error') && (
+              <TouchableOpacity
+                style={styles.retryMicBtn}
+                onPress={() => startListening()}
+              >
+                <Text style={styles.retryMicBtnText}>🔄 Tap to Try Speaking Again</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Symptom Input Form */}
         <View style={styles.inputCard}>
@@ -173,6 +286,17 @@ export default function SymptomCheckerScreen() {
               containerStyle={styles.flexInput}
               error={inputError}
             />
+
+            <TouchableOpacity
+              style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
+              onPress={handleToggleMic}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Microphone symptom input"
+            >
+              <Text style={styles.micIconButtonText}>{isListening ? '⏹️' : '🎙️'}</Text>
+            </TouchableOpacity>
+
             <AppButton
               title="+ Add"
               onPress={handleAddSymptom}
@@ -200,7 +324,7 @@ export default function SymptomCheckerScreen() {
               ))
             ) : (
               <Text style={styles.noChipsText}>
-                No symptoms added yet. Type a symptom above and tap "+ Add".
+                No symptoms added yet. Type or speak a symptom above and tap "+ Add".
               </Text>
             )}
           </View>
@@ -276,10 +400,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  botIcon: {
-    fontSize: 32,
-    marginRight: spacing.md,
-  },
   botTextCol: {
     flex: 1,
   },
@@ -291,6 +411,81 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#DBEAFE',
     marginTop: 2,
+  },
+  headerMicBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: spacing.sm,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  headerMicBtnActive: {
+    backgroundColor: colors.danger,
+    borderColor: '#FFFFFF',
+  },
+  headerMicIcon: {
+    fontSize: 24,
+  },
+  voiceFeedbackCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  voiceFeedbackListening: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  voiceFeedbackRecognized: {
+    borderColor: colors.success,
+    backgroundColor: '#F0FDF4',
+  },
+  voiceFeedbackError: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warningLight,
+  },
+  voiceFeedbackTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+    fontSize: 14,
+  },
+  voiceFeedbackText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  convertChipBtn: {
+    backgroundColor: colors.success,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  convertChipBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  retryMicBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    alignSelf: 'flex-start',
+  },
+  retryMicBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
   inputCard: {
     backgroundColor: colors.card,
@@ -314,9 +509,28 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: spacing.xs,
   },
+  micIconButton: {
+    height: 52,
+    width: 52,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+    marginRight: spacing.xs,
+  },
+  micIconButtonActive: {
+    backgroundColor: colors.dangerLight,
+    borderColor: colors.danger,
+  },
+  micIconButtonText: {
+    fontSize: 22,
+  },
   addBtn: {
     height: 52,
-    minWidth: 80,
+    minWidth: 70,
     marginTop: spacing.xs,
   },
   chipLabel: {

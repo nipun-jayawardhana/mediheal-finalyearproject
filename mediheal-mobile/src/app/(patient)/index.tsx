@@ -18,14 +18,18 @@ import { getPatientDashboardApi } from '../../services/patientService';
 import { PatientDashboardData } from '../../types/patient';
 import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
+import { useVoice } from '../../hooks/useVoice';
 
 export default function PatientHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
 
   const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+
+  const { isSpeaking, speak, stopSpeech } = useVoice({ language: userLang });
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
@@ -52,8 +56,48 @@ export default function PatientHomeScreen() {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  // Real Dashboard TTS Voice Guidance
+  const handleReadDashboard = () => {
+    if (isSpeaking) {
+      stopSpeech();
+      return;
+    }
+
+    const patientName = user?.fullName ? user.fullName.split(' ')[0] : 'Patient';
+    let summaryParts: string[] = [`Welcome ${patientName}.`];
+
+    if (dashboardData) {
+      if (dashboardData.upcomingAppointments && dashboardData.upcomingAppointments.length > 0) {
+        const appt = dashboardData.upcomingAppointments[0];
+        summaryParts.push(
+          `You have an upcoming appointment for ${appt.reason || 'consultation'} on ${new Date(appt.appointmentDate).toLocaleDateString()}.`
+        );
+      } else {
+        summaryParts.push('You have no upcoming doctor appointments scheduled.');
+      }
+
+      if (dashboardData.medications && dashboardData.medications.length > 0) {
+        const med = dashboardData.medications[0];
+        summaryParts.push(
+          `Your next scheduled medication is ${med.medicineName}, dosage ${med.dosage}.`
+        );
+      } else {
+        summaryParts.push('No active medications are currently scheduled.');
+      }
+
+      if (dashboardData.activeEmergencyAlert) {
+        summaryParts.push('Attention: You have an active emergency alert currently open.');
+      }
+    }
+
+    summaryParts.push('Tap Check Symptoms or Doctor to navigate.');
+
+    speak(summaryParts.join(' '));
+  };
+
   // Navigate to Symptom Checker or Voice Onboarding
   const handleCheckSymptomsPress = async () => {
+    stopSpeech();
     try {
       const seen = await AsyncStorage.getItem(VOICE_ONBOARDING_STORAGE_KEY);
       if (seen === 'true') {
@@ -66,15 +110,8 @@ export default function PatientHomeScreen() {
     }
   };
 
-  // Quick Action Handler for future modules
-  const handleFeaturePress = (featureName: string) => {
-    Alert.alert(
-      `${featureName}`,
-      `The ${featureName} feature module will be integrated in the upcoming development phase.`
-    );
-  };
-
   const handleEmergencySOSPress = async () => {
+    stopSpeech();
     try {
       const active = await getActiveEmergencyAlert();
       if (active) {
@@ -102,7 +139,7 @@ export default function PatientHomeScreen() {
       <View style={styles.headerBar}>
         <TouchableOpacity
           style={styles.headerIconBtn}
-          onPress={() => router.push('/(patient)/profile' as any)}
+          onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
         >
@@ -113,7 +150,7 @@ export default function PatientHomeScreen() {
 
         <TouchableOpacity
           style={styles.headerIconBtn}
-          onPress={() => router.push('/(patient)/profile' as any)}
+          onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
           accessibilityRole="button"
           accessibilityLabel="View profile"
         >
@@ -126,16 +163,25 @@ export default function PatientHomeScreen() {
           <ErrorView message={errorMsg} onRetry={() => fetchDashboard()} />
         ) : null}
 
-        {/* Voice Guidance Banner */}
+        {/* Voice Guidance Banner with real "Read My Dashboard" action */}
         <TouchableOpacity
-          style={styles.voiceBanner}
+          style={[styles.voiceBanner, isSpeaking && styles.voiceBannerSpeaking]}
           activeOpacity={0.8}
-          onPress={() => router.push('/(patient)/voice-onboarding' as any)}
+          onPress={handleReadDashboard}
+          accessibilityRole="button"
+          accessibilityLabel={isSpeaking ? 'Stop reading dashboard' : 'Read My Dashboard aloud'}
         >
-          <Text style={styles.speakerIcon}>🔊</Text>
+          <Text style={styles.speakerIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
           <View style={styles.voiceTextCol}>
-            <Text style={styles.voiceTitle}>Voice Guidance Active</Text>
-            <Text style={styles.voiceSub}>Tap to open Voice Onboarding Tutorial</Text>
+            <Text style={styles.voiceTitle}>
+              {isSpeaking ? 'Reading Dashboard Aloud...' : 'Voice Guidance — Read My Dashboard'}
+            </Text>
+            <Text style={styles.voiceSub}>
+              {isSpeaking ? 'Tap to Stop Audio' : 'Tap to hear your appointment & medication summary'}
+            </Text>
+          </View>
+          <View style={styles.audioBadge}>
+            <Text style={styles.audioBadgeText}>{isSpeaking ? 'STOP' : 'READ'}</Text>
           </View>
         </TouchableOpacity>
 
@@ -176,7 +222,7 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={() => router.push('/(patient)/specialists' as any)}
+            onPress={() => { stopSpeech(); router.push('/(patient)/specialists' as any); }}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
               <Text style={styles.actionIconText}>🩺</Text>
@@ -188,7 +234,7 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={() => router.push('/(patient)/medications' as any)}
+            onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
           >
             <View style={[styles.actionIconCircle, { backgroundColor: colors.success }]}>
               <Text style={styles.actionIconText}>💊</Text>
@@ -213,7 +259,7 @@ export default function PatientHomeScreen() {
         <TouchableOpacity
           style={styles.myAppointmentsBanner}
           activeOpacity={0.8}
-          onPress={() => router.push('/(patient)/my-bookings' as any)}
+          onPress={() => { stopSpeech(); router.push('/(patient)/my-bookings' as any); }}
         >
           <Text style={styles.appointmentsIcon}>📅</Text>
           <View style={styles.appointmentsTextCol}>
@@ -227,7 +273,7 @@ export default function PatientHomeScreen() {
         <TouchableOpacity
           style={[styles.myAppointmentsBanner, { borderColor: colors.accent, marginTop: spacing.sm }]}
           activeOpacity={0.8}
-          onPress={() => router.push('/(patient)/consultations' as any)}
+          onPress={() => { stopSpeech(); router.push('/(patient)/consultations' as any); }}
         >
           <Text style={styles.appointmentsIcon}>📑</Text>
           <View style={styles.appointmentsTextCol}>
@@ -241,7 +287,7 @@ export default function PatientHomeScreen() {
         <TouchableOpacity
           style={[styles.myAppointmentsBanner, { borderColor: colors.primary, marginTop: spacing.sm }]}
           activeOpacity={0.8}
-          onPress={() => router.push('/(patient)/community' as any)}
+          onPress={() => { stopSpeech(); router.push('/(patient)/community' as any); }}
         >
           <Text style={styles.appointmentsIcon}>💬</Text>
           <View style={styles.appointmentsTextCol}>
@@ -255,7 +301,7 @@ export default function PatientHomeScreen() {
         <TouchableOpacity
           style={styles.previewCard}
           activeOpacity={0.8}
-          onPress={() => router.push('/(patient)/medications' as any)}
+          onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
         >
           <View style={styles.previewHeaderRow}>
             <Text style={styles.previewIcon}>⏰</Text>
@@ -317,6 +363,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BFDBFE',
   },
+  voiceBannerSpeaking: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
   speakerIcon: {
     fontSize: 24,
     marginRight: spacing.md,
@@ -331,6 +381,17 @@ const styles = StyleSheet.create({
   voiceSub: {
     ...typography.caption,
     color: colors.primary,
+  },
+  audioBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.pill,
+  },
+  audioBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 11,
   },
   greetingBox: {
     marginVertical: spacing.xs,

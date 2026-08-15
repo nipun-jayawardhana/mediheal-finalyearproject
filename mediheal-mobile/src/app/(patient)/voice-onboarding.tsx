@@ -1,16 +1,30 @@
 import React from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useVoice } from '../../hooks/useVoice';
+import { useAuth } from '../../context/AuthContext';
 
 export const VOICE_ONBOARDING_STORAGE_KEY = '@mediheal_voice_onboarding_seen';
 
 export default function VoiceOnboardingScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
+
+  const {
+    voiceState,
+    isListening,
+    transcript,
+    errorMessage,
+    startListening,
+    stopListening,
+    resetVoice,
+  } = useVoice({ language: userLang });
 
   const markSeenAndNavigate = async () => {
     try {
@@ -21,17 +35,12 @@ export default function VoiceOnboardingScreen() {
     router.replace('/(patient)/symptom-checker' as any);
   };
 
-  const handleTrySpeaking = () => {
-    Alert.alert(
-      'Voice Input Practice',
-      'Microphone speech recognition will be activated in the upcoming Voice Integration module. Manual symptom input is fully enabled now.',
-      [
-        {
-          text: 'Continue to Symptom Checker',
-          onPress: markSeenAndNavigate,
-        },
-      ]
-    );
+  const handleToggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
   };
 
   return (
@@ -53,35 +62,112 @@ export default function VoiceOnboardingScreen() {
       <View style={styles.content}>
         {/* Large Central Microphone Visual */}
         <View style={styles.micContainer}>
-          <View style={styles.micCircle}>
-            <Text style={styles.micIcon}>🎙️</Text>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.micCircle,
+              isListening && styles.micCircleListening,
+              voiceState === 'recognized' && styles.micCircleRecognized,
+              voiceState === 'error' && styles.micCircleError,
+            ]}
+            onPress={handleToggleListening}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={isListening ? 'Stop listening' : 'Start speaking practice'}
+          >
+            <Text style={styles.micIcon}>
+              {isListening ? '🎙️' : voiceState === 'recognized' ? '✅' : '🎤'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Tutorial Instruction */}
+        {/* Dynamic Status & Transcript Display */}
         <View style={styles.instructionBox}>
-          <Text style={styles.headingText}>
-            Say <Text style={styles.highlightText}>"Check Symptoms"</Text> or{' '}
-            <Text style={styles.highlightText}>"Call Doctor"</Text> to navigate!
-          </Text>
-          <Text style={styles.bodyText}>
-            Speak clearly near your phone's microphone. MediHeal will listen and take you there.
-          </Text>
+          {voiceState === 'idle' && (
+            <>
+              <Text style={styles.headingText}>
+                Say <Text style={styles.highlightText}>"Check Symptoms"</Text> or{' '}
+                <Text style={styles.highlightText}>"Call Doctor"</Text> to navigate!
+              </Text>
+              <Text style={styles.bodyText}>
+                Speak clearly near your phone's microphone. MediHeal will listen and guide you.
+              </Text>
+            </>
+          )}
 
+          {voiceState === 'requesting' && (
+            <>
+              <Text style={styles.headingText}>Requesting Permission...</Text>
+              <Text style={styles.bodyText}>Please grant microphone access to try voice input.</Text>
+            </>
+          )}
+
+          {voiceState === 'listening' && (
+            <>
+              <Text style={[styles.headingText, { color: colors.primary }]}>Listening... 🎙️</Text>
+              <Text style={styles.bodyText}>
+                {transcript ? `"${transcript}"` : 'Say something like "I have fever and cough"'}
+              </Text>
+            </>
+          )}
+
+          {voiceState === 'recognized' && (
+            <>
+              <Text style={[styles.headingText, { color: colors.success }]}>Voice Recognized!</Text>
+              <View style={styles.transcriptCard}>
+                <Text style={styles.transcriptLabel}>Captured Phrase:</Text>
+                <Text style={styles.transcriptText}>"{transcript}"</Text>
+              </View>
+            </>
+          )}
+
+          {voiceState === 'no_speech' && (
+            <>
+              <Text style={[styles.headingText, { color: colors.warning }]}>No Speech Detected</Text>
+              <Text style={styles.bodyText}>
+                We didn't hear anything. Tap "Try Again" below or continue to manual input.
+              </Text>
+            </>
+          )}
+
+          {voiceState === 'error' && (
+            <>
+              <Text style={[styles.headingText, { color: colors.danger }]}>Voice Input Notice</Text>
+              <Text style={styles.bodyText}>{errorMessage}</Text>
+            </>
+          )}
+
+          {/* Status Pill Indicator */}
           <View style={styles.statusPill}>
-            <Text style={styles.statusPillDot}>●</Text>
-            <Text style={styles.statusPillText}>Voice Navigation Ready</Text>
+            <Text
+              style={[
+                styles.statusPillDot,
+                isListening && { color: colors.primary },
+                voiceState === 'recognized' && { color: colors.success },
+                voiceState === 'error' && { color: colors.danger },
+              ]}
+            >
+              ●
+            </Text>
+            <Text style={styles.statusPillText}>
+              {isListening
+                ? 'Listening Active'
+                : voiceState === 'recognized'
+                ? 'Practice Speech Captured'
+                : voiceState === 'error'
+                ? 'Manual Input Available'
+                : 'Voice Navigation Ready'}
+            </Text>
           </View>
         </View>
 
-        {/* Feature Cards */}
+        {/* Feature & Privacy Cards */}
         <View style={styles.cardSection}>
           <View style={styles.infoCard}>
             <Text style={styles.cardIcon}>💡</Text>
             <View style={styles.cardTextCol}>
               <Text style={styles.cardTitle}>Did you know?</Text>
               <Text style={styles.cardSub}>
-                You can also ask about your medications by saying "Pill Schedule".
+                You can describe symptoms naturally or type them manually anytime.
               </Text>
             </View>
           </View>
@@ -89,22 +175,51 @@ export default function VoiceOnboardingScreen() {
           <View style={styles.infoCard}>
             <Text style={styles.cardIcon}>🔒</Text>
             <View style={styles.cardTextCol}>
-              <Text style={styles.cardTitle}>Private & Secure</Text>
+              <Text style={styles.cardTitle}>Private & Truthful</Text>
               <Text style={styles.cardSub}>
-                Your voice is only used for local commands and never stored or recorded.
+                Voice recognition uses your device or system speech service. You can always use text input instead.
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Actions */}
+        {/* Action Controls */}
         <View style={styles.actionSection}>
+          {isListening ? (
+            <AppButton
+              title="⏹️ Stop Listening"
+              onPress={stopListening}
+              variant="outline"
+              style={styles.tryBtn}
+            />
+          ) : voiceState === 'recognized' ? (
+            <View style={styles.recognizedActionRow}>
+              <AppButton
+                title="🔄 Try Again"
+                onPress={resetVoice}
+                variant="outline"
+                style={styles.halfBtn}
+              />
+              <AppButton
+                title="Continue ➔"
+                onPress={markSeenAndNavigate}
+                style={styles.halfBtn}
+              />
+            </View>
+          ) : (
+            <AppButton
+              title={voiceState === 'no_speech' || voiceState === 'error' ? '🔄 Try Speaking Again' : '🎙️ Try Speaking Now'}
+              onPress={handleToggleListening}
+              style={styles.tryBtn}
+            />
+          )}
+
           <AppButton
-            title="🎙️ Try Speaking Now"
-            onPress={handleTrySpeaking}
-            style={styles.tryBtn}
+            title="Continue to Symptom Checker"
+            onPress={markSeenAndNavigate}
+            variant="outline"
+            style={styles.continueBtn}
           />
-          <Text style={styles.subtext}>Tap the button above to start practice</Text>
         </View>
       </View>
     </ScreenContainer>
@@ -140,6 +255,17 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  micCircleListening: {
+    backgroundColor: '#2563EB',
+    borderWidth: 4,
+    borderColor: '#93C5FD',
+  },
+  micCircleRecognized: {
+    backgroundColor: colors.success,
+  },
+  micCircleError: {
+    backgroundColor: colors.textMuted,
+  },
   micIcon: {
     fontSize: 56,
   },
@@ -164,6 +290,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.xs,
     lineHeight: 22,
+  },
+  transcriptCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    width: '100%',
+    alignItems: 'center',
+  },
+  transcriptLabel: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  transcriptText: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+    fontSize: 16,
+    textAlign: 'center',
   },
   statusPill: {
     flexDirection: 'row',
@@ -214,15 +362,21 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   actionSection: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
+    marginTop: spacing.md,
+    gap: spacing.xs,
   },
   tryBtn: {
     width: '100%',
   },
-  subtext: {
-    ...typography.caption,
-    color: colors.textMuted,
+  continueBtn: {
+    width: '100%',
     marginTop: spacing.xs,
+  },
+  recognizedActionRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  halfBtn: {
+    flex: 1,
   },
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
@@ -11,14 +11,20 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getSymptomCheckByIdApi } from '../../services/symptomService';
 import { SymptomCheckRecord } from '../../types/symptom';
+import { useVoice } from '../../hooks/useVoice';
+import { useAuth } from '../../context/AuthContext';
 
 export default function AnalysisResultScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
+  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
 
   const [result, setResult] = useState<SymptomCheckRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
+
+  const { isSpeaking, speak, stopSpeech } = useVoice({ language: userLang });
 
   const fetchResult = useCallback(async () => {
     if (!id) {
@@ -48,7 +54,27 @@ export default function AnalysisResultScreen() {
     fetchResult();
   }, [fetchResult]);
 
+  // Play Audio Text-to-Speech using real backend analysis data ONLY
+  const handleToggleAudio = () => {
+    if (isSpeaking) {
+      stopSpeech();
+    } else if (result) {
+      const guidanceText = Array.isArray(result.guidance) && result.guidance.length > 0
+        ? result.guidance.join('. ')
+        : 'Consult a qualified doctor.';
+
+      let audioSummary = `Symptom Analysis Result. Assessment: ${result.possibleCondition}. Risk Level: ${result.riskLevel} risk. Recommended Specialist: ${result.recommendedSpecialist}. Immediate Care Steps: ${guidanceText}. Disclaimer: ${result.disclaimer}`;
+
+      if (result.emergencyRecommended || result.riskLevel === 'high') {
+        audioSummary = `Urgent Medical Attention Recommended. ${audioSummary}`;
+      }
+
+      speak(audioSummary);
+    }
+  };
+
   const handleSpecialistPress = () => {
+    stopSpeech();
     const specialization = result?.recommendedSpecialist || 'General Physician';
     router.push({
       pathname: '/(patient)/specialists' as any,
@@ -57,6 +83,7 @@ export default function AnalysisResultScreen() {
   };
 
   const handleRecheckSymptoms = () => {
+    stopSpeech();
     router.replace('/(patient)/symptom-checker' as any);
   };
 
@@ -67,7 +94,7 @@ export default function AnalysisResultScreen() {
   if (errorMsg || !result) {
     return (
       <ScreenContainer backgroundColor={colors.background}>
-        <AppHeader title="Analysis Results" onBackPress={() => router.back()} />
+        <AppHeader title="Analysis Results" onBackPress={() => { stopSpeech(); router.back(); }} />
         <ErrorView message={errorMsg || 'Analysis result not found.'} onRetry={fetchResult} />
       </ScreenContainer>
     );
@@ -80,18 +107,31 @@ export default function AnalysisResultScreen() {
       <AppHeader
         title="Analysis Results"
         subtitle="Preliminary Healthcare Guidance"
-        onBackPress={() => router.back()}
+        onBackPress={() => { stopSpeech(); router.back(); }}
       />
 
       <View style={styles.content}>
-        {/* Audio Guidance Banner (Placeholder notice for audio integration) */}
-        <View style={styles.audioBanner}>
-          <Text style={styles.audioIcon}>🎧</Text>
+        {/* Audio Guidance Banner with real TTS Controls */}
+        <TouchableOpacity
+          style={[styles.audioBanner, isSpeaking && styles.audioBannerSpeaking]}
+          activeOpacity={0.8}
+          onPress={handleToggleAudio}
+          accessibilityRole="button"
+          accessibilityLabel={isSpeaking ? 'Stop listening to explanation' : 'Listen to audio explanation'}
+        >
+          <Text style={styles.audioIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
           <View style={styles.audioTextCol}>
-            <Text style={styles.audioTitle}>Listen to Explanation</Text>
-            <Text style={styles.audioSub}>Text-to-Speech audio guide will be active in Voice module</Text>
+            <Text style={styles.audioTitle}>
+              {isSpeaking ? 'Playing Audio Explanation...' : 'Listen to Explanation'}
+            </Text>
+            <Text style={styles.audioSub}>
+              {isSpeaking ? 'Tap to Stop Audio' : 'Tap to hear real analysis results read aloud'}
+            </Text>
           </View>
-        </View>
+          <View style={styles.audioBadge}>
+            <Text style={styles.audioBadgeText}>{isSpeaking ? 'STOP' : 'PLAY'}</Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Emergency Alert Warning Banner */}
         {isEmergency && (
@@ -115,7 +155,7 @@ export default function AnalysisResultScreen() {
                 marginTop: spacing.md,
               }}
               activeOpacity={0.8}
-              onPress={() => router.push('/(patient)/emergency-countdown' as any)}
+              onPress={() => { stopSpeech(); router.push('/(patient)/emergency-countdown' as any); }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }}>
                 🚨 Trigger Emergency SOS
@@ -215,6 +255,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#BFDBFE',
   },
+  audioBannerSpeaking: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+  },
   audioIcon: {
     fontSize: 24,
     marginRight: spacing.md,
@@ -229,6 +273,17 @@ const styles = StyleSheet.create({
   audioSub: {
     ...typography.caption,
     color: colors.primary,
+  },
+  audioBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.pill,
+  },
+  audioBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 11,
   },
   emergencyCard: {
     backgroundColor: colors.dangerLight,
