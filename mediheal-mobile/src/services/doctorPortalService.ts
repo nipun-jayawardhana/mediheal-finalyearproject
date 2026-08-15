@@ -15,7 +15,7 @@ export const getDoctorAppointments = async (
   status?: string
 ): Promise<DoctorAppointmentsResponse> => {
   const response = await apiClient.get<DoctorAppointmentsResponse>(
-    '/api/doctor/appointments',
+    '/doctor/appointments',
     { params: status ? { status } : undefined }
   );
   return response.data;
@@ -30,7 +30,7 @@ export const updateAppointmentStatusByDoctor = async (
   status: 'confirmed' | 'completed'
 ): Promise<DoctorAppointmentResponse> => {
   const response = await apiClient.patch<DoctorAppointmentResponse>(
-    `/api/doctor/appointments/${appointmentId}/status`,
+    `/doctor/appointments/${appointmentId}/status`,
     { status }
   );
   return response.data;
@@ -44,7 +44,7 @@ export const getAppointmentById = async (
   appointmentId: string
 ): Promise<DoctorAppointmentResponse> => {
   const response = await apiClient.get<DoctorAppointmentResponse>(
-    `/api/appointments/${appointmentId}`
+    `/appointments/${appointmentId}`
   );
   return response.data;
 };
@@ -57,7 +57,7 @@ export const createConsultation = async (
   payload: CreateConsultationPayload
 ): Promise<DoctorConsultationResponse> => {
   const response = await apiClient.post<DoctorConsultationResponse>(
-    '/api/consultations',
+    '/consultations',
     payload
   );
   return response.data;
@@ -71,7 +71,7 @@ export const getDoctorPatientHistory = async (
   patientId: string
 ): Promise<DoctorConsultationHistoryResponse> => {
   const response = await apiClient.get<DoctorConsultationHistoryResponse>(
-    `/api/doctor/patients/${patientId}/history`
+    `/doctor/patients/${patientId}/history`
   );
   return response.data;
 };

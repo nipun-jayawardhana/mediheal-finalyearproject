@@ -14,7 +14,7 @@ export const createAppointment = async (
   payload: CreateAppointmentRequest
 ): Promise<AppointmentResponse> => {
   const response = await apiClient.post<AppointmentResponse>(
-    '/api/appointments',
+    '/appointments',
     payload
   );
   return response.data;
@@ -28,7 +28,7 @@ export const getMyAppointments = async (
   status?: AppointmentStatus
 ): Promise<AppointmentListResponse> => {
   const response = await apiClient.get<AppointmentListResponse>(
-    '/api/appointments/my',
+    '/appointments/my',
     {
       params: status ? { status } : undefined,
     }
@@ -44,7 +44,7 @@ export const getAppointmentById = async (
   appointmentId: string
 ): Promise<AppointmentResponse> => {
   const response = await apiClient.get<AppointmentResponse>(
-    `/api/appointments/${appointmentId}`
+    `/appointments/${appointmentId}`
   );
   return response.data;
 };
@@ -58,7 +58,7 @@ export const cancelAppointment = async (
   cancellationReason?: string
 ): Promise<AppointmentResponse> => {
   const response = await apiClient.patch<AppointmentResponse>(
-    `/api/appointments/${appointmentId}/cancel`,
+    `/appointments/${appointmentId}/cancel`,
     { cancellationReason }
   );
   return response.data;

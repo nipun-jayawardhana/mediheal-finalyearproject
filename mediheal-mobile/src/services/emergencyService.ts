@@ -14,7 +14,7 @@ export const createEmergencyAlert = async (
   payload: CreateEmergencyPayload
 ): Promise<EmergencyResponse> => {
   const response = await apiClient.post<EmergencyResponse>(
-    '/api/emergency',
+    '/emergency',
     payload
   );
   return response.data;
@@ -26,7 +26,7 @@ export const createEmergencyAlert = async (
  */
 export const getMyEmergencyAlerts = async (): Promise<EmergencyListResponse> => {
   const response = await apiClient.get<EmergencyListResponse>(
-    '/api/emergency/my'
+    '/emergency/my'
   );
   return response.data;
 };
@@ -39,7 +39,7 @@ export const getEmergencyAlertById = async (
   alertId: string
 ): Promise<EmergencyResponse> => {
   const response = await apiClient.get<EmergencyResponse>(
-    `/api/emergency/${alertId}`
+    `/emergency/${alertId}`
   );
   return response.data;
 };
@@ -53,7 +53,7 @@ export const cancelEmergencyAlert = async (
   reason?: string
 ): Promise<EmergencyResponse> => {
   const response = await apiClient.patch<EmergencyResponse>(
-    `/api/emergency/${alertId}/cancel`,
+    `/emergency/${alertId}/cancel`,
     { reason }
   );
   return response.data;

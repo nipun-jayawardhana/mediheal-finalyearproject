@@ -12,7 +12,7 @@ import {
  */
 export const getMyMedications = async (): Promise<MedicationListResponse> => {
   const response = await apiClient.get<MedicationListResponse>(
-    '/api/medications/my'
+    '/medications/my'
   );
   return response.data;
 };
@@ -23,7 +23,7 @@ export const getMyMedications = async (): Promise<MedicationListResponse> => {
  */
 export const getMyMedicationLogs = async (): Promise<MedicationLogListResponse> => {
   const response = await apiClient.get<MedicationLogListResponse>(
-    '/api/medications/my/logs'
+    '/medications/my/logs'
   );
   return response.data;
 };
@@ -37,7 +37,7 @@ export const markMedicationTaken = async (
   payload: MarkMedicationTakenRequest
 ): Promise<MarkDoseResponse> => {
   const response = await apiClient.post<MarkDoseResponse>(
-    `/api/medications/${medicationId}/taken`,
+    `/medications/${medicationId}/taken`,
     payload
   );
   return response.data;

@@ -19,7 +19,7 @@ export const linkPatient = async (
   payload: LinkPatientPayload
 ): Promise<CaregiverLinkResponse> => {
   const response = await apiClient.post<CaregiverLinkResponse>(
-    '/api/caregivers/link',
+    '/caregivers/link',
     payload
   );
   return response.data;
@@ -31,7 +31,7 @@ export const linkPatient = async (
  */
 export const getLinkedPatients = async (): Promise<CaregiverPatientListResponse> => {
   const response = await apiClient.get<CaregiverPatientListResponse>(
-    '/api/caregivers/patients'
+    '/caregivers/patients'
   );
   return response.data;
 };
@@ -44,7 +44,7 @@ export const getPatientDetailsForCaregiver = async (
   patientId: string
 ): Promise<CaregiverPatientOverviewResponse> => {
   const response = await apiClient.get<CaregiverPatientOverviewResponse>(
-    `/api/caregivers/patients/${patientId}`
+    `/caregivers/patients/${patientId}`
   );
   return response.data;
 };
@@ -57,7 +57,7 @@ export const removeCaregiverLink = async (
   patientId: string
 ): Promise<GenericCaregiverResponse> => {
   const response = await apiClient.delete<GenericCaregiverResponse>(
-    `/api/caregivers/patients/${patientId}/link`
+    `/caregivers/patients/${patientId}/link`
   );
   return response.data;
 };
@@ -68,7 +68,7 @@ export const removeCaregiverLink = async (
  */
 export const getCaregiverEmergencyAlerts = async (): Promise<EmergencyListResponse> => {
   const response = await apiClient.get<EmergencyListResponse>(
-    '/api/caregivers/emergency-alerts'
+    '/caregivers/emergency-alerts'
   );
   return response.data;
 };
@@ -81,7 +81,7 @@ export const resolveEmergencyAlert = async (
   alertId: string
 ): Promise<EmergencyResponse> => {
   const response = await apiClient.patch<EmergencyResponse>(
-    `/api/emergency/${alertId}/resolve`
+    `/emergency/${alertId}/resolve`
   );
   return response.data;
 };
@@ -93,7 +93,7 @@ export const resolveEmergencyAlert = async (
 export const addMedicationForPatient = async (
   payload: AddMedicationPayload
 ): Promise<any> => {
-  const response = await apiClient.post('/api/medications', payload);
+  const response = await apiClient.post('/medications', payload);
   return response.data;
 };
 
@@ -105,7 +105,7 @@ export const getPatientMedications = async (
   patientId: string
 ): Promise<MedicationListResponse> => {
   const response = await apiClient.get<MedicationListResponse>(
-    `/api/medications/patient/${patientId}`
+    `/medications/patient/${patientId}`
   );
   return response.data;
 };
@@ -118,7 +118,7 @@ export const getPatientMedicationLogs = async (
   patientId: string
 ): Promise<MedicationLogListResponse> => {
   const response = await apiClient.get<MedicationLogListResponse>(
-    `/api/medications/patient/${patientId}/logs`
+    `/medications/patient/${patientId}/logs`
   );
   return response.data;
 };
@@ -131,7 +131,7 @@ export const updateMedication = async (
   medicationId: string,
   payload: UpdateMedicationPayload
 ): Promise<any> => {
-  const response = await apiClient.put(`/api/medications/${medicationId}`, payload);
+  const response = await apiClient.put(`/medications/${medicationId}`, payload);
   return response.data;
 };
 
@@ -142,6 +142,6 @@ export const updateMedication = async (
 export const deactivateMedication = async (
   medicationId: string
 ): Promise<any> => {
-  const response = await apiClient.delete(`/api/medications/${medicationId}`);
+  const response = await apiClient.delete(`/medications/${medicationId}`);
   return response.data;
 };

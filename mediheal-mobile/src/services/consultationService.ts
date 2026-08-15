@@ -10,7 +10,7 @@ import {
  */
 export const getMyConsultations = async (): Promise<ConsultationListResponse> => {
   const response = await apiClient.get<ConsultationListResponse>(
-    '/api/consultations/my'
+    '/consultations/my'
   );
   return response.data;
 };
@@ -23,7 +23,7 @@ export const getConsultationById = async (
   consultationId: string
 ): Promise<ConsultationDetailsResponse> => {
   const response = await apiClient.get<ConsultationDetailsResponse>(
-    `/api/consultations/${consultationId}`
+    `/consultations/${consultationId}`
   );
   return response.data;
 };

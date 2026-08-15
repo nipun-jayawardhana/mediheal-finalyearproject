@@ -11,7 +11,7 @@ import {
 export const getDoctors = async (
   params?: DoctorQueryParams
 ): Promise<DoctorListResponse> => {
-  const response = await apiClient.get<DoctorListResponse>('/api/doctors', {
+  const response = await apiClient.get<DoctorListResponse>('/doctors', {
     params,
   });
   return response.data;
@@ -33,7 +33,7 @@ export const getDoctorById = async (
   doctorId: string
 ): Promise<DoctorDetailsResponse> => {
   const response = await apiClient.get<DoctorDetailsResponse>(
-    `/api/doctors/${doctorId}`
+    `/doctors/${doctorId}`
   );
   return response.data;
 };

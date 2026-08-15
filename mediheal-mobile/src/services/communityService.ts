@@ -20,7 +20,7 @@ export const getCommunityPosts = async (params?: {
   limit?: number;
 }): Promise<CommunityFeedResponse> => {
   const response = await apiClient.get<CommunityFeedResponse>(
-    '/api/community/posts',
+    '/community/posts',
     { params }
   );
   return response.data;
@@ -34,7 +34,7 @@ export const getCommunityPostById = async (
   postId: string
 ): Promise<CommunityPostDetailsResponse> => {
   const response = await apiClient.get<CommunityPostDetailsResponse>(
-    `/api/community/posts/${postId}`
+    `/community/posts/${postId}`
   );
   return response.data;
 };
@@ -47,7 +47,7 @@ export const createCommunityPost = async (
   payload: CreatePostRequest
 ): Promise<CommunityPostResponse> => {
   const response = await apiClient.post<CommunityPostResponse>(
-    '/api/community/posts',
+    '/community/posts',
     payload
   );
   return response.data;
@@ -62,7 +62,7 @@ export const updateCommunityPost = async (
   payload: UpdatePostRequest
 ): Promise<CommunityPostResponse> => {
   const response = await apiClient.put<CommunityPostResponse>(
-    `/api/community/posts/${postId}`,
+    `/community/posts/${postId}`,
     payload
   );
   return response.data;
@@ -76,7 +76,7 @@ export const removeCommunityPost = async (
   postId: string
 ): Promise<GenericCommunityResponse> => {
   const response = await apiClient.delete<GenericCommunityResponse>(
-    `/api/community/posts/${postId}`
+    `/community/posts/${postId}`
   );
   return response.data;
 };
@@ -90,7 +90,7 @@ export const addCommunityComment = async (
   payload: CreateCommentRequest
 ): Promise<CommunityCommentResponse> => {
   const response = await apiClient.post<CommunityCommentResponse>(
-    `/api/community/posts/${postId}/comments`,
+    `/community/posts/${postId}/comments`,
     payload
   );
   return response.data;
@@ -104,7 +104,7 @@ export const removeCommunityComment = async (
   commentId: string
 ): Promise<GenericCommunityResponse> => {
   const response = await apiClient.delete<GenericCommunityResponse>(
-    `/api/community/comments/${commentId}`
+    `/community/comments/${commentId}`
   );
   return response.data;
 };

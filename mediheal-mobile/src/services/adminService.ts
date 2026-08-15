@@ -18,7 +18,7 @@ export const getAdminDoctors = async (params?: {
   search?: string;
 }): Promise<AdminDoctorListResponse> => {
   const response = await apiClient.get<AdminDoctorListResponse>(
-    '/api/admin/doctors',
+    '/admin/doctors',
     { params }
   );
   return response.data;
@@ -32,7 +32,7 @@ export const getAdminDoctorById = async (
   doctorId: string
 ): Promise<AdminDoctorDetailResponse> => {
   const response = await apiClient.get<AdminDoctorDetailResponse>(
-    `/api/admin/doctors/${doctorId}`
+    `/admin/doctors/${doctorId}`
   );
   return response.data;
 };
@@ -45,7 +45,7 @@ export const createDoctor = async (
   payload: CreateDoctorRequest
 ): Promise<CreateDoctorResponse> => {
   const response = await apiClient.post<CreateDoctorResponse>(
-    '/api/admin/doctors',
+    '/admin/doctors',
     payload
   );
   return response.data;
@@ -60,7 +60,7 @@ export const updateDoctor = async (
   payload: UpdateDoctorRequest
 ): Promise<AdminDoctorDetailResponse> => {
   const response = await apiClient.put<AdminDoctorDetailResponse>(
-    `/api/admin/doctors/${doctorId}`,
+    `/admin/doctors/${doctorId}`,
     payload
   );
   return response.data;
@@ -75,7 +75,7 @@ export const updateDoctorStatus = async (
   payload: DoctorStatusRequest
 ): Promise<AdminDoctorDetailResponse> => {
   const response = await apiClient.patch<AdminDoctorDetailResponse>(
-    `/api/admin/doctors/${doctorId}/status`,
+    `/admin/doctors/${doctorId}/status`,
     payload
   );
   return response.data;
