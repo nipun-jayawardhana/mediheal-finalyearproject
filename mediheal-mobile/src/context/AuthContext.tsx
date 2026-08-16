@@ -23,6 +23,7 @@ import {
   registerUserApi,
   getCurrentUserApi,
 } from '../services/authService';
+import { cancelMedicationReminders } from '../services/notificationService';
 
 interface AuthContextType {
   user: User | null;
@@ -129,6 +130,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
    * Logout handler
    */
   const logout = async (): Promise<void> => {
+    try {
+      await cancelMedicationReminders();
+    } catch (e) {
+      console.log('Error clearing reminders during logout:', e);
+    }
     await clearAuthStorage();
     setUser(null);
     setTokenState(null);

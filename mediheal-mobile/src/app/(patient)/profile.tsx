@@ -174,7 +174,21 @@ export default function PatientProfileScreen() {
           </InfoCard>
         )}
 
-        {/* 4. Language Selection Shortcut */}
+        {/* 4. Medication Reminders Shortcut */}
+        <TouchableOpacity
+          style={styles.langSettingCard}
+          onPress={() => router.push('/(patient)/medications' as any)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.langSettingIcon}>🔔</Text>
+          <View style={styles.langTextCol}>
+            <Text style={styles.langTitle}>Medication Reminders</Text>
+            <Text style={styles.langSub}>Manage local schedule dose notifications</Text>
+          </View>
+          <Text style={styles.arrow}>→</Text>
+        </TouchableOpacity>
+
+        {/* 5. Language Selection Shortcut */}
         <TouchableOpacity
           style={styles.langSettingCard}
           onPress={() => router.push('/language')}

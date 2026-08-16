@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, Alert, Switch, TouchableOpacity } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
@@ -10,6 +10,15 @@ import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getMyMedications, getMyMedicationLogs, markMedicationTaken } from '../../services/medicationService';
 import { Medication, MedicationLog } from '../../types/medication';
+import {
+  initNotificationHandler,
+  getRemindersEnabledPreference,
+  setRemindersEnabledPreference,
+  requestNotificationPermission,
+  synchronizeMedicationReminders,
+  cancelMedicationReminders,
+  setupNotificationResponseListener,
+} from '../../services/notificationService';
 
 export default function PatientMedicationsScreen() {
   const router = useRouter();
@@ -19,6 +28,8 @@ export default function PatientMedicationsScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [markingKey, setMarkingKey] = useState<string | null>(null);
+  const [remindersEnabled, setRemindersEnabled] = useState<boolean>(false);
+  const [togglingReminders, setTogglingReminders] = useState<boolean>(false);
 
   // Compute local today YYYY-MM-DD string without UTC shifts
   const todayIso = useMemo(() => {
@@ -29,18 +40,37 @@ export default function PatientMedicationsScreen() {
     return `${year}-${month}-${day}`;
   }, []);
 
+  // Initialize notification handler & response listener on mount
+  useEffect(() => {
+    initNotificationHandler();
+    const cleanupListener = setupNotificationResponseListener(() => {
+      router.push('/(patient)/medications' as any);
+    });
+    return () => {
+      cleanupListener();
+    };
+  }, [router]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
 
     try {
-      const [medsRes, logsRes] = await Promise.all([
+      const [medsRes, logsRes, pref] = await Promise.all([
         getMyMedications(),
         getMyMedicationLogs().catch(() => null),
+        getRemindersEnabledPreference(),
       ]);
 
+      setRemindersEnabled(pref);
+
       if (medsRes && medsRes.success) {
-        setMedications(medsRes.data || []);
+        const activeMeds = medsRes.data || [];
+        setMedications(activeMeds);
+        // Automatically sync reminders if enabled
+        if (pref) {
+          await synchronizeMedicationReminders(activeMeds);
+        }
       } else {
         setErrorMsg('Failed to load medications.');
       }
@@ -60,6 +90,44 @@ export default function PatientMedicationsScreen() {
       fetchData();
     }, [fetchData])
   );
+
+  const handleToggleReminders = async (val: boolean) => {
+    setTogglingReminders(true);
+    try {
+      if (val) {
+        // Request permission
+        const granted = await requestNotificationPermission();
+        if (granted) {
+          await setRemindersEnabledPreference(true);
+          setRemindersEnabled(true);
+          const syncRes = await synchronizeMedicationReminders(medications);
+          Alert.alert(
+            'Medication Reminders ON',
+            `Local dose notifications enabled successfully. (${syncRes.scheduledCount} reminder(s) scheduled)`
+          );
+        } else {
+          await setRemindersEnabledPreference(false);
+          setRemindersEnabled(false);
+          Alert.alert(
+            'Notification Permission Required',
+            'Medication tracking works without notifications, but dose reminders require notification permissions to be granted in your device settings.'
+          );
+        }
+      } else {
+        await cancelMedicationReminders();
+        await setRemindersEnabledPreference(false);
+        setRemindersEnabled(false);
+        Alert.alert(
+          'Medication Reminders OFF',
+          'Scheduled local medication alerts have been cancelled.'
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Reminder Configuration Error', err.message || 'Failed to update reminder preference.');
+    } finally {
+      setTogglingReminders(false);
+    }
+  };
 
   const handleMarkTaken = async (medication: Medication, timeSlot: string) => {
     const key = `${medication._id}_${timeSlot}`;
@@ -170,6 +238,27 @@ export default function PatientMedicationsScreen() {
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
               <View style={styles.headerComponent}>
+                {/* Medication Reminders Settings Card */}
+                <View style={styles.reminderCard}>
+                  <View style={styles.reminderTextCol}>
+                    <Text style={styles.reminderTitle}>
+                      Medication Reminders: {remindersEnabled ? 'ON' : 'OFF'}
+                    </Text>
+                    <Text style={styles.reminderSub}>
+                      {remindersEnabled
+                        ? 'Local push alerts will remind you at dose times.'
+                        : 'Enable alerts to get local dose notifications.'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={remindersEnabled}
+                    onValueChange={handleToggleReminders}
+                    disabled={togglingReminders}
+                    trackColor={{ false: colors.border, true: colors.primaryLight }}
+                    thumbColor={remindersEnabled ? colors.primary : '#f4f3f4'}
+                  />
+                </View>
+
                 {/* Adherence Summary Box */}
                 <View style={styles.adherenceCard}>
                   <View style={styles.adherenceTextCol}>
@@ -218,6 +307,33 @@ const styles = StyleSheet.create({
   },
   headerComponent: {
     marginBottom: spacing.xs,
+  },
+  reminderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    ...shadows.card,
+  },
+  reminderTextCol: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  reminderTitle: {
+    ...typography.bodyBold,
+    fontSize: 15,
+    color: colors.primaryDark,
+  },
+  reminderSub: {
+    ...typography.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   adherenceCard: {
     flexDirection: 'row',

@@ -39,6 +39,13 @@
           "microphonePermission": "MediHeal requires access to your microphone for voice symptom checker input.",
           "speechRecognitionPermission": "MediHeal requires access to speech recognition for voice commands."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#208AEF"
+        }
       ]
     ],
     "experiments": {
