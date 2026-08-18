@@ -11,7 +11,6 @@
  * Note: Gemini NEVER provides medical diagnosis, prescription, or final specialist recommendations.
  */
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
@@ -120,11 +119,11 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
  */
 const generateFollowUp = async (symptoms = [], conversation = [], questionCount = 0) => {
   const apiKey = process.env.GEMINI_API_KEY;
+  const configuredModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const currentCount = Number(questionCount) || conversation.length || 0;
 
   // Hard limit: Max 3 questions
   if (currentCount >= 3) {
-    // Return structured summary extraction directly
     return extractStructuredSummary(symptoms, conversation);
   }
 
@@ -139,32 +138,39 @@ const generateFollowUp = async (symptoms = [], conversation = [], questionCount 
     .join('\n\n');
 
   const systemPrompt = `You are MediHeal's conversational symptom assistant for elderly patients.
-Your sole job is to ask simple, polite, concise follow-up questions (ONE sentence max) to clarify a patient's symptoms before medical assessment, OR output a structured summary when enough context is gathered or 3 questions have been reached.
+Your task is to ask 1 short, polite follow-up question (1 sentence max) to clarify symptoms, OR output a complete summary when enough context is gathered or 3 questions have been reached.
 
-CRITICAL RULES:
-1. Return ONLY valid JSON format. No conversational text outside JSON.
-2. Question count so far: ${currentCount} out of maximum 3 allowed follow-up questions.
-3. If currentCount is 3 OR if you already have enough symptom context (duration, severity, associated symptoms), return status = "complete".
-4. If status = "ask":
-   - "question": ONE short, gentle sentence tailored to elderly users (e.g. "How long have you had the headache?", "Is the pain mild, moderate, or severe?").
-   - "field": "duration", "severity", "location", or "associated_symptoms".
-   - "quickOptions": Optional array of 2-3 short answer chips (e.g. ["Mild", "Moderate", "Severe"] or ["Today", "1-3 days", "More than 3 days"] or ["Yes", "No"]).
-5. If status = "complete":
-   - "summary": Object containing:
-     - "symptoms": Array of all identified symptom names (strings).
-     - "duration": Estimated duration string (e.g. "2 days", "since yesterday", "unspecified").
-     - "severity": "mild", "moderate", or "severe".
-     - "additionalContext": Array of relevant context strings extracted from conversation.
-6. Do NOT provide medical diagnosis, treatment recommendations, prescriptions, or specialist advice. Your ONLY role is symptom clarification and summary.`;
+Respond strictly with a single JSON object matching one of these two schemas:
+
+Schema 1 (When asking a follow-up question):
+{
+  "status": "ask",
+  "question": "How long have you had the headache?",
+  "field": "duration",
+  "quickOptions": ["Today", "1-3 days", "More than 3 days"]
+}
+
+Schema 2 (When conversation is complete or 3 questions reached):
+{
+  "status": "complete",
+  "summary": {
+    "symptoms": ["headache", "vomiting"],
+    "duration": "2 days",
+    "severity": "moderate",
+    "additionalContext": ["sensitivity to light"]
+  }
+}
+
+Do NOT prescribe medications, claim a medical diagnosis, or provide markdown explanations outside the JSON.`;
 
   const userPrompt = `Initial Symptom: ${symptomsText}
 
 Conversation History so far:
-${formattedHistory || 'None (This is the start of follow-up questioning)'}
+${formattedHistory || 'None'}
 
-Question Count So Far: ${currentCount} / 3
+Current Question Count: ${currentCount} / 3
 
-JSON Output:`;
+Output JSON:`;
 
   const payload = {
     contents: [
@@ -176,21 +182,14 @@ JSON Output:`;
       },
     ],
     generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 350,
+      temperature: 0.1,
+      maxOutputTokens: 1000,
       responseMimeType: 'application/json',
     },
   };
 
-  const modelsToTry = [
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash-001',
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro-latest',
-    'gemini-1.5-pro',
-  ];
+  // Modern active model list (removing obsolete 1.5 versions)
+  const modelsToTry = Array.from(new Set([configuredModel, 'gemini-3.6-flash', 'gemini-2.5-pro']));
 
   let lastError = null;
 
@@ -200,6 +199,8 @@ JSON Output:`;
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
     try {
+      console.log(`[GEMINI SERVICE] Selected model: ${modelName}`);
+
       const response = await fetch(endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -209,9 +210,38 @@ JSON Output:`;
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gemini API ${modelName} returned HTTP ${response.status}: ${errText.substring(0, 150)}`);
+      if (response.status === 503 || response.status === 429) {
+        console.warn(`[GEMINI SERVICE] Model ${modelName} returned HTTP ${response.status} capacity spike. Retrying...`);
+        await new Promise((r) => setTimeout(r, 1500));
+        const retryRes = await fetch(endpointUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          const retryContent = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (retryContent) {
+            const parsedRetry = parseJSONFromText(retryContent);
+            if (parsedRetry && typeof parsedRetry === 'object') {
+              console.log('[GEMINI SERVICE] generateContent test: PASS (after retry)');
+              if (parsedRetry.status === 'ask' && parsedRetry.question) {
+                return {
+                  status: 'ask',
+                  question: parsedRetry.question.trim().substring(0, 150),
+                  field: parsedRetry.field || 'follow_up',
+                  quickOptions: Array.isArray(parsedRetry.quickOptions)
+                    ? parsedRetry.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
+                    : undefined,
+                };
+              }
+              if (parsedRetry.status === 'complete' && parsedRetry.summary) {
+                return validateAndFormatSummary(parsedRetry.summary, symptoms, conversation);
+              }
+            }
+          }
+        }
       }
 
       const data = await response.json();
@@ -223,8 +253,11 @@ JSON Output:`;
 
       const parsed = parseJSONFromText(candidateContent);
       if (!parsed || typeof parsed !== 'object') {
+        console.warn(`[GEMINI SERVICE] Raw text from ${modelName}:`, candidateContent);
         throw new Error(`Gemini API ${modelName} did not return valid JSON object.`);
       }
+
+      console.log('[GEMINI SERVICE] generateContent test: PASS');
 
       // Output Contract Validation
       if (parsed.status === 'ask') {
@@ -232,7 +265,6 @@ JSON Output:`;
           throw new Error('Gemini ask response missing valid question string');
         }
 
-        // Clean & truncate question length (max 1 concise sentence for elderly users)
         let cleanQuestion = parsed.question.trim();
         if (cleanQuestion.length > 150) {
           cleanQuestion = cleanQuestion.substring(0, 147) + '...';
@@ -252,7 +284,6 @@ JSON Output:`;
         return validateAndFormatSummary(parsed.summary, symptoms, conversation);
       }
 
-      // If status is unrecognized, force summary or ask
       if (currentCount >= 3) {
         return extractStructuredSummary(symptoms, conversation);
       }
@@ -263,8 +294,8 @@ JSON Output:`;
     }
   }
 
-  // Fallback if all Gemini models failed
-  console.warn('⚠️ [GEMINI SERVICE] All Gemini API attempts failed. Using deterministic fallback.');
+  // Fallback if Gemini models failed
+  console.warn('⚠️ [GEMINI SERVICE] Gemini API attempts failed. Using deterministic fallback.');
   return getDeterministicFallback(symptoms, conversation, currentCount);
 };
 
