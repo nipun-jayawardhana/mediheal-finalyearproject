@@ -59,11 +59,15 @@ export default function AnalysisResultScreen() {
     if (isSpeaking) {
       stopSpeech();
     } else if (result) {
+      const condList = Array.isArray(result.possibleConditions) && result.possibleConditions.length > 0
+        ? result.possibleConditions.map((c) => c.condition).join(', ')
+        : result.possibleCondition;
+
       const guidanceText = Array.isArray(result.guidance) && result.guidance.length > 0
         ? result.guidance.join('. ')
         : 'Consult a qualified doctor.';
 
-      let audioSummary = `Symptom Analysis Result. Assessment: ${result.possibleCondition}. Risk Level: ${result.riskLevel} risk. Recommended Specialist: ${result.recommendedSpecialist}. Immediate Care Steps: ${guidanceText}. Disclaimer: ${result.disclaimer}`;
+      let audioSummary = `Symptom Analysis Result. Possible conditions include: ${condList}. Risk Level: ${result.riskLevel} risk. Recommended Specialist: ${result.recommendedSpecialist}. Immediate Care Steps: ${guidanceText}. Disclaimer: ${result.disclaimer}`;
 
       if (result.emergencyRecommended || result.riskLevel === 'high') {
         audioSummary = `Urgent Medical Attention Recommended. ${audioSummary}`;
@@ -101,6 +105,9 @@ export default function AnalysisResultScreen() {
   }
 
   const isEmergency = result.emergencyRecommended || result.riskLevel === 'high';
+  const conditionsList = Array.isArray(result.possibleConditions) && result.possibleConditions.length > 0
+    ? result.possibleConditions
+    : [{ condition: result.possibleCondition, confidence: 'medium' }];
 
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
@@ -164,7 +171,7 @@ export default function AnalysisResultScreen() {
           </View>
         )}
 
-        {/* Possible Condition Card */}
+        {/* Possible Conditions Card */}
         <View
           style={[
             styles.conditionCard,
@@ -174,19 +181,60 @@ export default function AnalysisResultScreen() {
         >
           <View style={styles.conditionHeaderRow}>
             <Text style={styles.conditionIcon}>
-              {result.riskLevel === 'high' ? '⚠️' : '⚙️'}
+              {result.riskLevel === 'high' ? '⚠️' : '🩺'}
             </Text>
             <View style={styles.conditionTextCol}>
               <StatusBadge
                 status={result.riskLevel}
                 label={`${result.riskLevel.toUpperCase()} RISK ASSESSMENT`}
               />
-              <Text style={styles.conditionTitle}>{result.possibleCondition}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: 4 }}>
+                POSSIBLE CONDITIONS ({conditionsList.length})
+              </Text>
             </View>
           </View>
 
+          {conditionsList.map((item, idx) => (
+            <View
+              key={idx}
+              style={{
+                backgroundColor: idx === 0 ? colors.primaryLight : '#F8FAFC',
+                borderRadius: borderRadius.md,
+                padding: spacing.md,
+                marginBottom: spacing.xs,
+                borderWidth: idx === 0 ? 1.5 : 1,
+                borderColor: idx === 0 ? colors.primary : colors.border,
+              }}
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text
+                  style={[
+                    styles.conditionTitle,
+                    { fontSize: idx === 0 ? 18 : 15, fontWeight: idx === 0 ? '800' : '600' },
+                  ]}
+                >
+                  {idx + 1}. {item.condition}
+                </Text>
+                {item.confidence && (
+                  <View
+                    style={{
+                      backgroundColor: idx === 0 ? colors.primary : '#94A3B8',
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: borderRadius.pill,
+                    }}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>
+                      {item.confidence} confidence
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          ))}
+
           <Text style={styles.matchedText}>
-            Based on your symptoms ({result.matchedSymptoms.join(', ') || result.symptoms.join(', ')}).
+            Based on symptoms: {result.matchedSymptoms.join(', ') || result.symptoms.join(', ')}.
           </Text>
         </View>
 

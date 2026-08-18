@@ -148,6 +148,20 @@ const normalizeSymptoms = (inputSymptoms) => {
 };
 
 /**
+ * Checks if any input symptoms match emergency safety triggers.
+ * @param {Array<string>} rawSymptoms
+ * @returns {boolean}
+ */
+const isEmergencySymptom = (rawSymptoms) => {
+  const normalizedInput = normalizeSymptoms(rawSymptoms);
+  return normalizedInput.some((userSym) =>
+    EMERGENCY_SYMPTOMS.some(
+      (emergSym) => userSym === emergSym || userSym.includes(emergSym)
+    )
+  );
+};
+
+/**
  * Analyzes symptoms based on safe rule-based matching and emergency triggers.
  * @param {Array<string>} rawSymptoms - Array of symptom strings
  * @param {string} [duration] - Optional duration
@@ -158,16 +172,9 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
   const normalizedInput = normalizeSymptoms(rawSymptoms);
 
   // 1. Check Emergency Safety Triggers
-  // Detect high-risk symptoms regardless of other matching results
-  const isEmergencyTriggered = normalizedInput.some((userSym) =>
-    EMERGENCY_SYMPTOMS.some(
-      (emergSym) => userSym === emergSym || userSym.includes(emergSym)
-    )
-  );
+  const isEmergencyTriggered = isEmergencySymptom(normalizedInput);
 
   // 2. Perform Rule Matching
-  // Compare normalized symptoms against rule definitions.
-  // Choose rule with the highest number of matching symptoms.
   let bestRule = null;
   let maxMatchedSymptoms = [];
 
@@ -184,6 +191,7 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
 
   // 3. Construct Result
   let possibleCondition;
+  let possibleConditions = [];
   let riskLevel;
   let recommendedSpecialist;
   let guidance;
@@ -192,6 +200,7 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
 
   if (bestRule && maxMatchedSymptoms.length > 0) {
     possibleCondition = bestRule.possibleCondition;
+    possibleConditions = [{ condition: possibleCondition, confidence: 'medium' }];
     riskLevel = bestRule.riskLevel;
     recommendedSpecialist = bestRule.recommendedSpecialist;
     guidance = [...bestRule.guidance];
@@ -200,6 +209,7 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
   } else {
     // Default fallback when no meaningful rule matches
     possibleCondition = 'Unable to determine a possible condition';
+    possibleConditions = [{ condition: possibleCondition, confidence: 'low' }];
     riskLevel = 'low';
     recommendedSpecialist = 'General Physician';
     guidance = [
@@ -223,19 +233,24 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
     duration,
     severity,
     possibleCondition,
+    possibleConditions,
     riskLevel,
     recommendedSpecialist,
     guidance,
     matchedSymptoms,
     emergencyRecommended,
     disclaimer: MEDICAL_DISCLAIMER,
+    analysisSource: isEmergencyTriggered ? 'rule-based-emergency' : 'rule-based-fallback',
+    modelName: '',
   };
 };
 
 module.exports = {
   analyzeSymptoms,
   normalizeSymptoms,
+  isEmergencySymptom,
   MEDICAL_DISCLAIMER,
   RULES,
   EMERGENCY_SYMPTOMS,
 };
+

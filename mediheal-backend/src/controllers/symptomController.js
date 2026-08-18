@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const SymptomCheck = require('../models/SymptomCheck');
 const symptomService = require('../services/symptomService');
+const openBioLLMService = require('../services/openBioLLMService');
 
 /**
  * @desc    Analyze symptoms and recommend specialist
@@ -63,27 +64,86 @@ const analyzeSymptoms = async (req, res, next) => {
     }
 
     const inputDuration = typeof duration === 'string' ? duration.trim() : '';
+    const normalizedInputSymptoms = symptomService.normalizeSymptoms(symptoms);
 
-    // 6. Perform symptom analysis via service
-    const analysisResult = symptomService.analyzeSymptoms(
-      symptoms,
-      inputDuration,
-      inputSeverity
-    );
+    // 6. Emergency Safety Layer Check (Deterministic Emergency Rules)
+    const isEmergency = symptomService.isEmergencySymptom(normalizedInputSymptoms);
 
-    // 7. Save record to database using patientId from req.user._id
+    let finalAnalysis = null;
+
+    if (isEmergency) {
+      // Deterministic Emergency Triggered: DO NOT call LLM. Force high risk emergency.
+      const ruleResult = symptomService.analyzeSymptoms(
+        normalizedInputSymptoms,
+        inputDuration,
+        inputSeverity
+      );
+      finalAnalysis = {
+        ...ruleResult,
+        analysisSource: 'rule-based-emergency',
+        modelName: '',
+      };
+    } else {
+      // Non-emergency: Attempt OpenBioLLM Inference
+      try {
+        const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
+          normalizedInputSymptoms,
+          inputDuration,
+          inputSeverity
+        );
+
+        // Calculate controlled MediHeal risk level (LLM confidence is not clinical risk)
+        let computedRisk = 'low';
+        if (inputSeverity === 'severe') computedRisk = 'medium';
+        else if (inputSeverity === 'moderate') computedRisk = 'low';
+
+        finalAnalysis = {
+          symptoms: normalizedInputSymptoms,
+          duration: inputDuration,
+          severity: inputSeverity,
+          possibleCondition: aiResult.topCondition,
+          possibleConditions: aiResult.possibleConditions,
+          riskLevel: computedRisk,
+          recommendedSpecialist: aiResult.recommendedSpecialist,
+          guidance: aiResult.guidance,
+          matchedSymptoms: normalizedInputSymptoms,
+          emergencyRecommended: false,
+          disclaimer: symptomService.MEDICAL_DISCLAIMER,
+          analysisSource: 'openbiollm',
+          modelName: aiResult.modelName,
+        };
+      } catch (aiError) {
+        // Log AI error server-side silently, fallback to safe rule-based engine
+        console.warn('OpenBioLLM inference failed, invoking rule-based fallback:', aiError.message);
+        const fallbackResult = symptomService.analyzeSymptoms(
+          normalizedInputSymptoms,
+          inputDuration,
+          inputSeverity
+        );
+        finalAnalysis = {
+          ...fallbackResult,
+          analysisSource: 'rule-based-fallback',
+          modelName: '',
+        };
+      }
+    }
+
+    // 7. Save record to database
     const symptomCheck = await SymptomCheck.create({
       patientId,
-      symptoms: analysisResult.symptoms,
-      duration: analysisResult.duration,
-      severity: analysisResult.severity,
-      possibleCondition: analysisResult.possibleCondition,
-      riskLevel: analysisResult.riskLevel,
-      recommendedSpecialist: analysisResult.recommendedSpecialist,
-      guidance: analysisResult.guidance,
-      matchedSymptoms: analysisResult.matchedSymptoms,
-      emergencyRecommended: analysisResult.emergencyRecommended,
-      disclaimer: analysisResult.disclaimer,
+      symptoms: finalAnalysis.symptoms,
+      duration: finalAnalysis.duration,
+      severity: finalAnalysis.severity,
+      possibleCondition: finalAnalysis.possibleCondition,
+      possibleConditions: finalAnalysis.possibleConditions,
+      analysisSource: finalAnalysis.analysisSource,
+      modelName: finalAnalysis.modelName,
+      riskLevel: finalAnalysis.riskLevel,
+      recommendedSpecialist: finalAnalysis.recommendedSpecialist,
+      guidance: finalAnalysis.guidance,
+      matchedSymptoms: finalAnalysis.matchedSymptoms,
+      emergencyRecommended: finalAnalysis.emergencyRecommended,
+      disclaimer: finalAnalysis.disclaimer,
     });
 
     return res.status(201).json({
@@ -93,6 +153,9 @@ const analyzeSymptoms = async (req, res, next) => {
         symptomCheckId: symptomCheck._id,
         symptoms: symptomCheck.symptoms,
         possibleCondition: symptomCheck.possibleCondition,
+        possibleConditions: symptomCheck.possibleConditions,
+        analysisSource: symptomCheck.analysisSource,
+        modelName: symptomCheck.modelName,
         riskLevel: symptomCheck.riskLevel,
         recommendedSpecialist: symptomCheck.recommendedSpecialist,
         guidance: symptomCheck.guidance,

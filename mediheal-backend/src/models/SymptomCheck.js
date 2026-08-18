@@ -35,6 +35,22 @@ const symptomCheckSchema = new mongoose.Schema(
       required: [true, 'Possible condition is required'],
       trim: true,
     },
+    possibleConditions: [
+      {
+        condition: { type: String, trim: true },
+        confidence: { type: String, trim: true, default: 'medium' },
+      },
+    ],
+    analysisSource: {
+      type: String,
+      enum: ['openbiollm', 'rule-based-fallback', 'rule-based-emergency'],
+      default: 'rule-based-fallback',
+    },
+    modelName: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     riskLevel: {
       type: String,
       enum: {

@@ -7,10 +7,18 @@ export interface SymptomAnalysisRequest {
   severity?: SeverityLevel;
 }
 
+export interface PossibleConditionItem {
+  condition: string;
+  confidence?: 'high' | 'medium' | 'low';
+}
+
 export interface SymptomAnalysisResult {
   symptomCheckId: string;
   symptoms: string[];
   possibleCondition: string;
+  possibleConditions?: PossibleConditionItem[];
+  analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
+  modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
   guidance: string[];
@@ -33,6 +41,9 @@ export interface SymptomCheckRecord {
   duration?: string;
   severity: SeverityLevel;
   possibleCondition: string;
+  possibleConditions?: PossibleConditionItem[];
+  analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
+  modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
   guidance: string[];
