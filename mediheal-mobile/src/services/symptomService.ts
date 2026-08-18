@@ -4,7 +4,23 @@ import {
   SymptomAnalysisResponse,
   SymptomCheckDetailResponse,
   SymptomHistoryResponse,
+  SymptomFollowUpRequest,
+  SymptomFollowUpResponse,
 } from '../types/symptom';
+
+/**
+ * Get next conversational follow-up question or structured summary from Gemini service
+ * Endpoint: POST /api/symptoms/follow-up
+ */
+export const getSymptomFollowUpApi = async (
+  payload: SymptomFollowUpRequest
+): Promise<SymptomFollowUpResponse> => {
+  const response = await apiClient.post<SymptomFollowUpResponse>(
+    '/symptoms/follow-up',
+    payload
+  );
+  return response.data;
+};
 
 /**
  * Analyze symptoms and recommend specialist
@@ -41,3 +57,4 @@ export const getSymptomCheckByIdApi = async (
   );
   return response.data;
 };
+

@@ -273,7 +273,7 @@ export default function AnalysisResultScreen() {
 
         {/* Re-check Symptoms Button */}
         <AppButton
-          title="🔄 Check Symptoms Again"
+          title="❓ Ask Follow-Up / Re-check Symptoms"
           onPress={handleRecheckSymptoms}
           variant="outline"
           style={styles.recheckBtn}

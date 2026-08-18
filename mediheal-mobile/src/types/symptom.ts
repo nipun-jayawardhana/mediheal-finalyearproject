@@ -64,3 +64,37 @@ export interface SymptomCheckDetailResponse {
   success: boolean;
   data: SymptomCheckRecord;
 }
+
+export interface SymptomConversationTurn {
+  question: string;
+  answer: string;
+}
+
+export interface SymptomFollowUpRequest {
+  symptoms: string[];
+  conversation: SymptomConversationTurn[];
+  questionCount: number;
+}
+
+export interface SymptomSummaryData {
+  symptoms: string[];
+  duration: string;
+  severity: SeverityLevel;
+  additionalContext: string[];
+}
+
+export interface SymptomFollowUpResponseData {
+  status: 'ask' | 'complete' | 'emergency';
+  question?: string;
+  field?: string;
+  quickOptions?: string[];
+  summary?: SymptomSummaryData;
+  isEmergency?: boolean;
+  emergencyWarning?: string;
+}
+
+export interface SymptomFollowUpResponse {
+  success: boolean;
+  data: SymptomFollowUpResponseData;
+}
+

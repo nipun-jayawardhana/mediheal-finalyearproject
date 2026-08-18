@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -12,8 +13,12 @@ import { AppInput } from '../../components/AppInput';
 import { AppButton } from '../../components/AppButton';
 import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
-import { analyzeSymptomsApi } from '../../services/symptomService';
-import { SeverityLevel } from '../../types/symptom';
+import { analyzeSymptomsApi, getSymptomFollowUpApi } from '../../services/symptomService';
+import {
+  SeverityLevel,
+  SymptomConversationTurn,
+  SymptomSummaryData,
+} from '../../types/symptom';
 import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,17 +33,34 @@ export default function SymptomCheckerScreen() {
   const { user } = useAuth();
   const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
 
-  // Manual Symptom State
+  // Step Mode: 'initial' | 'conversing' | 'summary'
+  const [stepMode, setStepMode] = useState<'initial' | 'conversing' | 'summary'>('initial');
+
+  // Symptoms & Input State
   const [symptomInput, setSymptomInput] = useState('');
   const [symptomsList, setSymptomsList] = useState<string[]>([]);
-  const [duration, setDuration] = useState('2 days');
-  const [severity, setSeverity] = useState<SeverityLevel>('moderate');
 
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [inputError, setInputError] = useState('');
+  // Conversation History
+  const [conversation, setConversation] = useState<SymptomConversationTurn[]>([]);
+  const [questionCount, setQuestionCount] = useState<number>(0);
+  const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [currentQuickOptions, setCurrentQuickOptions] = useState<string[]>([]);
+  const [answerInput, setAnswerInput] = useState<string>('');
 
-  // Real Voice Hook
+  // Structured Summary State
+  const [summaryData, setSummaryData] = useState<SymptomSummaryData | null>(null);
+
+  // Emergency Trigger State
+  const [isEmergency, setIsEmergency] = useState<boolean>(false);
+  const [emergencyWarning, setEmergencyWarning] = useState<string>('');
+
+  // Loading & Error States
+  const [loading, setLoading] = useState<boolean>(false);
+  const [loadingText, setLoadingText] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [inputError, setInputError] = useState<string>('');
+
+  // Voice Hook Integration
   const {
     voiceState,
     isListening,
@@ -49,14 +71,17 @@ export default function SymptomCheckerScreen() {
     resetVoice,
   } = useVoice({
     language: userLang,
-    onTranscript: (capturedText, _isFinal) => {
+    onTranscript: (capturedText) => {
       if (capturedText) {
-        setSymptomInput(capturedText);
+        if (stepMode === 'conversing') {
+          setAnswerInput(capturedText);
+        } else {
+          setSymptomInput(capturedText);
+        }
       }
     },
   });
 
-  // Toggle Microphone Listening
   const handleToggleMic = () => {
     if (isListening) {
       stopListening();
@@ -65,12 +90,11 @@ export default function SymptomCheckerScreen() {
     }
   };
 
-  // Convert recognized or typed text into symptom chips (conservative splitting by comma / "and")
+  // Convert voice transcript to symptom chips in initial state
   const handleConvertVoiceToChips = () => {
     const rawText = (symptomInput || transcript).trim();
     if (!rawText) return;
 
-    // Conservative split by comma, semicolon, or "and" / "සහ" / "මෙන්ම"
     const splitTokens = rawText
       .split(/[,;\n]| and | සහ | සහව | සහත් /i)
       .map((s) => s.trim().toLowerCase())
@@ -88,7 +112,7 @@ export default function SymptomCheckerScreen() {
     resetVoice();
   };
 
-  // Add single symptom chip handler (manual)
+  // Add single symptom chip (manual)
   const handleAddSymptom = () => {
     setInputError('');
     const clean = symptomInput.trim();
@@ -110,58 +134,199 @@ export default function SymptomCheckerScreen() {
       return;
     }
 
-    setSymptomsList([...symptomsList, clean]);
+    setSymptomsList([...symptomsList, clean.toLowerCase()]);
     setSymptomInput('');
   };
 
-  // Remove symptom chip handler
   const handleRemoveSymptom = (index: number) => {
     const updated = [...symptomsList];
     updated.splice(index, 1);
     setSymptomsList(updated);
   };
 
-  // Reset form
+  // Reset entire conversation state
   const handleRestart = () => {
     resetVoice();
+    setStepMode('initial');
     setSymptomInput('');
     setSymptomsList([]);
-    setDuration('2 days');
-    setSeverity('moderate');
+    setConversation([]);
+    setQuestionCount(0);
+    setCurrentQuestion('');
+    setCurrentQuickOptions([]);
+    setAnswerInput('');
+    setSummaryData(null);
+    setIsEmergency(false);
+    setEmergencyWarning('');
     setErrorMsg('');
     setInputError('');
+    setLoading(false);
   };
 
-  // Submit Analysis to existing backend rule-based engine
-  const handleAnalyze = async () => {
+  // Start Conversational Assessment
+  const handleStartConversationalAssessment = async () => {
     setErrorMsg('');
     setInputError('');
 
-    // Check if user typed or spoke a symptom without pressing "+ Add"
-    let currentSymptoms = [...symptomsList];
+    let activeSymptoms = [...symptomsList];
     const pendingInput = symptomInput.trim();
-    if (pendingInput && !currentSymptoms.includes(pendingInput.toLowerCase())) {
-      currentSymptoms.push(pendingInput);
-      setSymptomsList(currentSymptoms);
+    if (pendingInput && !activeSymptoms.includes(pendingInput.toLowerCase())) {
+      activeSymptoms.push(pendingInput.toLowerCase());
+      setSymptomsList(activeSymptoms);
       setSymptomInput('');
     }
 
-    if (currentSymptoms.length === 0) {
-      setErrorMsg('Please add at least one symptom to analyze');
+    if (activeSymptoms.length === 0) {
+      setErrorMsg('Please add at least one symptom to start assessment');
       return;
     }
 
     setLoading(true);
+    setLoadingText('Preparing follow-up question...');
+
+    try {
+      const res = await getSymptomFollowUpApi({
+        symptoms: activeSymptoms,
+        conversation: [],
+        questionCount: 0,
+      });
+
+      if (res && res.success && res.data) {
+        if (res.data.status === 'emergency' || res.data.isEmergency) {
+          setIsEmergency(true);
+          setEmergencyWarning(res.data.emergencyWarning || 'High risk symptoms detected! Seek immediate medical attention.');
+          setStepMode('conversing');
+        } else if (res.data.status === 'ask' && res.data.question) {
+          setCurrentQuestion(res.data.question);
+          setCurrentQuickOptions(res.data.quickOptions || []);
+          setQuestionCount(1);
+          setStepMode('conversing');
+        } else if (res.data.status === 'complete' && res.data.summary) {
+          setSummaryData(res.data.summary);
+          setStepMode('summary');
+        }
+      } else {
+        // Fallback: Proceed directly to summary if service unavailable
+        setSummaryData({
+          symptoms: activeSymptoms,
+          duration: '2 days',
+          severity: 'moderate',
+          additionalContext: [],
+        });
+        setStepMode('summary');
+      }
+    } catch (err: any) {
+      // Fallback on network/API failure
+      setSummaryData({
+        symptoms: activeSymptoms,
+        duration: '2 days',
+        severity: 'moderate',
+        additionalContext: [],
+      });
+      setStepMode('summary');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Submit Answer to Current Question
+  const handleSendAnswer = async (providedAnswer?: string) => {
+    const finalAnswer = (providedAnswer || answerInput || transcript).trim();
+    if (!finalAnswer) return;
+
+    setErrorMsg('');
+    resetVoice();
+
+    const updatedTurn: SymptomConversationTurn = {
+      question: currentQuestion,
+      answer: finalAnswer,
+    };
+    const newHistory = [...conversation, updatedTurn];
+    setConversation(newHistory);
+    setAnswerInput('');
+
+    const newQCount = questionCount;
+
+    setLoading(true);
+    setLoadingText('Analyzing your answer...');
+
+    try {
+      const res = await getSymptomFollowUpApi({
+        symptoms: symptomsList,
+        conversation: newHistory,
+        questionCount: newQCount,
+      });
+
+      if (res && res.success && res.data) {
+        if (res.data.status === 'emergency' || res.data.isEmergency) {
+          setIsEmergency(true);
+          setEmergencyWarning(res.data.emergencyWarning || 'High risk symptoms detected! Seek immediate medical attention.');
+        } else if (res.data.status === 'ask' && res.data.question && newQCount < 3) {
+          setCurrentQuestion(res.data.question);
+          setCurrentQuickOptions(res.data.quickOptions || []);
+          setQuestionCount(newQCount + 1);
+        } else {
+          // Status complete or 3 question limit reached
+          const completeSummary = res.data.summary || {
+            symptoms: symptomsList,
+            duration: extractFieldValue(newHistory, 'duration') || '2 days',
+            severity: (extractFieldValue(newHistory, 'severity') as SeverityLevel) || 'moderate',
+            additionalContext: newHistory.map((c) => `${c.question}: ${c.answer}`),
+          };
+          setSummaryData(completeSummary);
+          setStepMode('summary');
+        }
+      } else {
+        // Fallback to summary if API returns unexpected format
+        setSummaryData({
+          symptoms: symptomsList,
+          duration: extractFieldValue(newHistory, 'duration') || '2 days',
+          severity: 'moderate',
+          additionalContext: newHistory.map((c) => `${c.question}: ${c.answer}`),
+        });
+        setStepMode('summary');
+      }
+    } catch (err: any) {
+      // Fallback to summary on error
+      setSummaryData({
+        symptoms: symptomsList,
+        duration: extractFieldValue(newHistory, 'duration') || '2 days',
+        severity: 'moderate',
+        additionalContext: newHistory.map((c) => `${c.question}: ${c.answer}`),
+      });
+      setStepMode('summary');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Skip Optional Follow-Up Question
+  const handleSkipQuestion = () => {
+    handleSendAnswer('Not sure / Skipped');
+  };
+
+  // Helper to extract field value from history
+  const extractFieldValue = (history: SymptomConversationTurn[], keyword: string): string => {
+    const found = history.find((h) => h.question.toLowerCase().includes(keyword));
+    return found ? found.answer : '';
+  };
+
+  // Final OpenBioLLM Analysis Call
+  const handleFinalAnalyze = async () => {
+    if (!summaryData) return;
+
+    setErrorMsg('');
+    setLoading(true);
+    setLoadingText('Analyzing symptoms with OpenBioLLM...');
 
     try {
       const res = await analyzeSymptomsApi({
-        symptoms: currentSymptoms,
-        duration: duration.trim() || undefined,
-        severity,
+        symptoms: summaryData.symptoms,
+        duration: summaryData.duration,
+        severity: summaryData.severity,
       });
 
       if (res && res.success && res.analysis?.symptomCheckId) {
-        // Navigate to Analysis Result with symptomCheckId
         router.push({
           pathname: '/(patient)/analysis-result' as any,
           params: { id: res.analysis.symptomCheckId },
@@ -204,174 +369,373 @@ export default function SymptomCheckerScreen() {
           />
         ) : null}
 
-        {/* Conversational Bot Bubble & Voice Trigger */}
-        <View style={styles.chatBubbleBot}>
-          <View style={styles.botTextCol}>
-            <Text style={styles.botBubbleTitle}>Where does it hurt today?</Text>
-            <Text style={styles.botBubbleSub}>අද ඔබට රිදෙන්නේ කොතැනද? (Tap mic or type below)</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.headerMicBtn,
-              isListening && styles.headerMicBtnActive,
-            ]}
-            onPress={handleToggleMic}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={isListening ? 'Stop listening' : 'Tap to speak symptoms'}
-          >
-            <Text style={styles.headerMicIcon}>{isListening ? '⏹️' : '🎙️'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Voice Feedback Banner */}
-        {(isListening || voiceState === 'recognized' || voiceState === 'no_speech' || voiceState === 'error') && (
-          <View
-            style={[
-              styles.voiceFeedbackCard,
-              isListening && styles.voiceFeedbackListening,
-              voiceState === 'recognized' && styles.voiceFeedbackRecognized,
-              (voiceState === 'no_speech' || voiceState === 'error') && styles.voiceFeedbackError,
-            ]}
-          >
-            <Text style={styles.voiceFeedbackTitle}>
-              {isListening
-                ? '🎙️ Listening... Speak your symptoms clearly'
-                : voiceState === 'recognized'
-                ? '✅ Speech Recognized'
-                : voiceState === 'no_speech'
-                ? '⚠️ No Speech Detected'
-                : 'ℹ️ Voice Notice'}
-            </Text>
-
-            {voiceError ? (
-              <Text style={styles.voiceFeedbackText}>{voiceError}</Text>
-            ) : transcript ? (
-              <Text style={styles.voiceFeedbackText}>"{transcript}"</Text>
-            ) : null}
-
-            {voiceState === 'recognized' && (
-              <TouchableOpacity
-                style={styles.convertChipBtn}
-                onPress={handleConvertVoiceToChips}
-              >
-                <Text style={styles.convertChipBtnText}>➕ Add "{transcript}" to Symptoms List</Text>
-              </TouchableOpacity>
-            )}
-
-            {(voiceState === 'no_speech' || voiceState === 'error') && (
-              <TouchableOpacity
-                style={styles.retryMicBtn}
-                onPress={() => startListening()}
-              >
-                <Text style={styles.retryMicBtnText}>🔄 Tap to Try Speaking Again</Text>
-              </TouchableOpacity>
-            )}
+        {/* Emergency Alert Card (if triggered) */}
+        {isEmergency && (
+          <View style={styles.emergencyCard}>
+            <View style={styles.emergencyHeaderRow}>
+              <Text style={styles.emergencyIcon}>🚨</Text>
+              <View style={styles.emergencyTextCol}>
+                <Text style={styles.emergencyTitle}>Urgent Emergency Warning</Text>
+                <Text style={styles.emergencySub}>{emergencyWarning}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.emergencyBtn}
+              activeOpacity={0.8}
+              onPress={() => router.push('/(patient)/emergency-countdown' as any)}
+            >
+              <Text style={styles.emergencyBtnText}>🚨 Trigger Emergency SOS Now</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Symptom Input Form */}
-        <View style={styles.inputCard}>
-          <Text style={styles.cardHeaderTitle}>Add Your Symptoms</Text>
+        {/* STEP MODE 1: INITIAL SYMPTOM ENTRY */}
+        {stepMode === 'initial' && (
+          <View>
+            {/* Header Bot Greeting Bubble matching visual reference */}
+            <View style={styles.chatBubbleBot}>
+              <View style={styles.botTextCol}>
+                <Text style={styles.botBubbleTitle}>Where does it hurt today?</Text>
+                <Text style={styles.botBubbleSub}>අද ඔබට රිදෙන්නේ කොතැනද? (Tap mic or type below)</Text>
+              </View>
 
-          <View style={styles.inputAddRow}>
-            <AppInput
-              placeholder="e.g. fever, cough, headache"
-              value={symptomInput}
-              onChangeText={(val) => {
-                setSymptomInput(val);
-                if (inputError) setInputError('');
-              }}
-              containerStyle={styles.flexInput}
-              error={inputError}
-            />
-
-            <TouchableOpacity
-              style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
-              onPress={handleToggleMic}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Microphone symptom input"
-            >
-              <Text style={styles.micIconButtonText}>{isListening ? '⏹️' : '🎙️'}</Text>
-            </TouchableOpacity>
-
-            <AppButton
-              title="+ Add"
-              onPress={handleAddSymptom}
-              variant="secondary"
-              style={styles.addBtn}
-            />
-          </View>
-
-          {/* Active Symptom Chips */}
-          <Text style={styles.chipLabel}>Added Symptoms ({symptomsList.length}):</Text>
-          <View style={styles.chipsContainer}>
-            {symptomsList.length > 0 ? (
-              symptomsList.map((sym, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.symptomChip}
-                  onPress={() => handleRemoveSymptom(idx)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove symptom ${sym}`}
-                >
-                  <Text style={styles.symptomChipText}>{sym}</Text>
-                  <Text style={styles.chipRemoveIcon}>✕</Text>
-                </TouchableOpacity>
-              ))
-            ) : (
-              <Text style={styles.noChipsText}>
-                No symptoms added yet. Type or speak a symptom above and tap "+ Add".
-              </Text>
-            )}
-          </View>
-
-          {/* Duration Input */}
-          <AppInput
-            label="How long have you had these symptoms?"
-            placeholder="e.g. 2 days, 3 hours"
-            value={duration}
-            onChangeText={setDuration}
-          />
-
-          {/* Severity Selector */}
-          <Text style={styles.fieldLabel}>Severity Level</Text>
-          <View style={styles.severityRow}>
-            {SEVERITY_OPTIONS.map((item) => (
               <TouchableOpacity
-                key={item.value}
-                activeOpacity={0.8}
-                onPress={() => setSeverity(item.value)}
                 style={[
-                  styles.severityChip,
-                  severity === item.value && styles.severityChipSelected,
-                  severity === item.value && item.value === 'severe' && styles.severityChipDanger,
+                  styles.headerMicBtn,
+                  isListening && styles.headerMicBtnActive,
                 ]}
+                onPress={handleToggleMic}
+                activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={`Select severity ${item.label}`}
+                accessibilityLabel={isListening ? 'Stop listening' : 'Tap to speak symptoms'}
               >
+                <Text style={styles.headerMicIcon}>{isListening ? '⏹️' : '🎙️'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Voice Feedback Banner */}
+            {(isListening || voiceState === 'recognized' || voiceState === 'no_speech' || voiceState === 'error') && (
+              <View
+                style={[
+                  styles.voiceFeedbackCard,
+                  isListening && styles.voiceFeedbackListening,
+                  voiceState === 'recognized' && styles.voiceFeedbackRecognized,
+                  (voiceState === 'no_speech' || voiceState === 'error') && styles.voiceFeedbackError,
+                ]}
+              >
+                <Text style={styles.voiceFeedbackTitle}>
+                  {isListening
+                    ? '🎙️ Listening... Speak your symptoms clearly'
+                    : voiceState === 'recognized'
+                    ? '✅ Speech Recognized'
+                    : voiceState === 'no_speech'
+                    ? '⚠️ No Speech Detected'
+                    : 'ℹ️ Voice Notice'}
+                </Text>
+
+                {voiceError ? (
+                  <Text style={styles.voiceFeedbackText}>{voiceError}</Text>
+                ) : transcript ? (
+                  <Text style={styles.voiceFeedbackText}>"{transcript}"</Text>
+                ) : null}
+
+                {voiceState === 'recognized' && (
+                  <TouchableOpacity
+                    style={styles.convertChipBtn}
+                    onPress={handleConvertVoiceToChips}
+                  >
+                    <Text style={styles.convertChipBtnText}>➕ Add "{transcript}" to Symptoms List</Text>
+                  </TouchableOpacity>
+                )}
+
+                {(voiceState === 'no_speech' || voiceState === 'error') && (
+                  <TouchableOpacity
+                    style={styles.retryMicBtn}
+                    onPress={() => startListening()}
+                  >
+                    <Text style={styles.retryMicBtnText}>🔄 Tap to Try Speaking Again</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Initial Symptom Input Form */}
+            <View style={styles.inputCard}>
+              <Text style={styles.cardHeaderTitle}>State Your Initial Symptom</Text>
+              <Text style={styles.cardHeaderSub}>We will ask up to 3 short follow-up questions to understand your condition.</Text>
+
+              <View style={styles.inputAddRow}>
+                <AppInput
+                  placeholder="e.g. headache, chest pain, fever"
+                  value={symptomInput}
+                  onChangeText={(val) => {
+                    setSymptomInput(val);
+                    if (inputError) setInputError('');
+                  }}
+                  containerStyle={styles.flexInput}
+                  error={inputError}
+                />
+
+                <TouchableOpacity
+                  style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
+                  onPress={handleToggleMic}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.micIconButtonText}>{isListening ? '⏹️' : '🎙️'}</Text>
+                </TouchableOpacity>
+
+                <AppButton
+                  title="+ Add"
+                  onPress={handleAddSymptom}
+                  variant="secondary"
+                  style={styles.addBtn}
+                />
+              </View>
+
+              {/* Active Symptom Chips */}
+              <Text style={styles.chipLabel}>Initial Symptoms ({symptomsList.length}):</Text>
+              <View style={styles.chipsContainer}>
+                {symptomsList.length > 0 ? (
+                  symptomsList.map((sym, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.symptomChip}
+                      onPress={() => handleRemoveSymptom(idx)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.symptomChipText}>{sym}</Text>
+                      <Text style={styles.chipRemoveIcon}>✕</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <Text style={styles.noChipsText}>
+                    No symptoms added yet. Type or speak a symptom above and tap "+ Add".
+                  </Text>
+                )}
+              </View>
+
+              <AppButton
+                title="Start Symptom Assessment ➔"
+                onPress={handleStartConversationalAssessment}
+                loading={loading}
+                style={styles.startAssessmentBtn}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* STEP MODE 2: CONVERSATIONAL FOLLOW-UP ASSESSOR */}
+        {stepMode === 'conversing' && !isEmergency && (
+          <View>
+            {/* Progress Badge */}
+            <View style={styles.progressCard}>
+              <Text style={styles.progressTitle}>Follow-up Question {questionCount} of up to 3</Text>
+              <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, { width: `${(questionCount / 3) * 100}%` }]} />
+              </View>
+            </View>
+
+            {/* Conversation Messages History */}
+            <View style={styles.conversationContainer}>
+              {/* Initial Symptoms Bubble */}
+              <View style={styles.userBubble}>
+                <Text style={styles.userBubbleText}>
+                  I have: {symptomsList.join(', ')}
+                </Text>
+              </View>
+
+              {/* Past Turns */}
+              {conversation.map((turn, idx) => (
+                <View key={idx}>
+                  <View style={styles.chatBubbleBot}>
+                    <Text style={styles.botBubbleIcon}>🤖</Text>
+                    <Text style={styles.botBubbleTitle}>{turn.question}</Text>
+                  </View>
+
+                  <View style={styles.userBubble}>
+                    <Text style={styles.userBubbleText}>{turn.answer}</Text>
+                  </View>
+                </View>
+              ))}
+
+              {/* Active Bot Question */}
+              {currentQuestion ? (
+                <View style={styles.activeQuestionCard}>
+                  <View style={styles.activeQuestionHeader}>
+                    <Text style={styles.activeQuestionIcon}>🤖</Text>
+                    <Text style={styles.activeQuestionTitle}>{currentQuestion}</Text>
+                  </View>
+
+                  {/* Quick Answer Chips (if available) */}
+                  {currentQuickOptions && currentQuickOptions.length > 0 && (
+                    <View style={styles.quickOptionsRow}>
+                      {currentQuickOptions.map((opt, oIdx) => (
+                        <TouchableOpacity
+                          key={oIdx}
+                          style={styles.quickOptionChip}
+                          onPress={() => handleSendAnswer(opt)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.quickOptionText}>{opt}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Manual Text / Voice Answer Row */}
+                  <View style={styles.answerInputRow}>
+                    <AppInput
+                      placeholder="Type your answer here..."
+                      value={answerInput}
+                      onChangeText={setAnswerInput}
+                      containerStyle={styles.flexInput}
+                    />
+
+                    <TouchableOpacity
+                      style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
+                      onPress={handleToggleMic}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.micIconButtonText}>{isListening ? '⏹️' : '🎙️'}</Text>
+                    </TouchableOpacity>
+
+                    <AppButton
+                      title="Send"
+                      onPress={() => handleSendAnswer()}
+                      loading={loading}
+                      style={styles.sendBtn}
+                    />
+                  </View>
+
+                  {/* Voice Feedback inside question card */}
+                  {isListening && (
+                    <Text style={styles.activeListeningText}>
+                      🎙️ Listening... Speak your answer
+                    </Text>
+                  )}
+
+                  {/* Skip Question Button */}
+                  <TouchableOpacity
+                    style={styles.skipBtn}
+                    onPress={handleSkipQuestion}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.skipBtnText}>Skip question ➔</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {loading && (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={styles.loadingBoxText}>{loadingText || 'Processing...'}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* STEP MODE 3: STRUCTURED SYMPTOM SUMMARY CONFIRMATION */}
+        {stepMode === 'summary' && summaryData && (
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryHeader}>
+              <Text style={styles.summaryHeaderIcon}>📋</Text>
+              <View>
+                <Text style={styles.summaryHeaderTitle}>Symptom Assessment Summary</Text>
+                <Text style={styles.summaryHeaderSub}>Please review your information before AI analysis</Text>
+              </View>
+            </View>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.summaryLabel}>Symptoms Identified:</Text>
+              <View style={styles.chipsContainer}>
+                {summaryData.symptoms.map((s, idx) => (
+                  <View key={idx} style={styles.summaryChip}>
+                    <Text style={styles.summaryChipText}>{s}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCol}>
+                <Text style={styles.summaryLabel}>Duration:</Text>
+                <Text style={styles.summaryVal}>{summaryData.duration}</Text>
+              </View>
+
+              <View style={styles.summaryCol}>
+                <Text style={styles.summaryLabel}>Discomfort Severity:</Text>
                 <Text
                   style={[
-                    styles.severityText,
-                    severity === item.value && styles.severityTextSelected,
+                    styles.summaryVal,
+                    summaryData.severity === 'severe' && { color: colors.danger, fontWeight: '800' },
                   ]}
                 >
-                  {item.label}
+                  {summaryData.severity.toUpperCase()}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+              </View>
+            </View>
 
-          <AppButton
-            title="🔍 Analyze Symptoms"
-            onPress={handleAnalyze}
-            loading={loading}
-            style={styles.analyzeBtn}
-          />
-        </View>
+            {summaryData.additionalContext && summaryData.additionalContext.length > 0 && (
+              <View style={styles.summarySection}>
+                <Text style={styles.summaryLabel}>Additional Notes:</Text>
+                {summaryData.additionalContext.map((note, nIdx) => (
+                  <Text key={nIdx} style={styles.summaryNoteText}>• {note}</Text>
+                ))}
+              </View>
+            )}
+
+            {/* Severity Adjustment Options */}
+            <Text style={styles.fieldLabel}>Adjust Severity Level (if needed)</Text>
+            <View style={styles.severityRow}>
+              {SEVERITY_OPTIONS.map((item) => (
+                <TouchableOpacity
+                  key={item.value}
+                  activeOpacity={0.8}
+                  onPress={() => setSummaryData({ ...summaryData, severity: item.value })}
+                  style={[
+                    styles.severityChip,
+                    summaryData.severity === item.value && styles.severityChipSelected,
+                    summaryData.severity === item.value && item.value === 'severe' && styles.severityChipDanger,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.severityText,
+                      summaryData.severity === item.value && styles.severityTextSelected,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Action Buttons */}
+            <AppButton
+              title="🔍 Analyze Symptoms with OpenBioLLM"
+              onPress={handleFinalAnalyze}
+              loading={loading}
+              style={styles.finalAnalyzeBtn}
+            />
+
+            <View style={styles.summaryActionRow}>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() => setStepMode('initial')}
+              >
+                <Text style={styles.editBtnText}>✏️ Edit Symptoms</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.restartSummaryBtn}
+                onPress={handleRestart}
+              >
+                <Text style={styles.restartSummaryBtnText}>🔄 Restart</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
     </ScreenContainer>
   );
@@ -402,6 +766,10 @@ const styles = StyleSheet.create({
   },
   botTextCol: {
     flex: 1,
+  },
+  botBubbleIcon: {
+    fontSize: 24,
+    marginRight: spacing.sm,
   },
   botBubbleTitle: {
     ...typography.subheader,
@@ -499,7 +867,11 @@ const styles = StyleSheet.create({
   cardHeaderTitle: {
     ...typography.subheader,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  },
+  cardHeaderSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginBottom: spacing.md,
   },
   inputAddRow: {
     flexDirection: 'row',
@@ -573,6 +945,244 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     paddingVertical: spacing.xs,
   },
+  startAssessmentBtn: {
+    marginTop: spacing.xs,
+  },
+  emergencyCard: {
+    backgroundColor: colors.dangerLight,
+    borderColor: colors.danger,
+    borderWidth: 2,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  emergencyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emergencyIcon: {
+    fontSize: 32,
+    marginRight: spacing.md,
+  },
+  emergencyTextCol: {
+    flex: 1,
+  },
+  emergencyTitle: {
+    ...typography.subheader,
+    color: colors.danger,
+  },
+  emergencySub: {
+    ...typography.caption,
+    color: colors.danger,
+    marginTop: 2,
+  },
+  emergencyBtn: {
+    backgroundColor: colors.danger,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  emergencyBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  progressCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  progressTitle: {
+    ...typography.bodyBold,
+    fontSize: 14,
+    color: colors.primary,
+    marginBottom: 6,
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 4,
+  },
+  conversationContainer: {
+    marginBottom: spacing.md,
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.success,
+    borderRadius: borderRadius.lg,
+    borderBottomRightRadius: 4,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    maxWidth: '85%',
+  },
+  userBubbleText: {
+    ...typography.bodyBold,
+    color: '#FFFFFF',
+  },
+  activeQuestionCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  activeQuestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  activeQuestionIcon: {
+    fontSize: 24,
+    marginRight: spacing.sm,
+  },
+  activeQuestionTitle: {
+    ...typography.subheader,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  quickOptionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: spacing.md,
+  },
+  quickOptionChip: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+    borderWidth: 1.5,
+    borderRadius: borderRadius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 3,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  quickOptionText: {
+    ...typography.bodyBold,
+    color: colors.primary,
+    fontSize: 14,
+  },
+  answerInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sendBtn: {
+    height: 52,
+    minWidth: 80,
+    marginTop: spacing.xs,
+  },
+  activeListeningText: {
+    ...typography.caption,
+    color: colors.danger,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  skipBtn: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  skipBtnText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  loadingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  loadingBoxText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
+  },
+  summaryCard: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  summaryHeaderIcon: {
+    fontSize: 28,
+    marginRight: spacing.sm,
+  },
+  summaryHeaderTitle: {
+    ...typography.subheader,
+    color: colors.textPrimary,
+  },
+  summaryHeaderSub: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  summarySection: {
+    marginBottom: spacing.md,
+  },
+  summaryLabel: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  summaryChip: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  summaryChipText: {
+    ...typography.bodyBold,
+    color: colors.primary,
+    fontSize: 14,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  summaryCol: {
+    flex: 1,
+  },
+  summaryVal: {
+    ...typography.bodyBold,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  summaryNoteText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontSize: 14,
+    marginTop: 2,
+  },
   fieldLabel: {
     ...typography.bodyBold,
     color: colors.textPrimary,
@@ -610,7 +1220,31 @@ const styles = StyleSheet.create({
   severityTextSelected: {
     color: colors.primary,
   },
-  analyzeBtn: {
+  finalAnalyzeBtn: {
     marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  summaryActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.xs,
+  },
+  editBtn: {
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+  },
+  editBtnText: {
+    ...typography.bodyBold,
+    color: colors.primary,
+    fontSize: 14,
+  },
+  restartSummaryBtn: {
+    paddingVertical: spacing.xs + 2,
+    paddingHorizontal: spacing.md,
+  },
+  restartSummaryBtnText: {
+    ...typography.bodyBold,
+    color: colors.textSecondary,
+    fontSize: 14,
   },
 });

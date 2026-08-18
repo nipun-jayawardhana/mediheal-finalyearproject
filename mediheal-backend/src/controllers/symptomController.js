@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const SymptomCheck = require('../models/SymptomCheck');
 const symptomService = require('../services/symptomService');
 const openBioLLMService = require('../services/openBioLLMService');
+const geminiConversationService = require('../services/geminiConversationService');
 
 /**
  * @desc    Analyze symptoms and recommend specialist
@@ -234,8 +235,72 @@ const getSymptomCheckById = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get next conversational follow-up question or structured summary
+ * @route   POST /api/symptoms/follow-up
+ * @access  Private (Patient only)
+ */
+const handleFollowUp = async (req, res, next) => {
+  try {
+    const { symptoms, conversation = [], questionCount = 0 } = req.body;
+
+    if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Symptoms must be provided as a non-empty array of strings',
+      });
+    }
+
+    // 1. Gather all text from initial symptoms and conversation Q&As for emergency evaluation
+    const allInputStrings = [...symptoms];
+    if (Array.isArray(conversation)) {
+      conversation.forEach((c) => {
+        if (c.question) allInputStrings.push(c.question);
+        if (c.answer) allInputStrings.push(c.answer);
+      });
+    }
+
+    const normalizedAll = symptomService.normalizeSymptoms(allInputStrings);
+
+    // 2. Deterministic Emergency Safety Check on ALL cumulative conversation context
+    const isEmergency = symptomService.isEmergencySymptom(normalizedAll);
+
+    if (isEmergency) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          status: 'emergency',
+          isEmergency: true,
+          summary: {
+            symptoms: symptomService.normalizeSymptoms(symptoms),
+            duration: 'acute',
+            severity: 'severe',
+            additionalContext: ['Emergency red flag symptoms detected during follow-up conversation.'],
+          },
+          emergencyWarning: 'High risk symptoms detected. Immediate medical attention is recommended.',
+        },
+      });
+    }
+
+    // 3. Non-emergency: Generate next follow-up question or structured summary via Gemini
+    const result = await geminiConversationService.generateFollowUp(
+      symptoms,
+      conversation,
+      questionCount
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   analyzeSymptoms,
   getSymptomHistory,
   getSymptomCheckById,
+  handleFollowUp,
 };
