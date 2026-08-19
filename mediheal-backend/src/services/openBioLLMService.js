@@ -87,6 +87,9 @@ const parseJSONFromText = (rawText) => {
  * PRIVACY: ONLY sends symptom array, duration, and severity. NO user PII is transmitted.
  */
 const analyzeSymptomsWithOpenBioLLM = async (symptoms, duration = '', severity = 'mild') => {
+  console.log('[OPENBIOLLM]');
+  console.log('Starting biomedical symptom analysis');
+
   const token = process.env.HUGGINGFACE_API_TOKEN;
   if (!token) {
     throw new Error('HUGGINGFACE_API_TOKEN is not configured in backend environment.');
@@ -212,6 +215,11 @@ JSON Output:`;
           'Consult a medical professional if symptoms worsen.',
         ];
       }
+
+      console.log('[OPENBIOLLM]');
+      console.log(`Model: ${MODEL_NAME}`);
+      console.log('Inference: SUCCESS');
+      console.log('analysisSource: openbiollm');
 
       return {
         possibleConditions,

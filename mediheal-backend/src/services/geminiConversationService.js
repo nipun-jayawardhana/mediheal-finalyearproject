@@ -119,13 +119,17 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
  */
 const generateFollowUp = async (symptoms = [], conversation = [], questionCount = 0) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  const configuredModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const configuredModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
   const currentCount = Number(questionCount) || conversation.length || 0;
 
   // Hard limit: Max 3 questions
   if (currentCount >= 3) {
     return extractStructuredSummary(symptoms, conversation);
   }
+
+  // Log conversation begin
+  console.log('[GEMINI CONVERSATION]');
+  console.log(`Model: ${configuredModel}`);
 
   if (!apiKey) {
     console.warn('⚠️ [GEMINI SERVICE] GEMINI_API_KEY not configured. Using deterministic fallback.');
@@ -188,114 +192,122 @@ Output JSON:`;
     },
   };
 
-  // Modern active model list (removing obsolete 1.5 versions)
-  const modelsToTry = Array.from(new Set([configuredModel, 'gemini-3.6-flash', 'gemini-2.5-pro']));
+  const endpointUrl = `${GEMINI_API_URL}/${configuredModel}:generateContent?key=${apiKey}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-  let lastError = null;
+  try {
+    const response = await fetch(endpointUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
 
-  for (const modelName of modelsToTry) {
-    const endpointUrl = `${GEMINI_API_URL}/${modelName}:generateContent?key=${apiKey}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    clearTimeout(timeoutId);
 
-    try {
-      console.log(`[GEMINI SERVICE] Selected model: ${modelName}`);
+    if (response.status === 429) {
+      console.warn('[GEMINI SERVICE] Daily/rate quota unavailable.');
+      console.warn('[GEMINI SERVICE] Using deterministic conversational fallback.');
+      return getDeterministicFallback(symptoms, conversation, currentCount);
+    }
 
-      const response = await fetch(endpointUrl, {
+    if (response.status === 503) {
+      console.warn(`[GEMINI SERVICE] Model ${configuredModel} returned HTTP 503 capacity spike. Retrying once...`);
+      await new Promise((r) => setTimeout(r, 1500));
+      const retryRes = await fetch(endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: controller.signal,
       });
-
-      clearTimeout(timeoutId);
-
-      if (response.status === 503 || response.status === 429) {
-        console.warn(`[GEMINI SERVICE] Model ${modelName} returned HTTP ${response.status} capacity spike. Retrying...`);
-        await new Promise((r) => setTimeout(r, 1500));
-        const retryRes = await fetch(endpointUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        if (retryRes.ok) {
-          const retryData = await retryRes.json();
-          const retryContent = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (retryContent) {
-            const parsedRetry = parseJSONFromText(retryContent);
-            if (parsedRetry && typeof parsedRetry === 'object') {
-              console.log('[GEMINI SERVICE] generateContent test: PASS (after retry)');
-              if (parsedRetry.status === 'ask' && parsedRetry.question) {
-                return {
-                  status: 'ask',
-                  question: parsedRetry.question.trim().substring(0, 150),
-                  field: parsedRetry.field || 'follow_up',
-                  quickOptions: Array.isArray(parsedRetry.quickOptions)
-                    ? parsedRetry.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
-                    : undefined,
-                };
-              }
-              if (parsedRetry.status === 'complete' && parsedRetry.summary) {
-                return validateAndFormatSummary(parsedRetry.summary, symptoms, conversation);
-              }
+      if (retryRes.ok) {
+        const retryData = await retryRes.json();
+        const retryContent = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (retryContent) {
+          const parsedRetry = parseJSONFromText(retryContent);
+          if (parsedRetry && typeof parsedRetry === 'object') {
+            console.log('[GEMINI CONVERSATION]');
+            console.log('Follow-up generated successfully');
+            if (parsedRetry.status === 'ask' && parsedRetry.question) {
+              return {
+                status: 'ask',
+                question: parsedRetry.question.trim().substring(0, 150),
+                field: parsedRetry.field || 'follow_up',
+                quickOptions: Array.isArray(parsedRetry.quickOptions)
+                  ? parsedRetry.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
+                  : undefined,
+              };
+            }
+            if (parsedRetry.status === 'complete' && parsedRetry.summary) {
+              return validateAndFormatSummary(parsedRetry.summary, symptoms, conversation);
             }
           }
         }
       }
-
-      const data = await response.json();
-      const candidateContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!candidateContent) {
-        throw new Error(`Gemini API ${modelName} returned empty text.`);
-      }
-
-      const parsed = parseJSONFromText(candidateContent);
-      if (!parsed || typeof parsed !== 'object') {
-        console.warn(`[GEMINI SERVICE] Raw text from ${modelName}:`, candidateContent);
-        throw new Error(`Gemini API ${modelName} did not return valid JSON object.`);
-      }
-
-      console.log('[GEMINI SERVICE] generateContent test: PASS');
-
-      // Output Contract Validation
-      if (parsed.status === 'ask') {
-        if (!parsed.question || typeof parsed.question !== 'string') {
-          throw new Error('Gemini ask response missing valid question string');
-        }
-
-        let cleanQuestion = parsed.question.trim();
-        if (cleanQuestion.length > 150) {
-          cleanQuestion = cleanQuestion.substring(0, 147) + '...';
-        }
-
-        return {
-          status: 'ask',
-          question: cleanQuestion,
-          field: parsed.field || 'follow_up',
-          quickOptions: Array.isArray(parsed.quickOptions)
-            ? parsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
-            : undefined,
-        };
-      }
-
-      if (parsed.status === 'complete' && parsed.summary) {
-        return validateAndFormatSummary(parsed.summary, symptoms, conversation);
-      }
-
-      if (currentCount >= 3) {
-        return extractStructuredSummary(symptoms, conversation);
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      lastError = err;
-      console.warn(`[GEMINI SERVICE] Model ${modelName} failed/error:`, err.message);
+      console.warn(`⚠️ [GEMINI SERVICE] Retry for ${configuredModel} failed. Using deterministic fallback.`);
+      return getDeterministicFallback(symptoms, conversation, currentCount);
     }
+
+    if (!response.ok) {
+      console.warn(`⚠️ [GEMINI SERVICE] HTTP ${response.status} from ${configuredModel}. Using deterministic fallback.`);
+      return getDeterministicFallback(symptoms, conversation, currentCount);
+    }
+
+    const data = await response.json();
+    const candidateContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!candidateContent) {
+      console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} returned empty text. Using deterministic fallback.`);
+      return getDeterministicFallback(symptoms, conversation, currentCount);
+    }
+
+    const parsed = parseJSONFromText(candidateContent);
+    if (!parsed || typeof parsed !== 'object') {
+      console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} did not return valid JSON object. Using deterministic fallback.`);
+      return getDeterministicFallback(symptoms, conversation, currentCount);
+    }
+
+    // Output Contract Validation
+    if (parsed.status === 'ask') {
+      if (!parsed.question || typeof parsed.question !== 'string') {
+        console.warn(`⚠️ [GEMINI SERVICE] Invalid question in response. Using deterministic fallback.`);
+        return getDeterministicFallback(symptoms, conversation, currentCount);
+      }
+
+      let cleanQuestion = parsed.question.trim();
+      if (cleanQuestion.length > 150) {
+        cleanQuestion = cleanQuestion.substring(0, 147) + '...';
+      }
+
+      console.log('[GEMINI CONVERSATION]');
+      console.log('Follow-up generated successfully');
+
+      return {
+        status: 'ask',
+        question: cleanQuestion,
+        field: parsed.field || 'follow_up',
+        quickOptions: Array.isArray(parsed.quickOptions)
+          ? parsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
+          : undefined,
+      };
+    }
+
+    if (parsed.status === 'complete' && parsed.summary) {
+      console.log('[GEMINI CONVERSATION]');
+      console.log('Follow-up generated successfully');
+      return validateAndFormatSummary(parsed.summary, symptoms, conversation);
+    }
+
+    if (currentCount >= 3) {
+      return extractStructuredSummary(symptoms, conversation);
+    }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} failed/error: ${err.message}. Using deterministic fallback.`);
   }
 
-  // Fallback if Gemini models failed
-  console.warn('⚠️ [GEMINI SERVICE] Gemini API attempts failed. Using deterministic fallback.');
+  // Fallback if Gemini failed
   return getDeterministicFallback(symptoms, conversation, currentCount);
 };
 
