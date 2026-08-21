@@ -29,11 +29,24 @@ export const getSymptomFollowUpApi = async (
 export const analyzeSymptomsApi = async (
   payload: SymptomAnalysisRequest
 ): Promise<SymptomAnalysisResponse> => {
-  const response = await apiClient.post<SymptomAnalysisResponse>(
-    '/symptoms/analyze',
-    payload
-  );
-  return response.data;
+  const reqId = payload.analysisRequestId || `req-${Math.random().toString(36).substring(2, 8)}`;
+  const startTime = Date.now();
+  console.log(`[SYMPTOM CLIENT][${reqId}] Analysis request started`);
+
+  try {
+    const response = await apiClient.post<SymptomAnalysisResponse>(
+      '/symptoms/analyze',
+      payload,
+      { timeout: 30000 }
+    );
+    const duration = Date.now() - startTime;
+    console.log(`[SYMPTOM CLIENT][${reqId}] Analysis response received in ${duration}ms`);
+    return response.data;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.warn(`[SYMPTOM CLIENT][${reqId}] Analysis request failed after ${duration}ms`);
+    throw error;
+  }
 };
 
 /**

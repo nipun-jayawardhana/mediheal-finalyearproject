@@ -49,6 +49,8 @@ export default function SymptomCheckerScreen() {
 
   // Structured Summary State
   const [summaryData, setSummaryData] = useState<SymptomSummaryData | null>(null);
+  const [analysisRequestId, setAnalysisRequestId] = useState<string>('');
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   // Emergency Trigger State
   const [isEmergency, setIsEmergency] = useState<boolean>(false);
@@ -156,6 +158,8 @@ export default function SymptomCheckerScreen() {
     setCurrentQuickOptions([]);
     setAnswerInput('');
     setSummaryData(null);
+    setAnalysisRequestId('');
+    setIsAnalyzing(false);
     setIsEmergency(false);
     setEmergencyWarning('');
     setErrorMsg('');
@@ -313,9 +317,15 @@ export default function SymptomCheckerScreen() {
 
   // Final OpenBioLLM Analysis Call
   const handleFinalAnalyze = async () => {
-    if (!summaryData) return;
+    if (!summaryData || loading || isAnalyzing) return;
+
+    const reqId = analysisRequestId || `req-${Math.random().toString(36).substring(2, 10)}`;
+    if (!analysisRequestId) {
+      setAnalysisRequestId(reqId);
+    }
 
     setErrorMsg('');
+    setIsAnalyzing(true);
     setLoading(true);
     setLoadingText('Analyzing symptoms with OpenBioLLM...');
 
@@ -324,6 +334,7 @@ export default function SymptomCheckerScreen() {
         symptoms: summaryData.symptoms,
         duration: summaryData.duration,
         severity: summaryData.severity,
+        analysisRequestId: reqId,
       });
 
       if (res && res.success && res.analysis?.symptomCheckId) {
@@ -338,6 +349,7 @@ export default function SymptomCheckerScreen() {
       setErrorMsg(err.message || 'Symptom analysis failed. Please try again.');
     } finally {
       setLoading(false);
+      setIsAnalyzing(false);
     }
   };
 
@@ -716,20 +728,23 @@ export default function SymptomCheckerScreen() {
               title="🔍 Analyze Symptoms with OpenBioLLM"
               onPress={handleFinalAnalyze}
               loading={loading}
+              disabled={isAnalyzing || loading}
               style={styles.finalAnalyzeBtn}
             />
 
             <View style={styles.summaryActionRow}>
               <TouchableOpacity
-                style={styles.editBtn}
-                onPress={() => setStepMode('initial')}
+                style={[styles.editBtn, (isAnalyzing || loading) && { opacity: 0.5 }]}
+                onPress={() => !isAnalyzing && !loading && setStepMode('initial')}
+                disabled={isAnalyzing || loading}
               >
                 <Text style={styles.editBtnText}>✏️ Edit Symptoms</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.restartSummaryBtn}
-                onPress={handleRestart}
+                style={[styles.restartSummaryBtn, (isAnalyzing || loading) && { opacity: 0.5 }]}
+                onPress={() => !isAnalyzing && !loading && handleRestart()}
+                disabled={isAnalyzing || loading}
               >
                 <Text style={styles.restartSummaryBtnText}>🔄 Restart</Text>
               </TouchableOpacity>

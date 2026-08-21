@@ -86,9 +86,11 @@ const parseJSONFromText = (rawText) => {
  * Perform inference call against OpenBioLLM-8B via Hugging Face Router
  * PRIVACY: ONLY sends symptom array, duration, and severity. NO user PII is transmitted.
  */
-const analyzeSymptomsWithOpenBioLLM = async (symptoms, duration = '', severity = 'mild') => {
-  console.log('[OPENBIOLLM]');
-  console.log('Starting biomedical symptom analysis');
+const analyzeSymptomsWithOpenBioLLM = async (symptoms, duration = '', severity = 'mild', reqId = '') => {
+  const tag = reqId ? `[OPENBIOLLM][${reqId}]` : '[OPENBIOLLM]';
+  const startTime = Date.now();
+  console.log(`${tag}`);
+  console.log(`${tag} Starting biomedical symptom analysis`);
 
   const token = process.env.HUGGINGFACE_API_TOKEN;
   if (!token) {
@@ -124,16 +126,16 @@ JSON Output:`;
   };
 
   let lastError = null;
-  const maxRetries = 2;
+  const maxRetries = 1;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) {
-      // Delay 2.5 seconds on retry for 503 capacity issues
-      await new Promise((r) => setTimeout(r, 2500));
+      // Delay 1.5 seconds on retry for 503 capacity issues
+      await new Promise((r) => setTimeout(r, 1500));
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout per attempt
 
     try {
       const response = await fetch(ROUTER_ENDPOINT, {
@@ -216,10 +218,12 @@ JSON Output:`;
         ];
       }
 
-      console.log('[OPENBIOLLM]');
-      console.log(`Model: ${MODEL_NAME}`);
-      console.log('Inference: SUCCESS');
-      console.log('analysisSource: openbiollm');
+      const totalDuration = Date.now() - startTime;
+      console.log(`${tag}`);
+      console.log(`${tag} Model: ${MODEL_NAME}`);
+      console.log(`${tag} Inference: SUCCESS`);
+      console.log(`${tag} Inference completed in ${totalDuration}ms`);
+      console.log(`${tag} analysisSource: openbiollm`);
 
       return {
         possibleConditions,

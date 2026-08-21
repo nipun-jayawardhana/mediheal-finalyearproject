@@ -10,9 +10,46 @@ const geminiConversationService = require('../services/geminiConversationService
  * @access  Private (Patient only)
  */
 const analyzeSymptoms = async (req, res, next) => {
+  const startTime = Date.now();
   try {
     const patientId = req.user._id;
-    const { symptoms, duration, severity } = req.body;
+    const { symptoms, duration, severity, analysisRequestId } = req.body;
+    const reqId = typeof analysisRequestId === 'string' && analysisRequestId.trim() ? analysisRequestId.trim() : `req-${Math.random().toString(36).substring(2, 8)}`;
+    const tag = `[SYMPTOM API][${reqId}]`;
+
+    console.log(`${tag} Request received`);
+
+    // 0. Idempotency Check: Avoid duplicate processing if client retried with same request ID
+    if (typeof analysisRequestId === 'string' && analysisRequestId.trim()) {
+      const existingCheck = await SymptomCheck.findOne({
+        patientId,
+        analysisRequestId: analysisRequestId.trim(),
+      });
+
+      if (existingCheck) {
+        const elapsed = Date.now() - startTime;
+        console.log(`${tag} Idempotency hit: Returning existing SymptomCheck record ${existingCheck._id} in ${elapsed}ms`);
+        return res.status(200).json({
+          success: true,
+          message: 'Symptom analysis completed successfully (cached result)',
+          analysis: {
+            symptomCheckId: existingCheck._id,
+            symptoms: existingCheck.symptoms,
+            possibleCondition: existingCheck.possibleCondition,
+            possibleConditions: existingCheck.possibleConditions,
+            analysisSource: existingCheck.analysisSource,
+            modelName: existingCheck.modelName,
+            riskLevel: existingCheck.riskLevel,
+            recommendedSpecialist: existingCheck.recommendedSpecialist,
+            guidance: existingCheck.guidance,
+            matchedSymptoms: existingCheck.matchedSymptoms,
+            emergencyRecommended: existingCheck.emergencyRecommended,
+            disclaimer: existingCheck.disclaimer,
+            createdAt: existingCheck.createdAt,
+          },
+        });
+      }
+    }
 
     // 1. Validation: symptoms array presence and type
     if (!symptoms || !Array.isArray(symptoms)) {
@@ -90,7 +127,8 @@ const analyzeSymptoms = async (req, res, next) => {
         const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
           normalizedInputSymptoms,
           inputDuration,
-          inputSeverity
+          inputSeverity,
+          reqId
         );
 
         // Calculate controlled MediHeal risk level (LLM confidence is not clinical risk)
@@ -115,7 +153,7 @@ const analyzeSymptoms = async (req, res, next) => {
         };
       } catch (aiError) {
         // Log AI error server-side silently, fallback to safe rule-based engine
-        console.warn('OpenBioLLM inference failed, invoking rule-based fallback:', aiError.message);
+        console.warn(`${tag} OpenBioLLM inference failed, invoking rule-based fallback:`, aiError.message);
         const fallbackResult = symptomService.analyzeSymptoms(
           normalizedInputSymptoms,
           inputDuration,
@@ -145,7 +183,11 @@ const analyzeSymptoms = async (req, res, next) => {
       matchedSymptoms: finalAnalysis.matchedSymptoms,
       emergencyRecommended: finalAnalysis.emergencyRecommended,
       disclaimer: finalAnalysis.disclaimer,
+      analysisRequestId: typeof analysisRequestId === 'string' ? analysisRequestId.trim() : '',
     });
+
+    const elapsed = Date.now() - startTime;
+    console.log(`${tag} Response sent in ${elapsed}ms`);
 
     return res.status(201).json({
       success: true,

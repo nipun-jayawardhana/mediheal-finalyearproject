@@ -5,6 +5,7 @@ export interface SymptomAnalysisRequest {
   symptoms: string[];
   duration?: string;
   severity?: SeverityLevel;
+  analysisRequestId?: string;
 }
 
 export interface PossibleConditionItem {

@@ -81,6 +81,11 @@ const symptomCheckSchema = new mongoose.Schema(
       required: [true, 'Disclaimer is required'],
       trim: true,
     },
+    analysisRequestId: {
+      type: String,
+      trim: true,
+      default: '',
+    },
   },
   {
     timestamps: true,

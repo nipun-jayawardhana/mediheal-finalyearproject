@@ -37,13 +37,16 @@ apiClient.interceptors.response.use(
   (error) => {
     let errorMessage = 'An unexpected network error occurred. Please try again.';
 
-    if (error.response) {
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+      // Request timeout
+      errorMessage = 'Symptom analysis is taking longer than expected. Please try again.';
+    } else if (error.response) {
       // Server responded with error status code (e.g. 400, 401, 403, 404, 500)
       errorMessage =
         error.response.data?.message ||
         `Server returned error (${error.response.status})`;
     } else if (error.request) {
-      // Request sent but no response received (Timeout / Server unreachable)
+      // Request sent but no response received (Server unreachable / network down)
       errorMessage =
         'Unable to connect to MediHeal server. Please check your network connection and server status.';
     } else if (error.message) {
