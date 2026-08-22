@@ -115,7 +115,7 @@ async function runDoctorTests() {
   console.log('--- TEST 1: Patient Books Appointment with Doctor A (POST /api/appointments) ---');
   const apptRes = await makeRequest('/api/appointments', 'POST', {
     doctorId: docAUserId,
-    appointmentDate: '2026-08-20',
+    appointmentDate: '2026-08-25',
     timeSlot: '10:00 AM',
     reason: 'Chest tightness and shortness of breath',
   }, tokenPatient);

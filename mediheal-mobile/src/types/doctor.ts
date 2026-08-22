@@ -24,6 +24,8 @@ export interface DoctorProfile {
   availableTimeSlots: string[];
   biography?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   isAvailable: boolean;
   createdAt?: string;
   updatedAt?: string;

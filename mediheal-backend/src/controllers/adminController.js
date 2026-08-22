@@ -24,6 +24,8 @@ const createDoctor = async (req, res, next) => {
       availableTimeSlots,
       biography,
       location,
+      latitude,
+      longitude,
       isAvailable,
       password,
     } = req.body;
@@ -34,6 +36,30 @@ const createDoctor = async (req, res, next) => {
         success: false,
         message: 'Please provide all required fields: fullName, email, phoneNumber, slmcNumber, specialization, hospital',
       });
+    }
+
+    // Coordinate validation if provided
+    let parsedLat = undefined;
+    let parsedLng = undefined;
+
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      parsedLat = Number(latitude);
+      if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude must be a valid number between -90 and 90',
+        });
+      }
+    }
+
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      parsedLng = Number(longitude);
+      if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
+        return res.status(400).json({
+          success: false,
+          message: 'Longitude must be a valid number between -180 and 180',
+        });
+      }
     }
 
     const cleanEmail = email.toLowerCase().trim();
@@ -87,6 +113,8 @@ const createDoctor = async (req, res, next) => {
         availableTimeSlots: availableTimeSlots || [],
         biography: biography || '',
         location: location || '',
+        latitude: parsedLat,
+        longitude: parsedLng,
         isAvailable: isAvailable !== undefined ? isAvailable : true,
       });
     } catch (profileError) {
@@ -235,6 +263,8 @@ const updateDoctorAdmin = async (req, res, next) => {
       availableTimeSlots,
       biography,
       location,
+      latitude,
+      longitude,
       isAvailable,
     } = req.body;
 
@@ -290,6 +320,32 @@ const updateDoctorAdmin = async (req, res, next) => {
     if (biography !== undefined) doctor.biography = biography;
     if (location !== undefined) doctor.location = location;
     if (isAvailable !== undefined) doctor.isAvailable = isAvailable;
+
+    if (latitude !== undefined && latitude !== null && latitude !== '') {
+      const parsedLat = Number(latitude);
+      if (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+        return res.status(400).json({
+          success: false,
+          message: 'Latitude must be a valid number between -90 and 90',
+        });
+      }
+      doctor.latitude = parsedLat;
+    } else if (latitude === null || latitude === '') {
+      doctor.latitude = undefined;
+    }
+
+    if (longitude !== undefined && longitude !== null && longitude !== '') {
+      const parsedLng = Number(longitude);
+      if (isNaN(parsedLng) || parsedLng < -180 || parsedLng > 180) {
+        return res.status(400).json({
+          success: false,
+          message: 'Longitude must be a valid number between -180 and 180',
+        });
+      }
+      doctor.longitude = parsedLng;
+    } else if (longitude === null || longitude === '') {
+      doctor.longitude = undefined;
+    }
 
     await doctor.save();
 

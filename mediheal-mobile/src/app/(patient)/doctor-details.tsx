@@ -7,6 +7,7 @@ import {
   Alert,
   ScrollView,
   TextInput,
+  Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -267,6 +268,35 @@ export default function DoctorDetailsScreen() {
             </Text>
           </View>
 
+          {/* Map Location Actions */}
+          {typeof doctor.latitude === 'number' && typeof doctor.longitude === 'number' ? (
+            <View style={styles.mapActionsRow}>
+              <TouchableOpacity
+                style={styles.mapBtnOutline}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(patient)/doctor-map' as any,
+                    params: { specialization: doctor.specialization },
+                  })
+                }
+              >
+                <Text style={styles.mapBtnOutlineText}>🗺️ View on Map</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.mapBtnFilled}
+                onPress={() => {
+                  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`;
+                  Linking.openURL(mapsUrl).catch(() =>
+                    Alert.alert('Navigation Error', 'Unable to open Google Maps.')
+                  );
+                }}
+              >
+                <Text style={styles.mapBtnFilledText}>🧭 Get Directions</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* Stats Bar */}
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
@@ -481,6 +511,40 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
     fontSize: 15,
+  },
+  mapActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    width: '100%',
+  },
+  mapBtnOutline: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+  },
+  mapBtnOutlineText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  mapBtnFilled: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  mapBtnFilledText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.textWhite,
   },
   statsBar: {
     flexDirection: 'row',

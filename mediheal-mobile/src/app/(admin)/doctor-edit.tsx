@@ -50,6 +50,9 @@ export default function AdminEditDoctorScreen() {
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [newSlotInput, setNewSlotInput] = useState<string>('');
   const [biography, setBiography] = useState<string>('');
+  const [location, setLocation] = useState<string>('');
+  const [latitude, setLatitude] = useState<string>('');
+  const [longitude, setLongitude] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -81,6 +84,9 @@ export default function AdminEditDoctorScreen() {
         setAvailableDays(doc.availableDays || []);
         setTimeSlots(doc.availableTimeSlots || []);
         setBiography(doc.biography || '');
+        setLocation(doc.location || '');
+        setLatitude(doc.latitude !== undefined && doc.latitude !== null ? String(doc.latitude) : '');
+        setLongitude(doc.longitude !== undefined && doc.longitude !== null ? String(doc.longitude) : '');
       } else {
         setErrorMsg('Doctor profile not found.');
       }
@@ -150,6 +156,25 @@ export default function AdminEditDoctorScreen() {
       return;
     }
 
+    let latNum: number | undefined = undefined;
+    let lngNum: number | undefined = undefined;
+
+    if (latitude.trim()) {
+      latNum = parseFloat(latitude.trim());
+      if (isNaN(latNum) || latNum < -90 || latNum > 90) {
+        Alert.alert('Validation Error', 'Latitude must be between -90 and 90.');
+        return;
+      }
+    }
+
+    if (longitude.trim()) {
+      lngNum = parseFloat(longitude.trim());
+      if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
+        Alert.alert('Validation Error', 'Longitude must be between -180 and 180.');
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -166,6 +191,9 @@ export default function AdminEditDoctorScreen() {
         availableDays,
         availableTimeSlots: timeSlots,
         biography: biography.trim(),
+        location: location.trim(),
+        latitude: latNum,
+        longitude: lngNum,
       });
 
       if (res && res.success) {
@@ -287,6 +315,45 @@ export default function AdminEditDoctorScreen() {
             value={hospital}
             onChangeText={setHospital}
           />
+        </View>
+
+        {/* Location Text */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>Location / City Address</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="e.g. Colombo 10"
+            placeholderTextColor={colors.textMuted}
+            value={location}
+            onChangeText={setLocation}
+          />
+        </View>
+
+        {/* GPS Coordinates (Latitude & Longitude) */}
+        <View style={styles.datesRow}>
+          <View style={[styles.fieldGroup, { flex: 1 }]}>
+            <Text style={styles.fieldLabel}>Latitude (-90 to 90)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 6.9271"
+              placeholderTextColor={colors.textMuted}
+              value={latitude}
+              onChangeText={setLatitude}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <View style={[styles.fieldGroup, { flex: 1 }]}>
+            <Text style={styles.fieldLabel}>Longitude (-180 to 180)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 79.8612"
+              placeholderTextColor={colors.textMuted}
+              value={longitude}
+              onChangeText={setLongitude}
+              keyboardType="numeric"
+            />
+          </View>
         </View>
 
         {/* Experience & Fee */}

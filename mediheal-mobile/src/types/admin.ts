@@ -26,6 +26,8 @@ export interface AdminDoctor {
   availableTimeSlots?: string[];
   biography?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   isAvailable: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -45,6 +47,8 @@ export interface CreateDoctorRequest {
   availableTimeSlots?: string[];
   biography?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   isAvailable?: boolean;
   password?: string;
 }
@@ -63,6 +67,8 @@ export interface UpdateDoctorRequest {
   availableTimeSlots?: string[];
   biography?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
   isAvailable?: boolean;
 }
 

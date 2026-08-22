@@ -136,6 +136,18 @@ export default function SpecialistListScreen() {
               All Doctors
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.mapChip}
+            onPress={() =>
+              router.push({
+                pathname: '/(patient)/doctor-map' as any,
+                params: selectedSpecialization ? { specialization: selectedSpecialization } : undefined,
+              })
+            }
+          >
+            <Text style={styles.mapChipText}>🗺️ View on Map</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Error State */}
@@ -260,6 +272,20 @@ const styles = StyleSheet.create({
   },
   activeChipText: {
     color: colors.textWhite,
+  },
+  mapChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.pill,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginLeft: 'auto',
+  },
+  mapChipText: {
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primaryDark,
   },
   listContent: {
     paddingBottom: spacing.xl,
