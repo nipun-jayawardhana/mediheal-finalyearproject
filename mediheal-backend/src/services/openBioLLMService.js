@@ -127,15 +127,39 @@ JSON Output:`;
 
   let lastError = null;
   const maxRetries = 1;
+  const TOTAL_AI_DEADLINE_MS = 21000; // Hard max AI budget: 21 seconds
+  const deadline = startTime + TOTAL_AI_DEADLINE_MS;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const elapsed = Date.now() - startTime;
+    const remainingTime = deadline - Date.now();
+
+    // Check if remaining time is too short for a meaningful attempt (need at least 4s)
+    if (remainingTime < 4000) {
+      console.warn(`${tag} Aborting OpenBioLLM attempt ${attempt + 1}: remaining budget (${remainingTime}ms) is below safety threshold`);
+      lastError = lastError || new Error(`OpenBioLLM request timed out after total AI deadline (${elapsed}ms)`);
+      break;
+    }
+
     if (attempt > 0) {
-      // Delay 1.5 seconds on retry for 503 capacity issues
-      await new Promise((r) => setTimeout(r, 1500));
+      // Short delay on retry (800ms max)
+      const retryDelay = Math.min(800, remainingTime - 3000);
+      if (retryDelay > 0) {
+        await new Promise((r) => setTimeout(r, retryDelay));
+      }
+    }
+
+    // Calculate attempt timeout: Attempt 1 max 12s, Attempt 2 max 8s, both bounded by remaining deadline time
+    const attemptMaxTimeout = attempt === 0 ? 12000 : 8000;
+    const currentAttemptTimeout = Math.min(attemptMaxTimeout, deadline - Date.now() - 500);
+
+    if (currentAttemptTimeout < 3000) {
+      console.warn(`${tag} Skipping retry attempt ${attempt + 1}: insufficient time budget (${currentAttemptTimeout}ms)`);
+      break;
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout per attempt
+    const timeoutId = setTimeout(() => controller.abort(), currentAttemptTimeout);
 
     try {
       const response = await fetch(ROUTER_ENDPOINT, {
@@ -236,12 +260,13 @@ JSON Output:`;
       clearTimeout(timeoutId);
       lastError = err;
       if (err.name === 'AbortError') {
-        lastError = new Error('OpenBioLLM request timed out after 15 seconds');
+        const attemptDuration = Math.round(currentAttemptTimeout / 1000);
+        lastError = new Error(`OpenBioLLM request timed out after ${attemptDuration} seconds`);
       }
     }
   }
 
-  throw lastError || new Error('Failed to complete OpenBioLLM inference after retries');
+  throw lastError || new Error('Failed to complete OpenBioLLM inference within deadline');
 };
 
 module.exports = {

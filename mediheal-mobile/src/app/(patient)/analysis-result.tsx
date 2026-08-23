@@ -118,6 +118,32 @@ export default function AnalysisResultScreen() {
       />
 
       <View style={styles.content}>
+        {/* Developer Debug Label (DEV mode only) */}
+        {__DEV__ && result?.analysisSource && (
+          <View
+            style={{
+              backgroundColor: result.analysisSource === 'openbiollm' ? '#DCFCE7' : '#FEF3C7',
+              borderColor: result.analysisSource === 'openbiollm' ? '#166534' : '#B45309',
+              borderWidth: 1,
+              borderRadius: borderRadius.md,
+              paddingVertical: 4,
+              paddingHorizontal: spacing.sm,
+              marginBottom: spacing.sm,
+              alignSelf: 'flex-start',
+            }}
+          >
+            <Text
+              style={{
+                color: result.analysisSource === 'openbiollm' ? '#166534' : '#B45309',
+                fontSize: 11,
+                fontWeight: '700',
+              }}
+            >
+              🛠️ AI Source: {result.analysisSource === 'openbiollm' ? `OpenBioLLM (${result.modelName || 'aaditya/Llama3-OpenBioLLM-8B'})` : result.analysisSource === 'rule-based-emergency' ? 'Rule Engine (Emergency)' : 'Safe Fallback'}
+            </Text>
+          </View>
+        )}
+
         {/* Audio Guidance Banner with real TTS Controls */}
         <TouchableOpacity
           style={[styles.audioBanner, isSpeaking && styles.audioBannerSpeaking]}

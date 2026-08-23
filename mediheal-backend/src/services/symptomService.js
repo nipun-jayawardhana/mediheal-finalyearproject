@@ -139,12 +139,83 @@ const RULES = [
  * @param {Array<string>} inputSymptoms
  * @returns {Array<string>} normalized symptoms
  */
+// Controlled free-text symptom synonym mappings (natural patient phrasing -> canonical symptom term)
+const SYMPTOM_SYNONYMS = [
+  { match: ['stomach hurts', 'stomach hurt', 'pain in stomach', 'pain in my stomach', 'pain in belly', 'belly pain', 'abdominal pain', 'tummy pain', 'stomach ache', 'stomachache', 'stomach pain'], canonical: 'stomach pain' },
+  { match: ['feeling like vomiting', 'throwing up', 'throw up', 'feel sick', 'queasy', 'nauseous', 'nausea', 'vomiting'], canonical: 'vomiting' },
+  { match: ['can\'t breathe properly', 'can\'t breathe', 'cannot breathe', 'shortness of breath', 'short of breath', 'gasping', 'trouble breathing', 'difficulty breathing'], canonical: 'difficulty breathing' },
+  { match: ['pain in chest', 'chest hurts', 'chest tightness', 'chest pain'], canonical: 'chest pain' },
+  { match: ['high temperature', 'feverish', 'running a fever', 'fever'], canonical: 'fever' },
+  { match: ['skin rash', 'itchy skin', 'rashes', 'skin itching', 'skin redness', 'itching'], canonical: 'skin rash' },
+  { match: ['ear pain', 'ear ache', 'ear hurts', 'earache'], canonical: 'ear pain' },
+  { match: ['joint pain', 'swollen joint', 'joint ache', 'joint swelling', 'knee pain', 'elbow pain', 'swelling'], canonical: 'joint pain' },
+  { match: ['headache', 'head hurts', 'head ache', 'throbbing head'], canonical: 'headache' },
+  { match: ['sore throat', 'throat pain', 'scratchy throat', 'throat hurts'], canonical: 'sore throat' },
+  { match: ['cough', 'coughing', 'dry cough', 'wet cough'], canonical: 'cough' },
+  { match: ['weakness', 'feeling weak', 'tiredness', 'fatigue'], canonical: 'weakness' },
+  { match: ['dizziness', 'dizzy', 'feeling dizzy', 'lightheaded'], canonical: 'dizziness' },
+];
+
+// List of known disease / diagnosis names (not patient-reported symptoms)
+const KNOWN_DISEASES = [
+  'viral infection',
+  'gastritis',
+  'influenza',
+  'flu',
+  'bronchitis',
+  'pneumonia',
+  'covid',
+  'covid-19',
+  'diabetes',
+  'asthma',
+  'appendicitis',
+  'gastroenteritis',
+  'migraine',
+  'dermatitis',
+  'arthritis',
+  'pharyngitis',
+];
+
+/**
+ * Normalizes symptom array:
+ * - Lowercase & trim whitespace
+ * - Excludes known disease names (which are diagnoses, not symptoms)
+ * - Maps natural free-text phrases to canonical symptom keywords via controlled synonym map
+ * - Remove duplicates
+ * - Filter out blank strings
+ * @param {Array<string>} inputSymptoms
+ * @returns {Array<string>} normalized symptoms
+ */
 const normalizeSymptoms = (inputSymptoms) => {
   if (!Array.isArray(inputSymptoms)) return [];
-  const normalized = inputSymptoms
-    .map((s) => (typeof s === 'string' ? s.toLowerCase().trim() : ''))
-    .filter((s) => s.length > 0);
-  return Array.from(new Set(normalized));
+  const normalized = [];
+
+  for (const raw of inputSymptoms) {
+    if (typeof raw !== 'string') continue;
+    const clean = raw.toLowerCase().trim();
+    if (!clean) continue;
+
+    // Filter out disease names (not patient-reported symptoms)
+    if (KNOWN_DISEASES.includes(clean)) {
+      console.log(`[SYMPTOM ENGINE] Excluding disease name from symptom processing: "${clean}"`);
+      continue;
+    }
+
+    // Check against controlled synonym map
+    let canonical = clean;
+    for (const syn of SYMPTOM_SYNONYMS) {
+      if (syn.match.some((pattern) => clean === pattern || clean.includes(pattern))) {
+        canonical = syn.canonical;
+        break;
+      }
+    }
+
+    if (!normalized.includes(canonical)) {
+      normalized.push(canonical);
+    }
+  }
+
+  return normalized;
 };
 
 /**
@@ -207,13 +278,13 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
     emergencyRecommended = bestRule.emergencyRecommended;
     matchedSymptoms = maxMatchedSymptoms;
   } else {
-    // Default fallback when no meaningful rule matches
-    possibleCondition = 'Unable to determine a possible condition';
+    // Safe Fallback when no offline rule matches or input is vague
+    possibleCondition = 'More information is needed';
     possibleConditions = [{ condition: possibleCondition, confidence: 'low' }];
-    riskLevel = 'low';
+    riskLevel = severity === 'severe' ? 'medium' : 'low';
     recommendedSpecialist = 'General Physician';
     guidance = [
-      'Please consult a qualified healthcare professional for further assessment.',
+      'Your symptoms do not match the limited offline safety rules closely enough for a useful preliminary condition suggestion. Please consult a qualified healthcare professional or try the symptom assessment again with more specific symptoms.',
     ];
     emergencyRecommended = false;
     matchedSymptoms = [];
@@ -229,7 +300,7 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
   }
 
   return {
-    symptoms: normalizedInput,
+    symptoms: normalizedInput.length > 0 ? normalizedInput : (Array.isArray(rawSymptoms) ? rawSymptoms : [String(rawSymptoms)]),
     duration,
     severity,
     possibleCondition,
