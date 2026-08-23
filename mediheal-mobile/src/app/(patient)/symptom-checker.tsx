@@ -92,16 +92,37 @@ export default function SymptomCheckerScreen() {
     }
   };
 
+  const decomposeTextToSymptomChips = (text: string): string[] => {
+    if (!text || typeof text !== 'string') return [];
+    const clean = text.trim();
+    if (!clean) return [];
+
+    if (clean.length <= 100 && !clean.includes(',') && !clean.includes(' and ')) {
+      return [clean.toLowerCase()];
+    }
+
+    const clauses = clean
+      .split(/[,;\.]|\s+(?:and|with|spreading to|as well as|feeling like|like a feeling)\s+/i)
+      .map((c) => c.trim().toLowerCase())
+      .filter((c) => c.length > 0);
+
+    const concepts: string[] = [];
+    for (const clause of clauses) {
+      const concise = clause.length > 100 ? clause.substring(0, 97) + '...' : clause;
+      if (!concepts.includes(concise) && concepts.length < 10) {
+        concepts.push(concise);
+      }
+    }
+
+    return concepts.length > 0 ? concepts : [clean.substring(0, 100).toLowerCase()];
+  };
+
   // Convert voice transcript to symptom chips in initial state
   const handleConvertVoiceToChips = () => {
     const rawText = (symptomInput || transcript).trim();
     if (!rawText) return;
 
-    const splitTokens = rawText
-      .split(/[,;\n]| and | සහ | සහව | සහත් /i)
-      .map((s) => s.trim().toLowerCase())
-      .filter((s) => s.length > 0 && s.length <= 100);
-
+    const splitTokens = decomposeTextToSymptomChips(rawText);
     const updated = [...symptomsList];
     splitTokens.forEach((token) => {
       if (!updated.includes(token) && updated.length < 20) {
@@ -114,7 +135,7 @@ export default function SymptomCheckerScreen() {
     resetVoice();
   };
 
-  // Add single symptom chip (manual)
+  // Add single or natural text symptom description
   const handleAddSymptom = () => {
     setInputError('');
     const clean = symptomInput.trim();
@@ -123,20 +144,20 @@ export default function SymptomCheckerScreen() {
       setInputError('Please type a symptom name to add');
       return;
     }
-    if (clean.length > 100) {
-      setInputError('Symptom string cannot exceed 100 characters');
-      return;
-    }
-    if (symptomsList.includes(clean.toLowerCase())) {
-      setInputError('This symptom is already in your list');
-      return;
-    }
     if (symptomsList.length >= 20) {
       setInputError('Maximum 20 symptoms allowed per analysis request');
       return;
     }
 
-    setSymptomsList([...symptomsList, clean.toLowerCase()]);
+    const concepts = decomposeTextToSymptomChips(clean);
+    const updated = [...symptomsList];
+    concepts.forEach((c) => {
+      if (!updated.includes(c) && updated.length < 20) {
+        updated.push(c);
+      }
+    });
+
+    setSymptomsList(updated);
     setSymptomInput('');
   };
 
@@ -174,8 +195,13 @@ export default function SymptomCheckerScreen() {
 
     let activeSymptoms = [...symptomsList];
     const pendingInput = symptomInput.trim();
-    if (pendingInput && !activeSymptoms.includes(pendingInput.toLowerCase())) {
-      activeSymptoms.push(pendingInput.toLowerCase());
+    if (pendingInput) {
+      const concepts = decomposeTextToSymptomChips(pendingInput);
+      concepts.forEach((c) => {
+        if (!activeSymptoms.includes(c) && activeSymptoms.length < 20) {
+          activeSymptoms.push(c);
+        }
+      });
       setSymptomsList(activeSymptoms);
       setSymptomInput('');
     }

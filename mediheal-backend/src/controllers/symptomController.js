@@ -75,8 +75,43 @@ const analyzeSymptoms = async (req, res, next) => {
       });
     }
 
-    // 4. Validation: check individual symptom strings
+    // 3.5 Defense-in-Depth: Decompose natural-language symptom text >100 chars into concise concept phrases
+    let sanitizedSymptoms = [];
     for (const sym of symptoms) {
+      if (typeof sym !== 'string') continue;
+      const clean = sym.trim();
+      if (!clean) continue;
+
+      if (clean.length <= 100) {
+        if (!sanitizedSymptoms.includes(clean)) sanitizedSymptoms.push(clean);
+      } else {
+        const clauses = clean
+          .split(/[,;\.]|\s+(?:and|with|spreading to|as well as|feeling like|like a feeling)\s+/i)
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0);
+
+        for (const clause of clauses) {
+          const concise = clause.length > 100 ? clause.substring(0, 97) + '...' : clause;
+          if (!sanitizedSymptoms.includes(concise)) {
+            sanitizedSymptoms.push(concise);
+          }
+        }
+      }
+    }
+
+    if (sanitizedSymptoms.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide at least one valid symptom string',
+      });
+    }
+
+    if (sanitizedSymptoms.length > 20) {
+      sanitizedSymptoms = sanitizedSymptoms.slice(0, 20);
+    }
+
+    // 4. Validation: check individual symptom strings
+    for (const sym of sanitizedSymptoms) {
       if (typeof sym !== 'string' || sym.trim().length === 0) {
         return res.status(400).json({
           success: false,
@@ -102,10 +137,10 @@ const analyzeSymptoms = async (req, res, next) => {
     }
 
     const inputDuration = typeof duration === 'string' ? duration.trim() : '';
-    const normalizedInputSymptoms = symptomService.normalizeSymptoms(symptoms);
+    const normalizedInputSymptoms = symptomService.normalizeSymptoms(sanitizedSymptoms);
 
-    // 6. Emergency Safety Layer Check (Deterministic Emergency Rules)
-    const isEmergency = symptomService.isEmergencySymptom(normalizedInputSymptoms);
+    // 6. Emergency Safety Layer Check (Evaluates both raw symptoms input and normalized concepts)
+    const isEmergency = symptomService.isEmergencySymptom([...symptoms, ...sanitizedSymptoms, ...normalizedInputSymptoms]);
 
     let finalAnalysis = null;
 
