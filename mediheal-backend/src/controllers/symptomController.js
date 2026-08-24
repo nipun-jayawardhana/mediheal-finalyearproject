@@ -145,10 +145,14 @@ const analyzeSymptoms = async (req, res, next) => {
     let detectedInputLang = targetLang;
 
     if (targetLang !== 'en' || sanitizedSymptoms.some((s) => /[^\x00-\x7F]/.test(s))) {
+      const transStart = Date.now();
       const translated = await geminiTranslationService.translateInputToCanonicalEnglish(
         sanitizedSymptoms.join(', '),
         targetLang
       );
+      const transElapsed = Date.now() - transStart;
+      console.log(`[TRANSLATION][${reqId}] Input translation completed in ${transElapsed}ms`);
+
       if (translated && translated.englishText) {
         detectedInputLang = translated.detectedLanguage || targetLang;
         if (Array.isArray(translated.symptomConcepts) && translated.symptomConcepts.length > 0) {
@@ -213,7 +217,8 @@ const analyzeSymptoms = async (req, res, next) => {
         };
       } catch (aiError) {
         // Log AI error server-side silently, fallback to safe rule-based engine
-        console.warn(`${tag} OpenBioLLM inference failed, invoking rule-based fallback:`, aiError.message);
+        console.warn(`${tag} OpenBioLLM inference failed (${aiError.message})`);
+        console.log(`${tag} Using rule-based fallback`);
         const fallbackResult = symptomService.analyzeSymptoms(
           normalizedInputSymptoms,
           inputDuration,
@@ -249,10 +254,13 @@ const analyzeSymptoms = async (req, res, next) => {
     });
 
     // 8. Output Translation: Translate patient-facing analysis result fields if targetLang != 'en'
+    const outTransStart = Date.now();
     const translatedOutput = await geminiTranslationService.translateAnalysisResult(
       finalAnalysis,
       targetLang
     );
+    const outTransElapsed = Date.now() - outTransStart;
+    console.log(`[TRANSLATION][${reqId}] Result translation completed in ${outTransElapsed}ms`);
 
     const elapsed = Date.now() - startTime;
     console.log(`${tag} Response sent in ${elapsed}ms (Lang: ${targetLang})`);

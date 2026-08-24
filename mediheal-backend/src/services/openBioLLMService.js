@@ -88,8 +88,7 @@ const parseJSONFromText = (rawText) => {
  */
 const analyzeSymptomsWithOpenBioLLM = async (symptoms, duration = '', severity = 'mild', reqId = '') => {
   const tag = reqId ? `[OPENBIOLLM][${reqId}]` : '[OPENBIOLLM]';
-  const startTime = Date.now();
-  console.log(`${tag}`);
+  const startedAt = Date.now();
   console.log(`${tag} Starting biomedical symptom analysis`);
 
   const token = process.env.HUGGINGFACE_API_TOKEN;
@@ -125,147 +124,210 @@ JSON Output:`;
     max_tokens: 350,
   };
 
-  let lastError = null;
+  const TOTAL_AI_DEADLINE_MS = 25000; // Hard top-level deadline: 25 seconds
+  const SAFETY_MARGIN_MS = 1500; // Reserve 1.5s safety margin for error propagation
+  const deadlineAt = startedAt + TOTAL_AI_DEADLINE_MS;
   const maxRetries = 1;
-  const TOTAL_AI_DEADLINE_MS = 21000; // Hard max AI budget: 21 seconds
-  const deadline = startTime + TOTAL_AI_DEADLINE_MS;
+  let lastError = null;
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const elapsed = Date.now() - startTime;
-    const remainingTime = deadline - Date.now();
+  const globalController = new AbortController();
+  const globalTimeoutId = setTimeout(() => {
+    globalController.abort();
+  }, TOTAL_AI_DEADLINE_MS);
 
-    // Check if remaining time is too short for a meaningful attempt (need at least 4s)
-    if (remainingTime < 4000) {
-      console.warn(`${tag} Aborting OpenBioLLM attempt ${attempt + 1}: remaining budget (${remainingTime}ms) is below safety threshold`);
-      lastError = lastError || new Error(`OpenBioLLM request timed out after total AI deadline (${elapsed}ms)`);
-      break;
-    }
+  try {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const elapsed = Date.now() - startedAt;
+      const remainingTime = deadlineAt - Date.now();
 
-    if (attempt > 0) {
-      // Short delay on retry (800ms max)
-      const retryDelay = Math.min(800, remainingTime - 3000);
-      if (retryDelay > 0) {
-        await new Promise((r) => setTimeout(r, retryDelay));
-      }
-    }
-
-    // Calculate attempt timeout: Attempt 1 max 12s, Attempt 2 max 8s, both bounded by remaining deadline time
-    const attemptMaxTimeout = attempt === 0 ? 12000 : 8000;
-    const currentAttemptTimeout = Math.min(attemptMaxTimeout, deadline - Date.now() - 500);
-
-    if (currentAttemptTimeout < 3000) {
-      console.warn(`${tag} Skipping retry attempt ${attempt + 1}: insufficient time budget (${currentAttemptTimeout}ms)`);
-      break;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), currentAttemptTimeout);
-
-    try {
-      const response = await fetch(ROUTER_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.status === 503 || response.status === 429) {
-        lastError = new Error(`Provider temporarily unavailable (HTTP ${response.status})`);
-        continue; // Retry
+      // If global deadline or safety margin reached, stop immediately
+      if (globalController.signal.aborted || remainingTime <= SAFETY_MARGIN_MS) {
+        console.warn(`${tag} Global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, elapsed)}ms)`);
+        lastError = lastError || new Error(`OpenBioLLM global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, elapsed)}ms)`);
+        break;
       }
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenBioLLM API HTTP Error ${response.status}: ${errorText.substring(0, 200)}`);
+      if (attempt === 0) {
+        console.log(`${tag} Attempt 1 started`);
+      } else {
+        console.log(`${tag} Retrying with ${remainingTime}ms remaining`);
+        console.log(`${tag} Attempt 2 started`);
       }
 
-      const responseData = await response.json();
-      const rawContent = responseData.choices?.[0]?.message?.content;
-
-      if (!rawContent) {
-        throw new Error('OpenBioLLM returned an empty content response');
-      }
-
-      const parsedJSON = parseJSONFromText(rawContent);
-      if (!parsedJSON) {
-        throw new Error('Failed to parse structured JSON from OpenBioLLM response');
-      }
-
-      // Output Validation & Normalization
-      let possibleConditions = [];
-      if (Array.isArray(parsedJSON.possibleConditions) && parsedJSON.possibleConditions.length > 0) {
-        const validConfidences = ['high', 'medium', 'low'];
-        const seenConditions = new Set();
-
-        for (const item of parsedJSON.possibleConditions) {
-          if (!item || typeof item !== 'object') continue;
-          const condName = typeof item.condition === 'string' ? item.condition.trim() : '';
-          if (!condName || seenConditions.has(condName.toLowerCase())) continue;
-
-          seenConditions.add(condName.toLowerCase());
-          let conf = typeof item.confidence === 'string' ? item.confidence.toLowerCase().trim() : 'medium';
-          if (!validConfidences.includes(conf)) conf = 'medium';
-
-          possibleConditions.push({
-            condition: condName,
-            confidence: conf,
-          });
-
-          if (possibleConditions.length >= 3) break;
+      if (attempt > 0) {
+        // Short delay on retry (500ms max), respecting safety margin
+        const retryDelay = Math.min(500, remainingTime - SAFETY_MARGIN_MS);
+        if (retryDelay > 0) {
+          await new Promise((r) => setTimeout(r, retryDelay));
         }
       }
 
-      if (possibleConditions.length === 0) {
-        throw new Error('OpenBioLLM did not produce valid possible conditions');
+      // Re-calculate after retry delay
+      const remainingAfterDelay = deadlineAt - Date.now();
+      if (globalController.signal.aborted || remainingAfterDelay <= SAFETY_MARGIN_MS) {
+        console.warn(`${tag} Global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt)}ms)`);
+        lastError = lastError || new Error(`OpenBioLLM global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt)}ms)`);
+        break;
       }
 
-      const recommendedSpecialist = normalizeSpecialist(parsedJSON.recommendedSpecialist);
+      // Attempt 1: 14000ms max. Attempt 2: 7000ms max, bounded strictly by remaining global deadline minus safety margin
+      const attemptMaxTimeout = attempt === 0 ? 14000 : 7000;
+      const currentAttemptTimeout = Math.min(attemptMaxTimeout, Math.max(100, remainingAfterDelay - SAFETY_MARGIN_MS));
 
-      let guidance = [];
-      if (Array.isArray(parsedJSON.guidance) && parsedJSON.guidance.length > 0) {
-        guidance = parsedJSON.guidance
-          .map((g) => (typeof g === 'string' ? g.trim() : ''))
-          .filter((g) => g.length > 0 && g.length <= 250)
-          .slice(0, 4);
+      if (currentAttemptTimeout < 3000) {
+        console.warn(`${tag} Skipping retry attempt ${attempt + 1}: insufficient time budget (${currentAttemptTimeout}ms)`);
+        break;
       }
 
-      if (guidance.length === 0) {
-        guidance = [
-          'Rest adequately and monitor symptoms.',
-          'Stay well hydrated with fluids.',
-          'Consult a medical professional if symptoms worsen.',
-        ];
+      const attemptController = new AbortController();
+      const attemptStart = Date.now();
+      const attemptTimeoutId = setTimeout(() => attemptController.abort(), currentAttemptTimeout);
+
+      // Link global controller signal to attempt controller
+      const onGlobalAbort = () => attemptController.abort();
+      if (globalController.signal.aborted) {
+        attemptController.abort();
+      } else {
+        globalController.signal.addEventListener('abort', onGlobalAbort, { once: true });
       }
 
-      const totalDuration = Date.now() - startTime;
-      console.log(`${tag}`);
-      console.log(`${tag} Model: ${MODEL_NAME}`);
-      console.log(`${tag} Inference: SUCCESS`);
-      console.log(`${tag} Inference completed in ${totalDuration}ms`);
-      console.log(`${tag} analysisSource: openbiollm`);
+      try {
+        const response = await fetch(ROUTER_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: attemptController.signal,
+        });
 
-      return {
-        possibleConditions,
-        topCondition: possibleConditions[0].condition,
-        recommendedSpecialist,
-        guidance,
-        modelName: MODEL_NAME,
-      };
-    } catch (err) {
-      clearTimeout(timeoutId);
-      lastError = err;
-      if (err.name === 'AbortError') {
-        const attemptDuration = Math.round(currentAttemptTimeout / 1000);
-        lastError = new Error(`OpenBioLLM request timed out after ${attemptDuration} seconds`);
+        clearTimeout(attemptTimeoutId);
+        globalController.signal.removeEventListener('abort', onGlobalAbort);
+        const attemptDuration = Date.now() - attemptStart;
+
+        if (attempt === 0) {
+          console.log(`${tag} Attempt 1 completed in ${attemptDuration}ms`);
+        } else {
+          console.log(`${tag} Attempt 2 completed in ${attemptDuration}ms`);
+        }
+
+        if (response.status === 503 || response.status === 502 || response.status === 429) {
+          lastError = new Error(`Provider temporarily unavailable (HTTP ${response.status})`);
+          continue; // Retryable error
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const permanentError = new Error(`OpenBioLLM API HTTP Error ${response.status}: ${errorText.substring(0, 200)}`);
+          // Non-retryable client errors (400, 401, 403, 404) -> break immediately
+          if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+            console.warn(`${tag} Non-retryable error HTTP ${response.status}. Skipping retry.`);
+            lastError = permanentError;
+            break;
+          }
+          throw permanentError;
+        }
+
+        const responseData = await response.json();
+        const rawContent = responseData.choices?.[0]?.message?.content;
+
+        if (!rawContent) {
+          throw new Error('OpenBioLLM returned an empty content response');
+        }
+
+        const parsedJSON = parseJSONFromText(rawContent);
+        if (!parsedJSON) {
+          throw new Error('Failed to parse structured JSON from OpenBioLLM response');
+        }
+
+        // Output Validation & Normalization
+        let possibleConditions = [];
+        if (Array.isArray(parsedJSON.possibleConditions) && parsedJSON.possibleConditions.length > 0) {
+          const validConfidences = ['high', 'medium', 'low'];
+          const seenConditions = new Set();
+
+          for (const item of parsedJSON.possibleConditions) {
+            if (!item || typeof item !== 'object') continue;
+            const condName = typeof item.condition === 'string' ? item.condition.trim() : '';
+            if (!condName || seenConditions.has(condName.toLowerCase())) continue;
+
+            seenConditions.add(condName.toLowerCase());
+            let conf = typeof item.confidence === 'string' ? item.confidence.toLowerCase().trim() : 'medium';
+            if (!validConfidences.includes(conf)) conf = 'medium';
+
+            possibleConditions.push({
+              condition: condName,
+              confidence: conf,
+            });
+
+            if (possibleConditions.length >= 3) break;
+          }
+        }
+
+        if (possibleConditions.length === 0) {
+          throw new Error('OpenBioLLM did not produce valid possible conditions');
+        }
+
+        const recommendedSpecialist = normalizeSpecialist(parsedJSON.recommendedSpecialist);
+
+        let guidance = [];
+        if (Array.isArray(parsedJSON.guidance) && parsedJSON.guidance.length > 0) {
+          guidance = parsedJSON.guidance
+            .map((g) => (typeof g === 'string' ? g.trim() : ''))
+            .filter((g) => g.length > 0 && g.length <= 250)
+            .slice(0, 4);
+        }
+
+        if (guidance.length === 0) {
+          guidance = [
+            'Rest adequately and monitor symptoms.',
+            'Stay well hydrated with fluids.',
+            'Consult a medical professional if symptoms worsen.',
+          ];
+        }
+
+        const totalElapsed = Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt);
+        if (attempt > 0) {
+          console.log(`${tag} Attempt 2 SUCCESS`);
+        } else {
+          console.log(`${tag} Inference SUCCESS`);
+        }
+        console.log(`${tag} Total model elapsed: ${totalElapsed}ms`);
+        console.log(`${tag} Model: ${MODEL_NAME}`);
+        console.log(`${tag} analysisSource: openbiollm`);
+
+        return {
+          possibleConditions,
+          topCondition: possibleConditions[0].condition,
+          recommendedSpecialist,
+          guidance,
+          modelName: MODEL_NAME,
+        };
+      } catch (err) {
+        clearTimeout(attemptTimeoutId);
+        globalController.signal.removeEventListener('abort', onGlobalAbort);
+        const attemptDuration = Date.now() - attemptStart;
+        if (err.name === 'AbortError' || globalController.signal.aborted) {
+          lastError = new Error(`OpenBioLLM request timed out after ${currentAttemptTimeout}ms`);
+          if (attempt === 0) {
+            console.warn(`${tag} Attempt 1 timed out after ${attemptDuration}ms`);
+          } else {
+            console.warn(`${tag} Attempt 2 timed out after ${attemptDuration}ms`);
+          }
+        } else {
+          lastError = err;
+          console.warn(`${tag} Attempt ${attempt + 1} failed: ${err.message}`);
+        }
       }
     }
+  } finally {
+    clearTimeout(globalTimeoutId);
   }
 
+  const finalElapsed = Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt);
+  console.log(`${tag} Global deadline reached`);
+  console.log(`${tag} Total model elapsed: ${finalElapsed}ms`);
   throw lastError || new Error('Failed to complete OpenBioLLM inference within deadline');
 };
 

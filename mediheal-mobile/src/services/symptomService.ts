@@ -37,7 +37,7 @@ export const analyzeSymptomsApi = async (
     const response = await apiClient.post<SymptomAnalysisResponse>(
       '/symptoms/analyze',
       payload,
-      { timeout: 30000 }
+      { timeout: 40000 }
     );
     const duration = Date.now() - startTime;
     console.log(`[SYMPTOM CLIENT][${reqId}] Analysis response received in ${duration}ms`);

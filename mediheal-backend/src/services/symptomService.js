@@ -142,6 +142,19 @@ const RULES = [
     ],
     emergencyRecommended: false,
   },
+  {
+    id: 'RULE_9',
+    symptoms: ['leg pain', 'knee pain', 'ankle pain', 'wrist pain', 'hip pain', 'shoulder pain', 'elbow pain', 'back pain', 'injury', 'fall'],
+    possibleCondition: 'Possible Musculoskeletal Injury',
+    riskLevel: 'low',
+    recommendedSpecialist: 'Orthopedic Specialist',
+    guidance: [
+      'Rest the affected area and avoid strenuous weight-bearing activities.',
+      'Apply cold compress / ice pack wrapped in a cloth for 15-20 minutes to reduce swelling.',
+      'Consult an Orthopedic Specialist or Physical Therapist for clinical evaluation.',
+    ],
+    emergencyRecommended: false,
+  },
 ];
 
 /**
