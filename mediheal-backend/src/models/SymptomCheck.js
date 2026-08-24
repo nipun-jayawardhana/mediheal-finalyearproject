@@ -86,6 +86,16 @@ const symptomCheckSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    inputLanguage: {
+      type: String,
+      trim: true,
+      default: 'en',
+    },
+    displayLanguage: {
+      type: String,
+      trim: true,
+      default: 'en',
+    },
   },
   {
     timestamps: true,

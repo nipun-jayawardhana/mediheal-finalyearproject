@@ -14,35 +14,28 @@ import { colors, spacing, borderRadius, typography, shadows } from '../constants
 import {
   LanguageCode,
   SUPPORTED_LANGUAGES,
-  getStoredLanguage,
-  setStoredLanguage,
 } from '../utils/languageStorage';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function LanguageSelectionScreen() {
   const router = useRouter();
-  const [selectedLang, setSelectedLang] = useState<LanguageCode>('en');
-  const [loading, setLoading] = useState<boolean>(true);
+  const { language, setLanguage, t, isLoadingLanguage } = useLanguage();
+  const [selectedLang, setSelectedLang] = useState<LanguageCode>(language);
   const [saving, setSaving] = useState<boolean>(false);
   const [savedBanner, setSavedBanner] = useState<string>('');
 
   useEffect(() => {
-    const loadLang = async () => {
-      setLoading(true);
-      const lang = await getStoredLanguage();
-      setSelectedLang(lang);
-      setLoading(false);
-    };
-    loadLang();
-  }, []);
+    setSelectedLang(language);
+  }, [language]);
 
   const handleSelectLanguage = async (code: LanguageCode) => {
     try {
       setSaving(true);
       setSelectedLang(code);
-      await setStoredLanguage(code);
+      await setLanguage(code);
 
       const langName = SUPPORTED_LANGUAGES.find((l) => l.code === code)?.name || code;
-      setSavedBanner(`Language saved: ${langName}`);
+      setSavedBanner(`${t('languageSaved')}: ${langName}`);
 
       setTimeout(() => {
         setSavedBanner('');
@@ -57,15 +50,15 @@ export default function LanguageSelectionScreen() {
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
       <AppHeader
-        title="Language Selection"
+        title={t('chooseLanguage')}
         subtitle="තෝරන්න / தேர்ந்தெடுக்கவும்"
         onBackPress={() => router.back()}
       />
 
       <View style={styles.content}>
-        <Text style={styles.heading}>Choose Your Language</Text>
+        <Text style={styles.heading}>{t('chooseLanguage')}</Text>
         <Text style={styles.subheading}>
-          Select your preferred language for MediHeal. You can change this at any time in settings.
+          {t('languageSub')}
         </Text>
 
         {savedBanner ? (
@@ -74,7 +67,7 @@ export default function LanguageSelectionScreen() {
           </View>
         ) : null}
 
-        {loading ? (
+        {isLoadingLanguage ? (
           <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
         ) : (
           <View style={styles.listContainer}>

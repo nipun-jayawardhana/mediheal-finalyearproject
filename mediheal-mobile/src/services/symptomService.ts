@@ -63,10 +63,12 @@ export const getSymptomHistoryApi = async (): Promise<SymptomHistoryResponse> =>
  * Endpoint: GET /api/symptoms/:symptomCheckId
  */
 export const getSymptomCheckByIdApi = async (
-  symptomCheckId: string
+  symptomCheckId: string,
+  language?: string
 ): Promise<SymptomCheckDetailResponse> => {
+  const query = language ? `?language=${encodeURIComponent(language)}` : '';
   const response = await apiClient.get<SymptomCheckDetailResponse>(
-    `/symptoms/${symptomCheckId}`
+    `/symptoms/${symptomCheckId}${query}`
   );
   return response.data;
 };

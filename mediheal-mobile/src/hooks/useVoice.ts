@@ -179,7 +179,10 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
         return;
       }
 
-      const locale = getLocaleForLanguage(customLang || language);
+      const targetLang = customLang || language;
+      const locale = getLocaleForLanguage(targetLang);
+      console.log(`[VOICE STT] App language: ${targetLang}`);
+      console.log(`[VOICE STT] Recognition locale: ${locale}`);
 
       try {
         if (Platform.OS === 'web') {

@@ -20,6 +20,20 @@ const EMERGENCY_SYMPTOMS = [
   'sudden weakness on one side',
   'severe bleeding',
   'seizure',
+  // Sinhala emergency triggers
+  'පපුවේ කැක්කුම',
+  'තද පපුවේ කැක්කුම',
+  'හුස්ම ගැනීමේ අමාරුව',
+  'හුස්ම ගන්න අමාරුයි',
+  'සිහිය නැතිවීම',
+  'ලේ ගැලීම',
+  // Tamil emergency triggers
+  'நெஞ்சு வலி',
+  'கடுமையான நெஞ்சு வலி',
+  'மூச்சுத் திணறல்',
+  'சுவாசிப்பதில் சிரமம்',
+  'மயக்கம்',
+  'ரத்தப்போக்கு',
 ];
 
 // Predefined Rule Definitions

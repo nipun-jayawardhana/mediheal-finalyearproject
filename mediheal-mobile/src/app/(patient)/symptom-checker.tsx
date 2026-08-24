@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
 } from '../../types/symptom';
 import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const SEVERITY_OPTIONS: { label: string; value: SeverityLevel }[] = [
   { label: 'Mild', value: 'mild' },
@@ -31,7 +32,7 @@ const SEVERITY_OPTIONS: { label: string; value: SeverityLevel }[] = [
 export default function SymptomCheckerScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
+  const { language, t } = useLanguage();
 
   // Step Mode: 'initial' | 'conversing' | 'summary'
   const [stepMode, setStepMode] = useState<'initial' | 'conversing' | 'summary'>('initial');
@@ -72,7 +73,7 @@ export default function SymptomCheckerScreen() {
     stopListening,
     resetVoice,
   } = useVoice({
-    language: userLang,
+    language,
     onTranscript: (capturedText) => {
       if (capturedText) {
         if (stepMode === 'conversing') {
@@ -219,6 +220,7 @@ export default function SymptomCheckerScreen() {
         symptoms: activeSymptoms,
         conversation: [],
         questionCount: 0,
+        language,
       });
 
       if (res && res.success && res.data) {
@@ -285,6 +287,7 @@ export default function SymptomCheckerScreen() {
         symptoms: symptomsList,
         conversation: newHistory,
         questionCount: newQCount,
+        language,
       });
 
       if (res && res.success && res.data) {
@@ -361,6 +364,7 @@ export default function SymptomCheckerScreen() {
         duration: summaryData.duration,
         severity: summaryData.severity,
         analysisRequestId: reqId,
+        language,
       });
 
       if (res && res.success && res.analysis?.symptomCheckId) {
@@ -382,8 +386,8 @@ export default function SymptomCheckerScreen() {
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
       <AppHeader
-        title="Symptom Checker"
-        subtitle="කරුණාකර ඔබේ රෝග ලක්ෂණ පවසන්න"
+        title={t('symptomCheckerTitle')}
+        subtitle={t('whereDoesItHurt')}
         onBackPress={() => router.back()}
         rightComponent={
           <TouchableOpacity
@@ -393,7 +397,7 @@ export default function SymptomCheckerScreen() {
             accessibilityRole="button"
             accessibilityLabel="Restart symptom input"
           >
-            <Text style={styles.restartBtnText}>🔄 RESTART</Text>
+            <Text style={styles.restartBtnText}>🔄 {t('restart').toUpperCase()}</Text>
           </TouchableOpacity>
         }
       />
@@ -403,7 +407,7 @@ export default function SymptomCheckerScreen() {
           <ErrorView
             message={errorMsg}
             onRetry={() => setErrorMsg('')}
-            retryText="Dismiss"
+            retryText={t('dismiss')}
           />
         ) : null}
 
@@ -413,7 +417,7 @@ export default function SymptomCheckerScreen() {
             <View style={styles.emergencyHeaderRow}>
               <Text style={styles.emergencyIcon}>🚨</Text>
               <View style={styles.emergencyTextCol}>
-                <Text style={styles.emergencyTitle}>Urgent Emergency Warning</Text>
+                <Text style={styles.emergencyTitle}>{t('urgentEmergencyTitle')}</Text>
                 <Text style={styles.emergencySub}>{emergencyWarning}</Text>
               </View>
             </View>
@@ -422,7 +426,7 @@ export default function SymptomCheckerScreen() {
               activeOpacity={0.8}
               onPress={() => router.push('/(patient)/emergency-countdown' as any)}
             >
-              <Text style={styles.emergencyBtnText}>🚨 Trigger Emergency SOS Now</Text>
+              <Text style={styles.emergencyBtnText}>{t('triggerEmergencySosNow')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -433,8 +437,8 @@ export default function SymptomCheckerScreen() {
             {/* Header Bot Greeting Bubble matching visual reference */}
             <View style={styles.chatBubbleBot}>
               <View style={styles.botTextCol}>
-                <Text style={styles.botBubbleTitle}>Where does it hurt today?</Text>
-                <Text style={styles.botBubbleSub}>අද ඔබට රිදෙන්නේ කොතැනද? (Tap mic or type below)</Text>
+                <Text style={styles.botBubbleTitle}>{t('whereDoesItHurt')}</Text>
+                <Text style={styles.botBubbleSub}>{t('tapMicOrType')}</Text>
               </View>
 
               <TouchableOpacity
@@ -463,9 +467,9 @@ export default function SymptomCheckerScreen() {
               >
                 <Text style={styles.voiceFeedbackTitle}>
                   {isListening
-                    ? '🎙️ Listening... Speak your symptoms clearly'
+                    ? '🎙️ Listening...'
                     : voiceState === 'recognized'
-                    ? '✅ Speech Recognized'
+                    ? `✅ ${t('speechRecognized')}`
                     : voiceState === 'no_speech'
                     ? '⚠️ No Speech Detected'
                     : 'ℹ️ Voice Notice'}
@@ -477,12 +481,26 @@ export default function SymptomCheckerScreen() {
                   <Text style={styles.voiceFeedbackText}>"{transcript}"</Text>
                 ) : null}
 
+                {/* STT Language Notice */}
+                {language !== 'en' && (
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                    ℹ️ {t('sttAvailabilityNotice')}
+                  </Text>
+                )}
+
+                {/* Script Transliteration Review Warning */}
+                {voiceState === 'recognized' && language !== 'en' && transcript && /[a-zA-Z]/.test(transcript) && (
+                  <Text style={{ fontSize: 12, color: colors.warning, marginTop: 4, fontWeight: '600' }}>
+                    ⚠️ {t('sttScriptReviewNotice')}
+                  </Text>
+                )}
+
                 {voiceState === 'recognized' && (
                   <TouchableOpacity
                     style={styles.convertChipBtn}
                     onPress={handleConvertVoiceToChips}
                   >
-                    <Text style={styles.convertChipBtnText}>➕ Add "{transcript}" to Symptoms List</Text>
+                    <Text style={styles.convertChipBtnText}>➕ {t('addSymptomChip')}: "{transcript}"</Text>
                   </TouchableOpacity>
                 )}
 
@@ -491,7 +509,7 @@ export default function SymptomCheckerScreen() {
                     style={styles.retryMicBtn}
                     onPress={() => startListening()}
                   >
-                    <Text style={styles.retryMicBtnText}>🔄 Tap to Try Speaking Again</Text>
+                    <Text style={styles.retryMicBtnText}>🔄 {t('retry')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -499,12 +517,12 @@ export default function SymptomCheckerScreen() {
 
             {/* Initial Symptom Input Form */}
             <View style={styles.inputCard}>
-              <Text style={styles.cardHeaderTitle}>State Your Initial Symptom</Text>
-              <Text style={styles.cardHeaderSub}>We will ask up to 3 short follow-up questions to understand your condition.</Text>
+              <Text style={styles.cardHeaderTitle}>{t('stateInitialSymptom')}</Text>
+              <Text style={styles.cardHeaderSub}>{t('willAskUpTo3')}</Text>
 
               <View style={styles.inputAddRow}>
                 <AppInput
-                  placeholder="e.g. headache, chest pain, fever"
+                  placeholder={t('addSymptomPlaceholder')}
                   value={symptomInput}
                   onChangeText={(val) => {
                     setSymptomInput(val);
@@ -523,7 +541,7 @@ export default function SymptomCheckerScreen() {
                 </TouchableOpacity>
 
                 <AppButton
-                  title="+ Add"
+                  title={t('addBtn')}
                   onPress={handleAddSymptom}
                   variant="secondary"
                   style={styles.addBtn}
@@ -531,7 +549,7 @@ export default function SymptomCheckerScreen() {
               </View>
 
               {/* Active Symptom Chips */}
-              <Text style={styles.chipLabel}>Initial Symptoms ({symptomsList.length}):</Text>
+              <Text style={styles.chipLabel}>{t('initialSymptoms')} ({symptomsList.length}):</Text>
               <View style={styles.chipsContainer}>
                 {symptomsList.length > 0 ? (
                   symptomsList.map((sym, idx) => (
@@ -547,13 +565,13 @@ export default function SymptomCheckerScreen() {
                   ))
                 ) : (
                   <Text style={styles.noChipsText}>
-                    No symptoms added yet. Type or speak a symptom above and tap "+ Add".
+                    {t('noSymptomsAddedYet')}
                   </Text>
                 )}
               </View>
 
               <AppButton
-                title="Start Symptom Assessment ➔"
+                title={t('startAssessmentBtn')}
                 onPress={handleStartConversationalAssessment}
                 loading={loading}
                 style={styles.startAssessmentBtn}
@@ -567,7 +585,7 @@ export default function SymptomCheckerScreen() {
           <View>
             {/* Progress Badge */}
             <View style={styles.progressCard}>
-              <Text style={styles.progressTitle}>Follow-up Question {questionCount} of up to 3</Text>
+              <Text style={styles.progressTitle}>{t('followUpQuestion')} {questionCount} / 3</Text>
               <View style={styles.progressBarBg}>
                 <View style={[styles.progressBarFill, { width: `${(questionCount / 3) * 100}%` }]} />
               </View>
@@ -578,7 +596,7 @@ export default function SymptomCheckerScreen() {
               {/* Initial Symptoms Bubble */}
               <View style={styles.userBubble}>
                 <Text style={styles.userBubbleText}>
-                  I have: {symptomsList.join(', ')}
+                  {t('initialSymptoms')}: {symptomsList.join(', ')}
                 </Text>
               </View>
 
@@ -623,7 +641,7 @@ export default function SymptomCheckerScreen() {
                   {/* Manual Text / Voice Answer Row */}
                   <View style={styles.answerInputRow}>
                     <AppInput
-                      placeholder="Type your answer here..."
+                      placeholder={t('tapMicOrType')}
                       value={answerInput}
                       onChangeText={setAnswerInput}
                       containerStyle={styles.flexInput}
@@ -638,7 +656,7 @@ export default function SymptomCheckerScreen() {
                     </TouchableOpacity>
 
                     <AppButton
-                      title="Send"
+                      title={t('sendAnswer')}
                       onPress={() => handleSendAnswer()}
                       loading={loading}
                       style={styles.sendBtn}
@@ -658,7 +676,7 @@ export default function SymptomCheckerScreen() {
                     onPress={handleSkipQuestion}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.skipBtnText}>Skip question ➔</Text>
+                    <Text style={styles.skipBtnText}>{t('skipQuestion')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -679,13 +697,13 @@ export default function SymptomCheckerScreen() {
             <View style={styles.summaryHeader}>
               <Text style={styles.summaryHeaderIcon}>📋</Text>
               <View>
-                <Text style={styles.summaryHeaderTitle}>Symptom Assessment Summary</Text>
-                <Text style={styles.summaryHeaderSub}>Please review your information before AI analysis</Text>
+                <Text style={styles.summaryHeaderTitle}>{t('assessmentSummary')}</Text>
+                <Text style={styles.summaryHeaderSub}>{t('reviewBeforeAnalysis')}</Text>
               </View>
             </View>
 
             <View style={styles.summarySection}>
-              <Text style={styles.summaryLabel}>Symptoms Identified:</Text>
+              <Text style={styles.summaryLabel}>{t('initialSymptoms')}:</Text>
               <View style={styles.chipsContainer}>
                 {summaryData.symptoms.map((s, idx) => (
                   <View key={idx} style={styles.summaryChip}>
@@ -697,12 +715,12 @@ export default function SymptomCheckerScreen() {
 
             <View style={styles.summaryRow}>
               <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Duration:</Text>
+                <Text style={styles.summaryLabel}>{t('duration')}:</Text>
                 <Text style={styles.summaryVal}>{summaryData.duration}</Text>
               </View>
 
               <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Discomfort Severity:</Text>
+                <Text style={styles.summaryLabel}>{t('severity')}:</Text>
                 <Text
                   style={[
                     styles.summaryVal,
@@ -716,7 +734,7 @@ export default function SymptomCheckerScreen() {
 
             {summaryData.additionalContext && summaryData.additionalContext.length > 0 && (
               <View style={styles.summarySection}>
-                <Text style={styles.summaryLabel}>Additional Notes:</Text>
+                <Text style={styles.summaryLabel}>{t('additionalNotes')}:</Text>
                 {summaryData.additionalContext.map((note, nIdx) => (
                   <Text key={nIdx} style={styles.summaryNoteText}>• {note}</Text>
                 ))}
@@ -724,7 +742,7 @@ export default function SymptomCheckerScreen() {
             )}
 
             {/* Severity Adjustment Options */}
-            <Text style={styles.fieldLabel}>Adjust Severity Level (if needed)</Text>
+            <Text style={styles.fieldLabel}>{t('adjustSeverity')}</Text>
             <View style={styles.severityRow}>
               {SEVERITY_OPTIONS.map((item) => (
                 <TouchableOpacity
@@ -751,7 +769,7 @@ export default function SymptomCheckerScreen() {
 
             {/* Action Buttons */}
             <AppButton
-              title="🔍 Analyze Symptoms with OpenBioLLM"
+              title={t('analyzeSymptomsBtn')}
               onPress={handleFinalAnalyze}
               loading={loading}
               disabled={isAnalyzing || loading}
@@ -764,7 +782,7 @@ export default function SymptomCheckerScreen() {
                 onPress={() => !isAnalyzing && !loading && setStepMode('initial')}
                 disabled={isAnalyzing || loading}
               >
-                <Text style={styles.editBtnText}>✏️ Edit Symptoms</Text>
+                <Text style={styles.editBtnText}>{t('editSymptoms')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -772,7 +790,7 @@ export default function SymptomCheckerScreen() {
                 onPress={() => !isAnalyzing && !loading && handleRestart()}
                 disabled={isAnalyzing || loading}
               >
-                <Text style={styles.restartSummaryBtnText}>🔄 Restart</Text>
+                <Text style={styles.restartSummaryBtnText}>🔄 {t('restart')}</Text>
               </TouchableOpacity>
             </View>
           </View>

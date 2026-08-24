@@ -44,3 +44,26 @@ export const setStoredLanguage = async (language: LanguageCode): Promise<void> =
     throw error;
   }
 };
+
+/**
+ * Resolves active language code based on precedence:
+ * 1. user profile preferredLanguage ("Sinhala" -> 'si', "Tamil" -> 'ta', "English" -> 'en')
+ * 2. stored AsyncStorage language selection
+ * 3. default 'en'
+ */
+export const resolveActiveLanguage = (
+  userProfileLang?: string,
+  storedLang?: LanguageCode
+): LanguageCode => {
+  if (userProfileLang) {
+    const clean = userProfileLang.toLowerCase().trim();
+    if (clean === 'sinhala' || clean === 'si') return 'si';
+    if (clean === 'tamil' || clean === 'ta') return 'ta';
+    if (clean === 'english' || clean === 'en') return 'en';
+  }
+  if (storedLang && (storedLang === 'en' || storedLang === 'si' || storedLang === 'ta')) {
+    return storedLang;
+  }
+  return 'en';
+};
+

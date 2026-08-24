@@ -3,6 +3,7 @@ const SymptomCheck = require('../models/SymptomCheck');
 const symptomService = require('../services/symptomService');
 const openBioLLMService = require('../services/openBioLLMService');
 const geminiConversationService = require('../services/geminiConversationService');
+const geminiTranslationService = require('../services/geminiTranslationService');
 
 /**
  * @desc    Analyze symptoms and recommend specialist
@@ -13,7 +14,8 @@ const analyzeSymptoms = async (req, res, next) => {
   const startTime = Date.now();
   try {
     const patientId = req.user._id;
-    const { symptoms, duration, severity, analysisRequestId } = req.body;
+    const { symptoms, duration, severity, analysisRequestId, language = 'en' } = req.body;
+    const targetLang = language === 'Sinhala' ? 'si' : language === 'Tamil' ? 'ta' : (language || 'en');
     const reqId = typeof analysisRequestId === 'string' && analysisRequestId.trim() ? analysisRequestId.trim() : `req-${Math.random().toString(36).substring(2, 8)}`;
     const tag = `[SYMPTOM API][${reqId}]`;
 
@@ -137,10 +139,33 @@ const analyzeSymptoms = async (req, res, next) => {
     }
 
     const inputDuration = typeof duration === 'string' ? duration.trim() : '';
-    const normalizedInputSymptoms = symptomService.normalizeSymptoms(sanitizedSymptoms);
 
-    // 6. Emergency Safety Layer Check (Evaluates both raw symptoms input and normalized concepts)
-    const isEmergency = symptomService.isEmergencySymptom([...symptoms, ...sanitizedSymptoms, ...normalizedInputSymptoms]);
+    // Multilingual Input Translation: Convert Sinhala/Tamil/raw symptoms into Canonical English
+    let canonicalConcepts = [...sanitizedSymptoms];
+    let detectedInputLang = targetLang;
+
+    if (targetLang !== 'en' || sanitizedSymptoms.some((s) => /[^\x00-\x7F]/.test(s))) {
+      const translated = await geminiTranslationService.translateInputToCanonicalEnglish(
+        sanitizedSymptoms.join(', '),
+        targetLang
+      );
+      if (translated && translated.englishText) {
+        detectedInputLang = translated.detectedLanguage || targetLang;
+        if (Array.isArray(translated.symptomConcepts) && translated.symptomConcepts.length > 0) {
+          canonicalConcepts = translated.symptomConcepts;
+        }
+      }
+    }
+
+    const normalizedInputSymptoms = symptomService.normalizeSymptoms(canonicalConcepts);
+
+    // 6. Emergency Safety Layer Check (Evaluates raw input, canonical concepts, and normalized concepts)
+    const isEmergency = symptomService.isEmergencySymptom([
+      ...symptoms,
+      ...sanitizedSymptoms,
+      ...canonicalConcepts,
+      ...normalizedInputSymptoms,
+    ]);
 
     let finalAnalysis = null;
 
@@ -157,7 +182,7 @@ const analyzeSymptoms = async (req, res, next) => {
         modelName: '',
       };
     } else {
-      // Non-emergency: Attempt OpenBioLLM Inference
+      // Non-emergency: Attempt OpenBioLLM Inference using Canonical English ONLY
       try {
         const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
           normalizedInputSymptoms,
@@ -202,7 +227,7 @@ const analyzeSymptoms = async (req, res, next) => {
       }
     }
 
-    // 7. Save record to database
+    // 7. Save canonical English record to database
     const symptomCheck = await SymptomCheck.create({
       patientId,
       symptoms: finalAnalysis.symptoms,
@@ -219,10 +244,18 @@ const analyzeSymptoms = async (req, res, next) => {
       emergencyRecommended: finalAnalysis.emergencyRecommended,
       disclaimer: finalAnalysis.disclaimer,
       analysisRequestId: typeof analysisRequestId === 'string' ? analysisRequestId.trim() : '',
+      inputLanguage: detectedInputLang,
+      displayLanguage: targetLang,
     });
 
+    // 8. Output Translation: Translate patient-facing analysis result fields if targetLang != 'en'
+    const translatedOutput = await geminiTranslationService.translateAnalysisResult(
+      finalAnalysis,
+      targetLang
+    );
+
     const elapsed = Date.now() - startTime;
-    console.log(`${tag} Response sent in ${elapsed}ms`);
+    console.log(`${tag} Response sent in ${elapsed}ms (Lang: ${targetLang})`);
 
     return res.status(201).json({
       success: true,
@@ -230,16 +263,18 @@ const analyzeSymptoms = async (req, res, next) => {
       analysis: {
         symptomCheckId: symptomCheck._id,
         symptoms: symptomCheck.symptoms,
-        possibleCondition: symptomCheck.possibleCondition,
-        possibleConditions: symptomCheck.possibleConditions,
+        possibleCondition: translatedOutput.displayPossibleCondition || symptomCheck.possibleCondition,
+        possibleConditions: translatedOutput.displayPossibleConditions || symptomCheck.possibleConditions,
         analysisSource: symptomCheck.analysisSource,
         modelName: symptomCheck.modelName,
         riskLevel: symptomCheck.riskLevel,
         recommendedSpecialist: symptomCheck.recommendedSpecialist,
-        guidance: symptomCheck.guidance,
+        displayRecommendedSpecialist: translatedOutput.displayRecommendedSpecialist || symptomCheck.recommendedSpecialist,
+        guidance: translatedOutput.displayGuidance || symptomCheck.guidance,
         matchedSymptoms: symptomCheck.matchedSymptoms,
         emergencyRecommended: symptomCheck.emergencyRecommended,
-        disclaimer: symptomCheck.disclaimer,
+        disclaimer: translatedOutput.displayDisclaimer || symptomCheck.disclaimer,
+        emergencyWarning: translatedOutput.displayEmergencyWarning || '',
         createdAt: symptomCheck.createdAt,
       },
     });
@@ -303,9 +338,21 @@ const getSymptomCheckById = async (req, res, next) => {
       });
     }
 
+    const targetLang = req.query.language === 'Sinhala' ? 'si' : req.query.language === 'Tamil' ? 'ta' : (req.query.language || 'en');
+    let responseData = symptomCheck.toObject();
+
+    if (targetLang !== 'en') {
+      const translatedOutput = await geminiTranslationService.translateAnalysisResult(symptomCheck, targetLang);
+      responseData.possibleCondition = translatedOutput.displayPossibleCondition || symptomCheck.possibleCondition;
+      responseData.possibleConditions = translatedOutput.displayPossibleConditions || symptomCheck.possibleConditions;
+      responseData.displayRecommendedSpecialist = translatedOutput.displayRecommendedSpecialist || symptomCheck.recommendedSpecialist;
+      responseData.guidance = translatedOutput.displayGuidance || symptomCheck.guidance;
+      responseData.disclaimer = translatedOutput.displayDisclaimer || symptomCheck.disclaimer;
+    }
+
     return res.status(200).json({
       success: true,
-      data: symptomCheck,
+      data: responseData,
     });
   } catch (error) {
     next(error);
@@ -319,7 +366,8 @@ const getSymptomCheckById = async (req, res, next) => {
  */
 const handleFollowUp = async (req, res, next) => {
   try {
-    const { symptoms, conversation = [], questionCount = 0 } = req.body;
+    const { symptoms, conversation = [], questionCount = 0, language = 'en' } = req.body;
+    const targetLang = language === 'Sinhala' ? 'si' : language === 'Tamil' ? 'ta' : (language || 'en');
 
     if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
       return res.status(400).json({
@@ -328,8 +376,20 @@ const handleFollowUp = async (req, res, next) => {
       });
     }
 
+    // 0. Input Translation for Follow-Up if input is non-English
+    let canonicalSymptoms = [...symptoms];
+    if (targetLang !== 'en' || symptoms.some((s) => /[^\x00-\x7F]/.test(s))) {
+      const inputTrans = await geminiTranslationService.translateInputToCanonicalEnglish(
+        symptoms.join(', '),
+        targetLang
+      );
+      if (inputTrans && inputTrans.symptomConcepts && inputTrans.symptomConcepts.length > 0) {
+        canonicalSymptoms = inputTrans.symptomConcepts;
+      }
+    }
+
     // 1. Gather all text from initial symptoms and conversation Q&As for emergency evaluation
-    const allInputStrings = [...symptoms];
+    const allInputStrings = [...symptoms, ...canonicalSymptoms];
     if (Array.isArray(conversation)) {
       conversation.forEach((c) => {
         if (c.question) allInputStrings.push(c.question);
@@ -349,22 +409,39 @@ const handleFollowUp = async (req, res, next) => {
           status: 'emergency',
           isEmergency: true,
           summary: {
-            symptoms: symptomService.normalizeSymptoms(symptoms),
+            symptoms: symptomService.normalizeSymptoms(canonicalSymptoms),
             duration: 'acute',
             severity: 'severe',
             additionalContext: ['Emergency red flag symptoms detected during follow-up conversation.'],
           },
-          emergencyWarning: 'High risk symptoms detected. Immediate medical attention is recommended.',
+          emergencyWarning: targetLang === 'si'
+            ? 'අධික අවදානම් රෝග ලක්ෂණ හඳුනාගෙන ඇත! වහාම වෛද්‍ය උපදෙස් ලබා ගන්න.'
+            : targetLang === 'ta'
+            ? 'அதிக ஆபத்து அறிகுறிகள் கண்டறியப்பட்டுள்ளன! உடனடியாக மருத்துவ உதவியை நாடுங்கள்.'
+            : 'High risk symptoms detected. Immediate medical attention is recommended.',
         },
       });
     }
 
     // 3. Non-emergency: Generate next follow-up question or structured summary via Gemini
     const result = await geminiConversationService.generateFollowUp(
-      symptoms,
+      canonicalSymptoms,
       conversation,
       questionCount
     );
+
+    // 4. Translate question and quick options into patient target language if non-English
+    if (result && result.status === 'ask' && result.question && targetLang !== 'en') {
+      const qTrans = await geminiTranslationService.translateFollowUpQuestion(
+        result.question,
+        result.quickOptions || [],
+        targetLang
+      );
+      result.question = qTrans.translatedQuestion;
+      if (qTrans.translatedQuickOptions) {
+        result.quickOptions = qTrans.translatedQuickOptions;
+      }
+    }
 
     return res.status(200).json({
       success: true,

@@ -6,6 +6,7 @@ export interface SymptomAnalysisRequest {
   duration?: string;
   severity?: SeverityLevel;
   analysisRequestId?: string;
+  language?: string;
 }
 
 export interface PossibleConditionItem {
@@ -22,10 +23,12 @@ export interface SymptomAnalysisResult {
   modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
+  displayRecommendedSpecialist?: string;
   guidance: string[];
   matchedSymptoms: string[];
   emergencyRecommended: boolean;
   disclaimer: string;
+  emergencyWarning?: string;
   createdAt: string;
 }
 
@@ -47,6 +50,7 @@ export interface SymptomCheckRecord {
   modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
+  displayRecommendedSpecialist?: string;
   guidance: string[];
   matchedSymptoms: string[];
   emergencyRecommended: boolean;
@@ -75,6 +79,7 @@ export interface SymptomFollowUpRequest {
   symptoms: string[];
   conversation: SymptomConversationTurn[];
   questionCount: number;
+  language?: string;
 }
 
 export interface SymptomSummaryData {

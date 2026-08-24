@@ -13,18 +13,19 @@ import { getSymptomCheckByIdApi } from '../../services/symptomService';
 import { SymptomCheckRecord } from '../../types/symptom';
 import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function AnalysisResultScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
+  const { language, t } = useLanguage();
 
   const [result, setResult] = useState<SymptomCheckRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const { isSpeaking, speak, stopSpeech } = useVoice({ language: userLang });
+  const { isSpeaking, speak, stopSpeech } = useVoice({ language });
 
   const fetchResult = useCallback(async () => {
     if (!id) {
@@ -37,7 +38,7 @@ export default function AnalysisResultScreen() {
     setErrorMsg('');
 
     try {
-      const res = await getSymptomCheckByIdApi(id);
+      const res = await getSymptomCheckByIdApi(id, language);
       if (res && res.success && res.data) {
         setResult(res.data);
       } else {
@@ -48,7 +49,7 @@ export default function AnalysisResultScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, language]);
 
   useEffect(() => {
     fetchResult();
@@ -112,8 +113,8 @@ export default function AnalysisResultScreen() {
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
       <AppHeader
-        title="Analysis Results"
-        subtitle="Preliminary Healthcare Guidance"
+        title={t('analysisResultsTitle')}
+        subtitle={t('preliminaryGuidance')}
         onBackPress={() => { stopSpeech(); router.back(); }}
       />
 
@@ -155,10 +156,10 @@ export default function AnalysisResultScreen() {
           <Text style={styles.audioIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
           <View style={styles.audioTextCol}>
             <Text style={styles.audioTitle}>
-              {isSpeaking ? 'Playing Audio Explanation...' : 'Listen to Explanation'}
+              {isSpeaking ? t('playingAudio') : t('listenExplanation')}
             </Text>
             <Text style={styles.audioSub}>
-              {isSpeaking ? 'Tap to Stop Audio' : 'Tap to hear real analysis results read aloud'}
+              {isSpeaking ? t('tapToStop') : t('tapToListen')}
             </Text>
           </View>
           <View style={styles.audioBadge}>
@@ -172,9 +173,9 @@ export default function AnalysisResultScreen() {
             <View style={styles.emergencyHeaderRow}>
               <Text style={styles.emergencyIcon}>🚨</Text>
               <View style={styles.emergencyTextCol}>
-                <Text style={styles.emergencyTitle}>Urgent Medical Attention Recommended</Text>
+                <Text style={styles.emergencyTitle}>{t('urgentEmergencyTitle')}</Text>
                 <Text style={styles.emergencySub}>
-                  High risk symptoms detected. Please seek immediate professional medical assistance.
+                  {t('urgentEmergencySub')}
                 </Text>
               </View>
             </View>
@@ -191,7 +192,7 @@ export default function AnalysisResultScreen() {
               onPress={() => { stopSpeech(); router.push('/(patient)/emergency-countdown' as any); }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }}>
-                🚨 Trigger Emergency SOS
+                {t('triggerEmergencySos')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -212,10 +213,10 @@ export default function AnalysisResultScreen() {
             <View style={styles.conditionTextCol}>
               <StatusBadge
                 status={result.riskLevel}
-                label={`${result.riskLevel.toUpperCase()} RISK ASSESSMENT`}
+                label={`${(result.riskLevel === 'high' ? t('highRisk') : result.riskLevel === 'medium' ? t('mediumRisk') : t('lowRisk')).toUpperCase()} ${t('riskAssessment')}`}
               />
               <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: 4 }}>
-                POSSIBLE CONDITIONS ({conditionsList.length})
+                {t('possibleConditions').toUpperCase()} ({conditionsList.length})
               </Text>
             </View>
           </View>
@@ -260,12 +261,12 @@ export default function AnalysisResultScreen() {
           ))}
 
           <Text style={styles.matchedText}>
-            Based on symptoms: {result.matchedSymptoms.join(', ') || result.symptoms.join(', ')}.
+            {t('basedOnSymptoms')}: {result.matchedSymptoms.join(', ') || result.symptoms.join(', ')}.
           </Text>
         </View>
 
         {/* Guidance / Immediate Care Steps */}
-        <InfoCard title="Immediate Care Steps" subtitle="Recommended preliminary actions">
+        <InfoCard title={t('immediateCareSteps')} subtitle={t('preliminaryGuidance')}>
           {result.guidance && result.guidance.length > 0 ? (
             result.guidance.map((step, idx) => (
               <View key={idx} style={styles.guidanceItem}>
@@ -279,19 +280,19 @@ export default function AnalysisResultScreen() {
         </InfoCard>
 
         {/* Recommended Specialist Card */}
-        <InfoCard title="Recommended Specialist">
+        <InfoCard title={t('recommendedSpecialist')}>
           <View style={styles.specialistRow}>
             <View style={styles.specialistIconCircle}>
               <Text style={styles.specialistIcon}>🩺</Text>
             </View>
             <View style={styles.specialistTextCol}>
-              <Text style={styles.specialistTitle}>{result.recommendedSpecialist}</Text>
-              <Text style={styles.specialistSub}>Recommended for professional medical evaluation</Text>
+              <Text style={styles.specialistTitle}>{result.displayRecommendedSpecialist || result.recommendedSpecialist}</Text>
+              <Text style={styles.specialistSub}>{t('recommendedSpecialist')}</Text>
             </View>
           </View>
 
           <AppButton
-            title={`Find ${result.recommendedSpecialist}`}
+            title={`${t('findDoctor')} (${result.displayRecommendedSpecialist || result.recommendedSpecialist})`}
             onPress={handleSpecialistPress}
             style={styles.findDoctorBtn}
           />
@@ -299,7 +300,7 @@ export default function AnalysisResultScreen() {
 
         {/* Re-check Symptoms Button */}
         <AppButton
-          title="❓ Ask Follow-Up / Re-check Symptoms"
+          title={`❓ ${t('recheckSymptoms')}`}
           onPress={handleRecheckSymptoms}
           variant="outline"
           style={styles.recheckBtn}
@@ -307,7 +308,7 @@ export default function AnalysisResultScreen() {
 
         {/* Mandatory Backend Medical Disclaimer */}
         <View style={styles.disclaimerBox}>
-          <Text style={styles.disclaimerTitle}>Medical Disclaimer</Text>
+          <Text style={styles.disclaimerTitle}>{t('medicalDisclaimerTitle')}</Text>
           <Text style={styles.disclaimerText}>{result.disclaimer}</Text>
         </View>
       </View>
