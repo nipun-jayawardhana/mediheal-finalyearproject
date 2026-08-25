@@ -116,7 +116,7 @@ const analyzeSymptomsWithOpenBioLLM = async (input, param2 = '', param3 = 'mild'
   }
 
   const posText = Array.isArray(clinicalCase.positiveSymptoms) && clinicalCase.positiveSymptoms.length > 0
-    ? clinicalCase.positiveSymptoms.join(', ')
+    ? clinicalCase.positiveSymptoms.map((s) => `- ${s}`).join('\n')
     : 'none reported';
 
   const ctxText = Array.isArray(clinicalCase.context) && clinicalCase.context.length > 0
@@ -201,11 +201,13 @@ JSON Output:`;
         break;
       }
 
+      const currentAttemptTimeout = Math.max(100, remainingTime - SAFETY_MARGIN_MS);
+
       if (attempt === 0) {
-        console.log(`${tag} Attempt 1 started`);
+        console.log(`${tag} Primary attempt started (timeout: ${currentAttemptTimeout}ms)`);
       } else {
         console.log(`${tag} Retrying with ${remainingTime}ms remaining`);
-        console.log(`${tag} Attempt 2 started`);
+        console.log(`${tag} Attempt 2 started (timeout: ${currentAttemptTimeout}ms)`);
       }
 
       if (attempt > 0) {
@@ -224,18 +226,16 @@ JSON Output:`;
         break;
       }
 
-      // Attempt 1: 14000ms max. Attempt 2: 7000ms max, bounded strictly by remaining global deadline minus safety margin
-      const attemptMaxTimeout = attempt === 0 ? 14000 : 7000;
-      const currentAttemptTimeout = Math.min(attemptMaxTimeout, Math.max(100, remainingAfterDelay - SAFETY_MARGIN_MS));
+      const attemptMaxTimeout = Math.max(100, remainingAfterDelay - SAFETY_MARGIN_MS);
 
-      if (currentAttemptTimeout < 3000) {
-        console.warn(`${tag} Skipping retry attempt ${attempt + 1}: insufficient time budget (${currentAttemptTimeout}ms)`);
+      if (attemptMaxTimeout < 3000) {
+        console.warn(`${tag} Skipping retry attempt ${attempt + 1}: insufficient time budget (${attemptMaxTimeout}ms)`);
         break;
       }
 
       const attemptController = new AbortController();
       const attemptStart = Date.now();
-      const attemptTimeoutId = setTimeout(() => attemptController.abort(), currentAttemptTimeout);
+      const attemptTimeoutId = setTimeout(() => attemptController.abort(), attemptMaxTimeout);
 
       // Link global controller signal to attempt controller
       const onGlobalAbort = () => attemptController.abort();
@@ -246,6 +246,7 @@ JSON Output:`;
       }
 
       try {
+        console.log(`${tag} Provider queued / request still pending...`);
         const response = await fetch(ROUTER_ENDPOINT, {
           method: 'POST',
           headers: {
@@ -260,23 +261,41 @@ JSON Output:`;
         globalController.signal.removeEventListener('abort', onGlobalAbort);
         const attemptDuration = Date.now() - attemptStart;
 
-        if (attempt === 0) {
-          console.log(`${tag} Attempt 1 completed in ${attemptDuration}ms`);
-        } else {
-          console.log(`${tag} Attempt 2 completed in ${attemptDuration}ms`);
+        if (response.status === 429) {
+          console.warn(`${tag} HTTP 429 Rate Limited (after ${attemptDuration}ms)`);
+          lastError = new Error(`Provider rate limited (HTTP 429)`);
+          if (attemptDuration < 5000) {
+            continue; // Fast failure retry
+          } else {
+            break; // Too late to retry
+          }
         }
 
-        if (response.status === 503 || response.status === 502 || response.status === 429) {
-          lastError = new Error(`Provider temporarily unavailable (HTTP ${response.status})`);
-          continue; // Retryable error
+        if (response.status === 503) {
+          console.warn(`${tag} HTTP 503 Service Unavailable (after ${attemptDuration}ms)`);
+          lastError = new Error(`Provider temporarily unavailable (HTTP 503)`);
+          if (attemptDuration < 5000) {
+            continue; // Fast failure retry
+          } else {
+            break;
+          }
+        }
+
+        if (response.status === 502) {
+          console.warn(`${tag} HTTP 502 Bad Gateway (after ${attemptDuration}ms)`);
+          lastError = new Error(`Provider gateway error (HTTP 502)`);
+          if (attemptDuration < 5000) {
+            continue; // Fast failure retry
+          } else {
+            break;
+          }
         }
 
         if (!response.ok) {
           const errorText = await response.text();
+          console.warn(`${tag} HTTP Error ${response.status}: ${errorText.substring(0, 200)}`);
           const permanentError = new Error(`OpenBioLLM API HTTP Error ${response.status}: ${errorText.substring(0, 200)}`);
-          // Non-retryable client errors (400, 401, 403, 404) -> break immediately
-          if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-            console.warn(`${tag} Non-retryable error HTTP ${response.status}. Skipping retry.`);
+          if (response.status >= 400 && response.status < 500) {
             lastError = permanentError;
             break;
           }
@@ -342,11 +361,7 @@ JSON Output:`;
         }
 
         const totalElapsed = Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt);
-        if (attempt > 0) {
-          console.log(`${tag} Attempt 2 SUCCESS`);
-        } else {
-          console.log(`${tag} Inference SUCCESS`);
-        }
+        console.log(`${tag} Inference SUCCESS (in ${attemptDuration}ms)`);
         console.log(`${tag} Total model elapsed: ${totalElapsed}ms`);
         console.log(`${tag} Model: ${MODEL_NAME}`);
         console.log(`${tag} analysisSource: openbiollm`);
@@ -363,12 +378,8 @@ JSON Output:`;
         globalController.signal.removeEventListener('abort', onGlobalAbort);
         const attemptDuration = Date.now() - attemptStart;
         if (err.name === 'AbortError' || globalController.signal.aborted) {
-          lastError = new Error(`OpenBioLLM request timed out after ${currentAttemptTimeout}ms`);
-          if (attempt === 0) {
-            console.warn(`${tag} Attempt 1 timed out after ${attemptDuration}ms`);
-          } else {
-            console.warn(`${tag} Attempt 2 timed out after ${attemptDuration}ms`);
-          }
+          lastError = new Error(`OpenBioLLM request timed out after ${attemptMaxTimeout}ms`);
+          console.warn(`${tag} Attempt ${attempt + 1} timed out after ${attemptDuration}ms`);
         } else {
           lastError = err;
           console.warn(`${tag} Attempt ${attempt + 1} failed: ${err.message}`);
@@ -380,8 +391,8 @@ JSON Output:`;
   }
 
   const finalElapsed = Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt);
-  console.log(`${tag} Global deadline reached`);
-  console.log(`${tag} Total model elapsed: ${finalElapsed}ms`);
+  console.warn(`${tag} Global deadline reached`);
+  console.warn(`${tag} Total model elapsed: ${finalElapsed}ms`);
   throw lastError || new Error('Failed to complete OpenBioLLM inference within deadline');
 };
 

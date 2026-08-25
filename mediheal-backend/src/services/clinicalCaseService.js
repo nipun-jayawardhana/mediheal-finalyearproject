@@ -59,10 +59,25 @@ const cleanConceptKey = (str) => {
 /**
  * Helper to parse duration from natural language text
  */
+/**
+ * Helper to parse duration from natural language text (English + Sinhala)
+ */
 const extractDurationFromText = (text) => {
   if (!text || typeof text !== 'string') return '';
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().trim();
 
+  // 1. Sinhala duration patterns
+  if (lower.includes('පසුගිය දින තුන') || lower.includes('දින තුන') || lower.includes('දින 3')) {
+    return '3 days';
+  }
+  const siDaysMatch = lower.match(/(?:පසුගිය\s+)?දින\s*(\d+|තුන|දෙක|එක|හතර|පහ|හය|හත)\s*(?:ක්|තුළ)?/i);
+  if (siDaysMatch) {
+    const siWordToNum = { එක: '1', දෙක: '2', තුන: '3', හතර: '4', පහ: '5', හය: '6', හත: '7' };
+    const num = siWordToNum[siDaysMatch[1]] || siDaysMatch[1];
+    return `${num} ${Number(num) === 1 ? 'day' : 'days'}`;
+  }
+
+  // 2. English duration patterns
   const hoursMatch = lower.match(/(?:past|last|during\s+the\s+last|for|about)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*hours?/i);
   if (hoursMatch) {
     const wordToNum = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
@@ -70,9 +85,9 @@ const extractDurationFromText = (text) => {
     return `${num} ${Number(num) === 1 ? 'hour' : 'hours'}`;
   }
 
-  const daysMatch = lower.match(/(?:past|last|for|about)?\s*(\d+|one|two|three|four|five|six|seven)\s*days?/i);
+  const daysMatch = lower.match(/(?:past|last|during\s+the\s+last|for|about)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*days?/i);
   if (daysMatch) {
-    const wordToNum = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7' };
+    const wordToNum = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10' };
     const num = wordToNum[daysMatch[1].toLowerCase()] || daysMatch[1];
     return `${num} ${Number(num) === 1 ? 'day' : 'days'}`;
   }
@@ -86,6 +101,7 @@ const extractDurationFromText = (text) => {
 
   if (lower.includes('since morning') || lower.includes('this morning')) return 'since morning';
   if (lower.includes('since yesterday')) return '1 day';
+  if (lower.includes('1-3 days') || lower.includes('1-3')) return '1-3 days';
 
   return '';
 };
@@ -198,83 +214,103 @@ const extractInitialSymptomsAndContext = (initialInput) => {
       clean = clean.replace(reg, '');
     });
 
-    const lower = clean.toLowerCase();
+    // Split input into clauses/concepts if it's a longer statement or list
+    const candidates = clean
+      .split(/[,;\.]|\s+(?:and|with|as well as)\s+/i)
+      .map((c) => c.trim())
+      .filter((c) => c.length > 0);
 
-    // 1. Precise Abdominal Location & Quality Matchers
-    const hasSharp = lower.includes('sharp');
-    const hasLowerRight = (lower.includes('lower') && lower.includes('right')) || lower.includes('right lower');
-    const hasLeftLower = (lower.includes('lower') && lower.includes('left')) || lower.includes('left lower');
-    const hasRightUpper = (lower.includes('upper') && lower.includes('right')) || lower.includes('right upper');
-    const hasAbdominal = lower.includes('abdom') || lower.includes('stomach') || lower.includes('belly');
+    for (const item of candidates) {
+      const lower = item.toLowerCase().trim();
+      if (!lower || REDUNDANT_PHRASES.includes(lower)) continue;
+      if (lower.includes('fell') || lower.includes('football') || lower.includes('running')) continue;
+      if (isBareBodyPart(lower)) continue;
 
-    if (hasAbdominal) {
-      if (hasLowerRight) {
-        const sym = hasSharp ? 'sharp lower right abdominal pain' : 'lower right abdominal pain';
-        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
-      } else if (hasLeftLower) {
-        const sym = hasSharp ? 'sharp left lower abdominal pain' : 'left lower abdominal pain';
-        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
-      } else if (hasRightUpper) {
-        const sym = hasSharp ? 'sharp right upper abdominal pain' : 'right upper abdominal pain';
-        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
-      } else {
-        const sym = hasSharp ? 'sharp abdominal pain' : 'stomach pain';
-        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
+      let matchedSymptom = '';
+
+      // 1. Abdominal Location & Quality Matchers
+      const hasSharp = lower.includes('sharp');
+      const hasLowerRight = (lower.includes('lower') && lower.includes('right')) || lower.includes('right lower');
+      const hasLeftLower = (lower.includes('lower') && lower.includes('left')) || lower.includes('left lower');
+      const hasRightUpper = (lower.includes('upper') && lower.includes('right')) || lower.includes('right upper');
+      const hasAbdominal = lower.includes('abdom') || lower.includes('stomach') || lower.includes('belly');
+
+      if (hasAbdominal) {
+        if (hasLowerRight) matchedSymptom = hasSharp ? 'sharp lower right abdominal pain' : 'lower right abdominal pain';
+        else if (hasLeftLower) matchedSymptom = hasSharp ? 'sharp left lower abdominal pain' : 'left lower abdominal pain';
+        else if (hasRightUpper) matchedSymptom = hasSharp ? 'sharp right upper abdominal pain' : 'right upper abdominal pain';
+        else matchedSymptom = hasSharp ? 'sharp abdominal pain' : 'stomach pain';
       }
-    }
 
-    // 2. Specific Joint & Body Symptoms
-    if (/\bknee\s+pain\b|\bpain\s+in\s+(?:my\s+)?knee\b|\bknee\s+hurts\b/i.test(lower)) {
-      if (!positiveSymptoms.some(s => s.includes('knee pain'))) positiveSymptoms.push('knee pain');
-    }
-    if (/\bankle\s+pain\b|\bpain\s+in\s+(?:my\s+)?ankle\b|\bankle\s+hurts\b/i.test(lower)) {
-      if (!positiveSymptoms.some(s => s.includes('ankle pain'))) positiveSymptoms.push('ankle pain');
-    }
-    if (/\bheadache\b|\bhead\s+hurts\b|\bhead\s+ache\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('headache')) positiveSymptoms.push('headache');
-    }
-    if (/\bchest\s+pain\b|\bpain\s+in\s+(?:my\s+)?chest\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('chest pain')) positiveSymptoms.push('chest pain');
-    }
-
-    // 3. Systemic / GI / Fever Qualifiers
-    if (/\bloss\s+of\s+appetite\b|\bdecreased\s+appetite\b|\bno\s+appetite\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('loss of appetite')) positiveSymptoms.push('loss of appetite');
-    }
-    if (/\bmild\s+fever\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('mild fever')) positiveSymptoms.push('mild fever');
-    } else if (/\bfever\b|\bhigh\s+temperature\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('fever') && !positiveSymptoms.includes('mild fever')) positiveSymptoms.push('fever');
-    }
-    if (/\bnausea\b|\bfeeling\s+nauseous\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('nausea')) positiveSymptoms.push('nausea');
-    }
-    if (/\bvomiting\b|\bthrowing\s+up\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('vomiting')) positiveSymptoms.push('vomiting');
-    }
-    if (/\bdifficulty\s+breathing\b|\bshortness\s+of\s+breath\b|\bcan't\s+breathe\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('difficulty breathing')) positiveSymptoms.push('difficulty breathing');
-    }
-    if (/\bankle\s+swelling\b|\bswollen\s+ankle\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('ankle swelling')) positiveSymptoms.push('ankle swelling');
-    }
-    if (/\bknee\s+swelling\b|\bswollen\s+knee\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('knee swelling')) positiveSymptoms.push('knee swelling');
-    }
-
-    // Fallback clause splitting if no specific match
-    if (positiveSymptoms.length === 0) {
-      const clauses = clean
-        .split(/[,;\.]|\s+(?:and|with|as well as)\s+/i)
-        .map((c) => c.trim().toLowerCase())
-        .filter((c) => c.length > 2);
-
-      for (const clause of clauses) {
-        if (REDUNDANT_PHRASES.includes(clause)) continue;
-        if (clause.includes('fell') || clause.includes('football') || clause.includes('running')) continue;
-        if (isBareBodyPart(clause)) continue;
-        if (!positiveSymptoms.includes(clause)) positiveSymptoms.push(clause);
+      // 2. Throat & HEENT Symptoms
+      if (!matchedSymptom && (/\bsore\s+throat\b|\bpainful\s+throat\b|\bthroat\s+pain\b|\bthroat\s+hurts\b/i.test(lower))) {
+        matchedSymptom = lower.includes('painful') ? 'painful sore throat' : 'sore throat';
       }
+      if (!matchedSymptom && (/\bswollen\s+(?:neck\s+)?glands\b|\bswollen\s+lymph\s+nodes\b/i.test(lower))) {
+        matchedSymptom = 'swollen neck glands';
+      }
+      if (!matchedSymptom && (/\bwhite\s+(?:patches|spots)\b/i.test(lower))) {
+        matchedSymptom = lower.includes('back of throat') ? 'white patches at back of throat' : 'white patches in throat';
+      }
+      if (!matchedSymptom && (/\bdifficulty\s+swallowing\b|\bpain\s+swallowing\b|\btrouble\s+swallowing\b/i.test(lower))) {
+        matchedSymptom = 'difficulty swallowing';
+      }
+
+      // 3. Joint & Body Symptoms
+      if (!matchedSymptom && (/\bknee\s+pain\b|\bpain\s+in\s+(?:my\s+)?knee\b|\bknee\s+hurts\b/i.test(lower))) {
+        matchedSymptom = 'knee pain';
+      }
+      if (!matchedSymptom && (/\bankle\s+pain\b|\bpain\s+in\s+(?:my\s+)?ankle\b|\bankle\s+hurts\b/i.test(lower))) {
+        matchedSymptom = 'ankle pain';
+      }
+      if (!matchedSymptom && (/\bheadache\b|\bhead\s+hurts\b|\bhead\s+ache\b/i.test(lower))) {
+        matchedSymptom = 'headache';
+      }
+      if (!matchedSymptom && (/\bchest\s+pain\b|\bpain\s+in\s+(?:my\s+)?chest\b/i.test(lower))) {
+        matchedSymptom = 'chest pain';
+      }
+
+      // 4. Systemic / GI / Fever / Fatigue Qualifiers
+      if (!matchedSymptom && (/\bfatigue\b|\btiredness\b|\bexhaustion\b/i.test(lower))) {
+        matchedSymptom = 'fatigue';
+      }
+      if (!matchedSymptom && (/\bloss\s+of\s+appetite\b|\bdecreased\s+appetite\b|\bno\s+appetite\b/i.test(lower))) {
+        matchedSymptom = 'loss of appetite';
+      }
+      if (!matchedSymptom && (/\bmild\s+fever\b/i.test(lower))) {
+        matchedSymptom = 'mild fever';
+      } else if (!matchedSymptom && (/\bfever\b|\bhigh\s+temperature\b/i.test(lower))) {
+        matchedSymptom = 'fever';
+      }
+      if (!matchedSymptom && (/\bnausea\b|\bfeeling\s+nauseous\b/i.test(lower))) {
+        matchedSymptom = 'nausea';
+      }
+      if (!matchedSymptom && (/\bvomiting\b|\bthrowing\s+up\b/i.test(lower))) {
+        matchedSymptom = 'vomiting';
+      }
+      if (!matchedSymptom && (/\bdifficulty\s+breathing\b|\bshortness\s+of\s+breath\b|\bcan't\s+breathe\b/i.test(lower))) {
+        matchedSymptom = 'difficulty breathing';
+      }
+      if (!matchedSymptom && (/\bankle\s+swelling\b|\bswollen\s+ankle\b/i.test(lower))) {
+        matchedSymptom = 'ankle swelling';
+      }
+      if (!matchedSymptom && (/\bknee\s+swelling\b|\bswollen\s+knee\b/i.test(lower))) {
+        matchedSymptom = 'knee swelling';
+      }
+
+      // If matched a specific concept
+      if (matchedSymptom) {
+        if (!positiveSymptoms.includes(matchedSymptom)) {
+          positiveSymptoms.push(matchedSymptom);
+        }
+      } else if (lower.length > 2) {
+        // Preservative fallback: keep clean concept clause if not a bare body part or redundant
+        if (!isBareBodyPart(lower) && !positiveSymptoms.includes(lower)) {
+          positiveSymptoms.push(lower);
+        }
+      }
+
+      if (positiveSymptoms.length >= 10) break;
     }
   }
 

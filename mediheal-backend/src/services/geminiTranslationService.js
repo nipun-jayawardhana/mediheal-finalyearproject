@@ -148,16 +148,17 @@ Your task is to translate patient symptom descriptions from Sinhala (si), Tamil 
 
 STRICT SAFETY RULES:
 - Do NOT invent, assume, or add medical symptoms that were not explicitly mentioned by the patient.
-- PRESERVE EXACT ANATOMICAL LOCATIONS: Preserve specific locations (e.g. "lower right abdomen", "left lower abdomen", "upper right abdomen", "right knee"). Do NOT normalize "lower right abdomen" to generic "stomach".
-- PRESERVE PAIN QUALITY & QUALIFIERS: Preserve pain quality modifiers (e.g. "sharp", "burning", "throbbing", "cramping") and qualifiers (e.g. "loss of appetite", "mild fever").
-- PRESERVE DURATION, PROGRESSION & AGGRAVATING FACTORS: Preserve duration (e.g. "past 12 hours", "for 2 days"), trend (e.g. "progressively worsening"), and aggravating factors (e.g. "worse when walking", "worse when coughing", "worse with pressure").
-- Extract up to 10 distinct, concise symptom concept phrases (<= 80 chars each).
+- PRESERVE ALL PATIENT-REPORTED SYMPTOMS: Long sentences may contain multiple symptoms (e.g. "painful sore throat", "fever", "headache", "fatigue", "difficulty swallowing", "swollen neck glands", "white patches at back of throat"). All mentioned positive symptoms MUST be preserved.
+- PRESERVE EXACT ANATOMICAL LOCATIONS & QUALIFIERS: (e.g. "lower right abdomen", "swollen neck glands", "white patches at back of throat", "difficulty swallowing", "painful sore throat").
+- PRESERVE DURATION: Extract explicit duration stated in input (e.g. "3 days", "12 hours", "today") into the "duration" field.
+- Extract up to 10 distinct, concise symptom concept phrases (<= 80 chars each) in "symptomConcepts".
 
 Respond strictly with JSON:
 {
   "detectedLanguage": "si",
-  "englishText": "During the last 12 hours I developed sharp pain in the lower-right abdomen. The pain has gradually worsened, especially when walking, coughing, or pressing the area. I have nausea, loss of appetite, and a mild fever.",
-  "symptomConcepts": ["sharp lower right abdominal pain", "nausea", "loss of appetite", "mild fever"]
+  "englishText": "Over the past three days I had a painful sore throat with fever, headache, fatigue, and difficulty swallowing. I have noticed swollen neck glands and white patches at the back of my throat.",
+  "symptomConcepts": ["painful sore throat", "fever", "headache", "fatigue", "difficulty swallowing", "swollen neck glands", "white patches at back of throat"],
+  "duration": "3 days"
 }`;
 
   const userPrompt = `Source Language Hint: ${sourceLanguage}
@@ -180,6 +181,7 @@ Output JSON:`;
       detectedLanguage: parsed.detectedLanguage || sourceLanguage || 'si',
       englishText: parsed.englishText.trim(),
       symptomConcepts: concepts,
+      duration: typeof parsed.duration === 'string' ? parsed.duration.trim() : '',
     };
   }
 
@@ -188,6 +190,7 @@ Output JSON:`;
     detectedLanguage: sourceLanguage || 'en',
     englishText: cleanInput,
     symptomConcepts: [cleanInput.toLowerCase()],
+    duration: '',
   };
 };
 

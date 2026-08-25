@@ -141,6 +141,7 @@ const analyzeSymptoms = async (req, res, next) => {
     // Multilingual Input Translation: Convert Sinhala/Tamil/raw symptoms into Canonical English
     let canonicalConcepts = [...sanitizedSymptoms];
     let detectedInputLang = targetLang;
+    let translatedDuration = '';
 
     if (targetLang !== 'en' || sanitizedSymptoms.some((s) => /[^\x00-\x7F]/.test(s))) {
       const transStart = Date.now();
@@ -156,14 +157,20 @@ const analyzeSymptoms = async (req, res, next) => {
         if (Array.isArray(translated.symptomConcepts) && translated.symptomConcepts.length > 0) {
           canonicalConcepts = translated.symptomConcepts;
         }
+        if (translated.duration) {
+          translatedDuration = translated.duration;
+        }
       }
     }
+
+    // Secondary duration check on raw inputs if inputDuration was not provided
+    const parsedTextDuration = inputDuration || translatedDuration || clinicalCaseService.extractDurationFromText(symptoms.join(' ')) || clinicalCaseService.extractDurationFromText(sanitizedSymptoms.join(' '));
 
     // ASSEMBLE ONE CANONICAL CLINICAL CASE BEFORE OPENBIOLLM
     const clinicalCase = clinicalCaseService.buildCanonicalClinicalCase({
       symptoms: canonicalConcepts,
       conversation: Array.isArray(conversation) ? conversation : [],
-      duration: inputDuration,
+      duration: parsedTextDuration,
       severity: inputSeverity,
       positiveSymptoms: bodyPos,
       negativeFindings: bodyNeg,
@@ -197,10 +204,11 @@ const analyzeSymptoms = async (req, res, next) => {
     } else {
       // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
       console.log('[CLINICAL CASE]');
-      console.log(`Positive symptoms: ${clinicalCase.positiveSymptoms.join(' | ') || 'none'}`);
+      console.log('Positive symptoms:');
+      console.log(clinicalCase.positiveSymptoms.join(' |\n') || 'none');
       console.log(`Context: ${clinicalCase.context.join(' | ') || 'none'}`);
       console.log(`Duration: ${clinicalCase.duration}`);
-      console.log(`Severity: ${clinicalCase.severity}`);
+      console.log(`Severity: ${clinicalCase.severity || 'not explicitly rated'}`);
 
       // Non-emergency: Attempt OpenBioLLM Inference using Complete Canonical Case ONLY
       try {
