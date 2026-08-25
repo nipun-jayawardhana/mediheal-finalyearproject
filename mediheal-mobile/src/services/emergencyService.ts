@@ -66,11 +66,21 @@ export const getActiveEmergencyAlert = async (): Promise<EmergencyAlert | null> 
   try {
     const res = await getMyEmergencyAlerts();
     if (res && res.success && Array.isArray(res.data)) {
-      const activeAlert = res.data.find((alert) => alert.status === 'active');
-      return activeAlert || null;
+      const activeAlert =
+        res.data.find(
+          (alert) => String(alert.status).toLowerCase() === 'active'
+        ) ?? null;
+
+      console.log(
+        '[EMERGENCY] Active alert after refresh:',
+        activeAlert?._id ?? 'none'
+      );
+      return activeAlert;
     }
+    console.log('[EMERGENCY] Active alert after refresh: none');
     return null;
   } catch (err) {
+    console.log('[EMERGENCY] Active alert after refresh: none');
     return null;
   }
 };

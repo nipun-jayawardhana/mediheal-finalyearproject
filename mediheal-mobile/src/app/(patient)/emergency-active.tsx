@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
@@ -57,37 +57,78 @@ export default function EmergencyActiveScreen() {
     fetchAlert();
   }, [fetchAlert]);
 
-  const handleCancelAlert = () => {
-    if (!alertData) return;
+  const handleCancelAlert = async () => {
+    if (!alertData?._id || cancelling) return;
+
+    if (__DEV__) {
+      console.log('[EMERGENCY] Cancel button pressed');
+    }
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' && window.confirm(
+        'Are you sure you want to cancel this emergency alert?'
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      await performCancellation();
+      return;
+    }
 
     Alert.alert(
-      'Cancel Emergency Alert',
-      'Are you sure you want to cancel this emergency alert?',
+      'Cancel Emergency Alert?',
+      'This will mark your current emergency alert as cancelled.',
       [
-        { text: 'Keep Active', style: 'cancel' },
         {
-          text: 'Cancel Emergency Alert',
+          text: 'Keep Alert',
+          style: 'cancel',
+        },
+        {
+          text: 'Cancel Emergency',
           style: 'destructive',
-          onPress: performCancellation,
+          onPress: () => {
+            void performCancellation();
+          },
         },
       ]
     );
   };
 
   const performCancellation = async () => {
-    if (!alertData) return;
+    if (!alertData?._id || cancelling) return;
+    console.log('[EMERGENCY] Cancel requested for alert:', alertData._id);
     setCancelling(true);
 
     try {
       const res = await cancelEmergencyAlert(alertData._id, 'Cancelled by patient from mobile app');
-      if (res && res.success) {
-        Alert.alert('Alert Cancelled', 'Your emergency alert has been cancelled.');
+      if (res && res.success && res.data?.status === 'cancelled') {
+        console.log('[EMERGENCY] Cancel success');
+        setAlertData(null);
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert('Your emergency alert has been cancelled.');
+        } else {
+          Alert.alert('Alert Cancelled', 'Your emergency alert has been cancelled.');
+        }
+
         router.replace('/(patient)' as any);
       } else {
-        Alert.alert('Error', res.message || 'Failed to cancel emergency alert.');
+        const errMsg = res?.message || "We couldn't cancel the emergency alert. Please try again.";
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          window.alert(errMsg);
+        } else {
+          Alert.alert('Error', errMsg);
+        }
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to process emergency cancellation.');
+      const errMsg = err?.message || "We couldn't cancel the emergency alert. Please try again.";
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.alert(errMsg);
+      } else {
+        Alert.alert('Error', errMsg);
+      }
     } finally {
       setCancelling(false);
     }

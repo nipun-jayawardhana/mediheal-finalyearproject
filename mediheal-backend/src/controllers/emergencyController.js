@@ -63,6 +63,20 @@ const createEmergencyAlert = async (req, res, next) => {
     });
     const caregiverIds = activeLinks.map((link) => link.caregiverId);
 
+    // Check if an active emergency alert already exists for this patient
+    const existingActive = await EmergencyAlert.findOne({
+      patientId,
+      status: 'active',
+    });
+
+    if (existingActive) {
+      return res.status(200).json({
+        success: true,
+        message: 'An active emergency alert already exists',
+        data: existingActive,
+      });
+    }
+
     // 6. Create EmergencyAlert record
     const alert = await EmergencyAlert.create({
       patientId,
@@ -190,6 +204,9 @@ const cancelEmergencyAlert = async (req, res, next) => {
     const { alertId } = req.params;
     const { reason } = req.body;
 
+    console.log('[EMERGENCY API] Cancel request received');
+    console.log(`[EMERGENCY API] Alert ID: ${alertId}`);
+
     if (!mongoose.Types.ObjectId.isValid(alertId)) {
       return res.status(400).json({
         success: false,
@@ -214,6 +231,8 @@ const cancelEmergencyAlert = async (req, res, next) => {
       });
     }
 
+    console.log(`[EMERGENCY API] Current status: ${alert.status}`);
+
     // Status validations
     if (alert.status === 'resolved') {
       return res.status(400).json({
@@ -236,6 +255,7 @@ const cancelEmergencyAlert = async (req, res, next) => {
     }
 
     await alert.save();
+    console.log('[EMERGENCY API] Updated status: cancelled');
 
     return res.status(200).json({
       success: true,

@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { LoadingView } from '../../components/LoadingView';
@@ -31,8 +31,10 @@ export default function PatientHomeScreen() {
 
   const { isSpeaking, speak, stopSpeech } = useVoice({ language: userLang });
 
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
+  const fetchDashboard = useCallback(async (showLoading = false) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setErrorMsg('');
 
     try {
@@ -53,8 +55,15 @@ export default function PatientHomeScreen() {
   }, [router]);
 
   useEffect(() => {
-    fetchDashboard();
+    fetchDashboard(true);
   }, [fetchDashboard]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboard(false);
+      void getActiveEmergencyAlert();
+    }, [fetchDashboard])
+  );
 
   // Real Dashboard TTS Voice Guidance
   const handleReadDashboard = () => {
@@ -195,13 +204,23 @@ export default function PatientHomeScreen() {
 
         {/* Active Emergency Alert Warning Banner (If active) */}
         {dashboardData?.activeEmergencyAlert && (
-          <View style={styles.sosAlertBanner}>
+          <TouchableOpacity
+            style={styles.sosAlertBanner}
+            activeOpacity={0.8}
+            onPress={() => {
+              stopSpeech();
+              router.push({
+                pathname: '/(patient)/emergency-active' as any,
+                params: { id: dashboardData.activeEmergencyAlert?._id },
+              });
+            }}
+          >
             <StatusBadge status="emergency" label="ACTIVE EMERGENCY SOS" />
             <Text style={styles.sosAlertText}>
               An emergency alert triggered on{' '}
-              {new Date(dashboardData.activeEmergencyAlert.createdAt).toLocaleTimeString()} is currently active.
+              {new Date(dashboardData.activeEmergencyAlert.createdAt).toLocaleTimeString()} is currently active. Tap to view or cancel.
             </Text>
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Quick Action Grid / Buttons */}

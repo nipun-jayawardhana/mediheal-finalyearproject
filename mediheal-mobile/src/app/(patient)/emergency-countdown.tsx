@@ -22,7 +22,7 @@ export default function EmergencyCountdownScreen() {
     const checkExistingActive = async () => {
       try {
         const activeAlert = await getActiveEmergencyAlert();
-        if (activeAlert && isMounted) {
+        if (activeAlert && activeAlert.status === 'active' && isMounted) {
           // Redirect immediately to Active screen
           router.replace({
             pathname: '/(patient)/emergency-active' as any,
