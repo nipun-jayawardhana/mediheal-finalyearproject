@@ -17,6 +17,24 @@ const symptomCheckSchema = new mongoose.Schema(
         message: 'At least one symptom must be provided',
       },
     },
+    positiveSymptoms: {
+      type: [String],
+      default: [],
+    },
+    negativeFindings: {
+      type: [String],
+      default: [],
+    },
+    context: {
+      type: [String],
+      default: [],
+    },
+    conversation: [
+      {
+        question: { type: String, trim: true },
+        answer: { type: String, trim: true },
+      },
+    ],
     duration: {
       type: String,
       trim: true,

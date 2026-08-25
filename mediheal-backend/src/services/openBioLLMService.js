@@ -84,9 +84,28 @@ const parseJSONFromText = (rawText) => {
 
 /**
  * Perform inference call against OpenBioLLM-8B via Hugging Face Router
- * PRIVACY: ONLY sends symptom array, duration, and severity. NO user PII is transmitted.
+ * PRIVACY: ONLY sends symptom data, duration, and severity. NO user PII is transmitted.
+ * Accepts either a canonical clinical case object OR individual parameters.
  */
-const analyzeSymptomsWithOpenBioLLM = async (symptoms, duration = '', severity = 'mild', reqId = '') => {
+const analyzeSymptomsWithOpenBioLLM = async (input, param2 = '', param3 = 'mild', param4 = '') => {
+  let clinicalCase;
+  let reqId = '';
+
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    clinicalCase = input;
+    reqId = typeof param2 === 'string' ? param2 : (typeof param4 === 'string' ? param4 : '');
+  } else {
+    const symptomsArr = Array.isArray(input) ? input : [String(input || '')];
+    reqId = typeof param4 === 'string' ? param4 : '';
+    clinicalCase = {
+      positiveSymptoms: symptomsArr,
+      negativeFindings: [],
+      context: [],
+      duration: typeof param2 === 'string' ? param2 : 'unspecified',
+      severity: typeof param3 === 'string' ? param3 : 'mild',
+    };
+  }
+
   const tag = reqId ? `[OPENBIOLLM][${reqId}]` : '[OPENBIOLLM]';
   const startedAt = Date.now();
   console.log(`${tag} Starting biomedical symptom analysis`);
@@ -96,7 +115,20 @@ const analyzeSymptomsWithOpenBioLLM = async (symptoms, duration = '', severity =
     throw new Error('HUGGINGFACE_API_TOKEN is not configured in backend environment.');
   }
 
-  const symptomsText = Array.isArray(symptoms) ? symptoms.join(', ') : String(symptoms);
+  const posText = Array.isArray(clinicalCase.positiveSymptoms) && clinicalCase.positiveSymptoms.length > 0
+    ? clinicalCase.positiveSymptoms.join(', ')
+    : 'none reported';
+
+  const ctxText = Array.isArray(clinicalCase.context) && clinicalCase.context.length > 0
+    ? clinicalCase.context.join(', ')
+    : 'none';
+
+  const negText = Array.isArray(clinicalCase.negativeFindings) && clinicalCase.negativeFindings.length > 0
+    ? clinicalCase.negativeFindings.join(', ')
+    : 'none reported';
+
+  const durationText = clinicalCase.duration || 'unspecified';
+  const severityText = clinicalCase.severity || 'moderate';
 
   const systemMessage = `You are OpenBioLLM, a specialized biomedical AI assistant for preliminary symptom analysis.
 Your task is to analyze patient symptoms and return a JSON object with possible medical conditions, a recommended medical specialist, and general healthcare guidance steps.
@@ -106,11 +138,31 @@ Strict Rules:
 - "possibleConditions" MUST be an array of up to 3 objects, each with "condition" (the name of a real medical condition) and "confidence" ("high", "medium", or "low").
 - "recommendedSpecialist" MUST be ONE of: "General Physician", "Cardiologist", "Dermatologist", "Gastroenterologist", "ENT Specialist", "Orthopedic Specialist", "Neurologist", "Psychiatrist".
 - "guidance" MUST be an array of 2-3 safe general self-care recommendations.
-- Do NOT prescribe specific prescription medications or claim a definitive diagnosis.`;
+- Do NOT prescribe specific prescription medications or claim a definitive diagnosis.
+- Reason over the COMPLETE patient case including injury mechanism/context, positive symptoms, and negative findings.
+- Do NOT treat context/mechanism items as symptoms, and do NOT ignore injury mechanisms. Do NOT infer unreported symptoms.`;
 
-  const userMessage = `Patient Symptoms: ${symptomsText}
-Duration: ${duration || 'unspecified'}
-Severity: ${severity || 'mild'}
+  const userMessage = `Patient Symptom Assessment:
+
+Positive symptoms:
+${posText}
+
+Relevant context / mechanism:
+${ctxText}
+
+Duration:
+${durationText}
+
+Severity:
+${severityText}
+
+Negative findings:
+${negText}
+
+Provide preliminary possible conditions based ONLY on the supplied patient information.
+Do not treat context items as symptoms.
+Do not ignore injury mechanism.
+Do not infer unreported symptoms.
 
 JSON Output:`;
 

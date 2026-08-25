@@ -5,6 +5,7 @@ export interface SymptomAnalysisRequest {
   symptoms: string[];
   duration?: string;
   severity?: SeverityLevel;
+  conversation?: SymptomConversationTurn[];
   analysisRequestId?: string;
   language?: string;
 }

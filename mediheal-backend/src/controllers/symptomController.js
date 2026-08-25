@@ -4,6 +4,7 @@ const symptomService = require('../services/symptomService');
 const openBioLLMService = require('../services/openBioLLMService');
 const geminiConversationService = require('../services/geminiConversationService');
 const geminiTranslationService = require('../services/geminiTranslationService');
+const clinicalCaseService = require('../services/clinicalCaseService');
 
 /**
  * @desc    Analyze symptoms and recommend specialist
@@ -14,7 +15,17 @@ const analyzeSymptoms = async (req, res, next) => {
   const startTime = Date.now();
   try {
     const patientId = req.user._id;
-    const { symptoms, duration, severity, analysisRequestId, language = 'en' } = req.body;
+    const {
+      symptoms,
+      duration,
+      severity,
+      conversation = [],
+      positiveSymptoms: bodyPos,
+      negativeFindings: bodyNeg,
+      context: bodyCtx,
+      analysisRequestId,
+      language = 'en',
+    } = req.body;
     const targetLang = language === 'Sinhala' ? 'si' : language === 'Tamil' ? 'ta' : (language || 'en');
     const reqId = typeof analysisRequestId === 'string' && analysisRequestId.trim() ? analysisRequestId.trim() : `req-${Math.random().toString(36).substring(2, 8)}`;
     const tag = `[SYMPTOM API][${reqId}]`;
@@ -37,6 +48,9 @@ const analyzeSymptoms = async (req, res, next) => {
           analysis: {
             symptomCheckId: existingCheck._id,
             symptoms: existingCheck.symptoms,
+            positiveSymptoms: existingCheck.positiveSymptoms || existingCheck.symptoms,
+            negativeFindings: existingCheck.negativeFindings || [],
+            context: existingCheck.context || [],
             possibleCondition: existingCheck.possibleCondition,
             possibleConditions: existingCheck.possibleConditions,
             analysisSource: existingCheck.analysisSource,
@@ -77,7 +91,7 @@ const analyzeSymptoms = async (req, res, next) => {
       });
     }
 
-    // 3.5 Defense-in-Depth: Decompose natural-language symptom text >100 chars into concise concept phrases
+    // Decompose natural text into concise phrases
     let sanitizedSymptoms = [];
     for (const sym of symptoms) {
       if (typeof sym !== 'string') continue;
@@ -112,23 +126,7 @@ const analyzeSymptoms = async (req, res, next) => {
       sanitizedSymptoms = sanitizedSymptoms.slice(0, 20);
     }
 
-    // 4. Validation: check individual symptom strings
-    for (const sym of sanitizedSymptoms) {
-      if (typeof sym !== 'string' || sym.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Symptom items cannot be blank or non-string values',
-        });
-      }
-      if (sym.length > 100) {
-        return res.status(400).json({
-          success: false,
-          message: 'Each symptom string must not exceed 100 characters',
-        });
-      }
-    }
-
-    // 5. Validation: optional severity field
+    // Validation: optional severity field
     const validSeverities = ['mild', 'moderate', 'severe'];
     let inputSeverity = severity ? String(severity).toLowerCase().trim() : 'mild';
     if (severity && !validSeverities.includes(inputSeverity)) {
@@ -161,49 +159,68 @@ const analyzeSymptoms = async (req, res, next) => {
       }
     }
 
-    const normalizedInputSymptoms = symptomService.normalizeSymptoms(canonicalConcepts);
+    // ASSEMBLE ONE CANONICAL CLINICAL CASE BEFORE OPENBIOLLM
+    const clinicalCase = clinicalCaseService.buildCanonicalClinicalCase({
+      symptoms: canonicalConcepts,
+      conversation: Array.isArray(conversation) ? conversation : [],
+      duration: inputDuration,
+      severity: inputSeverity,
+      positiveSymptoms: bodyPos,
+      negativeFindings: bodyNeg,
+      context: bodyCtx,
+    });
 
-    // 6. Emergency Safety Layer Check (Evaluates raw input, canonical concepts, and normalized concepts)
+    const normalizedInputSymptoms = symptomService.normalizeSymptoms([
+      ...clinicalCase.positiveSymptoms,
+      ...clinicalCase.context,
+    ]);
+
+    // Emergency Safety Layer Check
     const isEmergency = symptomService.isEmergencySymptom([
       ...symptoms,
       ...sanitizedSymptoms,
       ...canonicalConcepts,
-      ...normalizedInputSymptoms,
+      ...clinicalCase.positiveSymptoms,
+      ...clinicalCase.context,
     ]);
 
     let finalAnalysis = null;
 
     if (isEmergency) {
       // Deterministic Emergency Triggered: DO NOT call LLM. Force high risk emergency.
-      const ruleResult = symptomService.analyzeSymptoms(
-        normalizedInputSymptoms,
-        inputDuration,
-        inputSeverity
-      );
+      const ruleResult = symptomService.analyzeSymptoms(clinicalCase);
       finalAnalysis = {
         ...ruleResult,
         analysisSource: 'rule-based-emergency',
         modelName: '',
       };
     } else {
-      // Non-emergency: Attempt OpenBioLLM Inference using Canonical English ONLY
+      // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
+      console.log('[CLINICAL CASE]');
+      console.log(`Positive symptoms: ${clinicalCase.positiveSymptoms.join(' | ') || 'none'}`);
+      console.log(`Context: ${clinicalCase.context.join(' | ') || 'none'}`);
+      console.log(`Duration: ${clinicalCase.duration}`);
+      console.log(`Severity: ${clinicalCase.severity}`);
+
+      // Non-emergency: Attempt OpenBioLLM Inference using Complete Canonical Case ONLY
       try {
         const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
-          normalizedInputSymptoms,
-          inputDuration,
-          inputSeverity,
+          clinicalCase,
           reqId
         );
 
-        // Calculate controlled MediHeal risk level (LLM confidence is not clinical risk)
+        // Calculate controlled MediHeal risk level
         let computedRisk = 'low';
-        if (inputSeverity === 'severe') computedRisk = 'medium';
-        else if (inputSeverity === 'moderate') computedRisk = 'low';
+        if (clinicalCase.severity === 'severe') computedRisk = 'medium';
+        else if (clinicalCase.severity === 'moderate') computedRisk = 'low';
 
         finalAnalysis = {
-          symptoms: normalizedInputSymptoms,
-          duration: inputDuration,
-          severity: inputSeverity,
+          symptoms: clinicalCase.positiveSymptoms,
+          positiveSymptoms: clinicalCase.positiveSymptoms,
+          negativeFindings: clinicalCase.negativeFindings,
+          context: clinicalCase.context,
+          duration: clinicalCase.duration,
+          severity: clinicalCase.severity,
           possibleCondition: aiResult.topCondition,
           possibleConditions: aiResult.possibleConditions,
           riskLevel: computedRisk,
@@ -219,11 +236,7 @@ const analyzeSymptoms = async (req, res, next) => {
         // Log AI error server-side silently, fallback to safe rule-based engine
         console.warn(`${tag} OpenBioLLM inference failed (${aiError.message})`);
         console.log(`${tag} Using rule-based fallback`);
-        const fallbackResult = symptomService.analyzeSymptoms(
-          normalizedInputSymptoms,
-          inputDuration,
-          inputSeverity
-        );
+        const fallbackResult = symptomService.analyzeSymptoms(clinicalCase);
         finalAnalysis = {
           ...fallbackResult,
           analysisSource: 'rule-based-fallback',
@@ -232,10 +245,14 @@ const analyzeSymptoms = async (req, res, next) => {
       }
     }
 
-    // 7. Save canonical English record to database
+    // Save canonical record to database
     const symptomCheck = await SymptomCheck.create({
       patientId,
-      symptoms: finalAnalysis.symptoms,
+      symptoms: finalAnalysis.positiveSymptoms && finalAnalysis.positiveSymptoms.length > 0 ? finalAnalysis.positiveSymptoms : finalAnalysis.symptoms,
+      positiveSymptoms: clinicalCase.positiveSymptoms,
+      negativeFindings: clinicalCase.negativeFindings,
+      context: clinicalCase.context,
+      conversation: Array.isArray(conversation) ? conversation : [],
       duration: finalAnalysis.duration,
       severity: finalAnalysis.severity,
       possibleCondition: finalAnalysis.possibleCondition,
@@ -246,7 +263,6 @@ const analyzeSymptoms = async (req, res, next) => {
       recommendedSpecialist: finalAnalysis.recommendedSpecialist,
       guidance: finalAnalysis.guidance,
       matchedSymptoms: finalAnalysis.matchedSymptoms,
-      emergencyRecommended: finalAnalysis.emergencyRecommended,
       disclaimer: finalAnalysis.disclaimer,
       analysisRequestId: typeof analysisRequestId === 'string' ? analysisRequestId.trim() : '',
       inputLanguage: detectedInputLang,

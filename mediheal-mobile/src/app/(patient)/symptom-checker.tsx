@@ -363,6 +363,7 @@ export default function SymptomCheckerScreen() {
         symptoms: summaryData.symptoms,
         duration: summaryData.duration,
         severity: summaryData.severity,
+        conversation,
         analysisRequestId: reqId,
         language,
       });

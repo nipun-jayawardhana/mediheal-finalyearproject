@@ -175,7 +175,11 @@ const SYMPTOM_SYNONYMS = [
   { match: ['high temperature', 'feverish', 'running a fever', 'fever'], canonical: 'fever' },
   { match: ['skin rash', 'itchy skin', 'rashes', 'skin itching', 'skin redness', 'itching'], canonical: 'skin rash' },
   { match: ['ear pain', 'ear ache', 'ear hurts', 'earache'], canonical: 'ear pain' },
-  { match: ['joint pain', 'swollen joint', 'joint ache', 'joint swelling', 'knee pain', 'elbow pain', 'swelling'], canonical: 'joint pain' },
+  { match: ['joint pain', 'swollen joint', 'joint ache', 'joint swelling'], canonical: 'joint pain' },
+  { match: ['knee pain', 'knee ache', 'knee hurts', 'pain in knee', 'pain in my knee'], canonical: 'knee pain' },
+  { match: ['knee swelling', 'swollen knee', 'swelling in knee', 'swelling in my knee'], canonical: 'knee swelling' },
+  { match: ['ankle pain', 'ankle ache', 'ankle hurts', 'pain in ankle'], canonical: 'ankle pain' },
+  { match: ['ankle swelling', 'swollen ankle', 'swelling in ankle'], canonical: 'ankle swelling' },
   { match: ['headache', 'head hurts', 'head ache', 'throbbing head'], canonical: 'headache' },
   { match: ['sore throat', 'throat pain', 'scratchy throat', 'throat hurts'], canonical: 'sore throat' },
   { match: ['cough', 'coughing', 'dry cough', 'wet cough'], canonical: 'cough' },
@@ -231,7 +235,7 @@ const normalizeSymptoms = (inputSymptoms) => {
     // Check against controlled synonym map
     let canonical = clean;
     for (const syn of SYMPTOM_SYNONYMS) {
-      if (syn.match.some((pattern) => clean === pattern || clean.includes(pattern))) {
+      if (syn.match.some((pattern) => clean === pattern || clean === `${pattern}s`)) {
         canonical = syn.canonical;
         break;
       }
@@ -261,16 +265,41 @@ const isEmergencySymptom = (rawSymptoms) => {
 
 /**
  * Analyzes symptoms based on safe rule-based matching and emergency triggers.
- * @param {Array<string>} rawSymptoms - Array of symptom strings
- * @param {string} [duration] - Optional duration
- * @param {string} [severity] - Severity: mild, moderate, severe
+ * Accepts either a raw symptom array or a canonical clinical case object.
+ * @param {Array<string>|Object} input - Array of symptom strings OR canonical clinical case object
+ * @param {string} [defaultDuration] - Optional duration
+ * @param {string} [defaultSeverity] - Severity: mild, moderate, severe
  * @returns {Object} Analysis result object
  */
-const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
-  const normalizedInput = normalizeSymptoms(rawSymptoms);
+const analyzeSymptoms = (input, defaultDuration = '', defaultSeverity = 'mild') => {
+  let clinicalCase;
+
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    clinicalCase = input;
+  } else {
+    const syms = Array.isArray(input) ? input : [String(input || '')];
+    clinicalCase = {
+      positiveSymptoms: syms,
+      negativeFindings: [],
+      context: [],
+      duration: defaultDuration || 'unspecified',
+      severity: defaultSeverity || 'mild',
+    };
+  }
+
+  const positive = Array.isArray(clinicalCase.positiveSymptoms) ? clinicalCase.positiveSymptoms : [];
+  const context = Array.isArray(clinicalCase.context) ? clinicalCase.context : [];
+  const duration = clinicalCase.duration || defaultDuration || 'unspecified';
+  const severity = clinicalCase.severity || defaultSeverity || 'mild';
+
+  const normalizedInput = normalizeSymptoms([...positive, ...context]);
 
   // 1. Check Emergency Safety Triggers
-  const isEmergencyTriggered = isEmergencySymptom(normalizedInput);
+  const isEmergencyTriggered = isEmergencySymptom([
+    ...positive,
+    ...context,
+    ...normalizedInput,
+  ]);
 
   // 2. Perform Rule Matching
   let bestRule = null;
@@ -327,7 +356,10 @@ const analyzeSymptoms = (rawSymptoms, duration = '', severity = 'mild') => {
   }
 
   return {
-    symptoms: normalizedInput.length > 0 ? normalizedInput : (Array.isArray(rawSymptoms) ? rawSymptoms : [String(rawSymptoms)]),
+    symptoms: positive.length > 0 ? positive : (normalizedInput.length > 0 ? normalizedInput : ['unspecified symptom']),
+    positiveSymptoms: positive,
+    negativeFindings: clinicalCase.negativeFindings || [],
+    context: context,
     duration,
     severity,
     possibleCondition,

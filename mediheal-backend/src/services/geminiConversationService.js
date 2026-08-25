@@ -253,30 +253,36 @@ const extractSymptomConcepts = (symptoms = [], conversation = []) => {
   return filtered.slice(0, 10);
 };
 
+const clinicalCaseService = require('./clinicalCaseService');
+
 /**
  * Deterministic fallback strategy when Gemini API is unavailable or returns invalid data
  */
 const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0) => {
   const currentCount = Number(questionCount) || conversation.length || 0;
-  const extractedDuration = parseDurationFromAnswers(conversation);
-  const extractedSeverity = parseSeverityFromAnswers(conversation);
-  const extractedConcepts = extractSymptomConcepts(symptoms, conversation);
+  const canonicalCase = clinicalCaseService.buildCanonicalClinicalCase({
+    symptoms,
+    conversation,
+  });
 
   // Max 3 questions reached -> complete
   if (currentCount >= 3) {
     return {
       status: 'complete',
       summary: {
-        symptoms: extractedConcepts.length > 0 ? extractedConcepts : ['unspecified symptom'],
-        duration: extractedDuration,
-        severity: extractedSeverity,
+        symptoms: canonicalCase.positiveSymptoms,
+        positiveSymptoms: canonicalCase.positiveSymptoms,
+        negativeFindings: canonicalCase.negativeFindings,
+        context: canonicalCase.context,
+        duration: canonicalCase.duration,
+        severity: canonicalCase.severity,
         additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
       },
     };
   }
 
   // Check which basic fields might be missing from conversation answers
-  const hasDuration = extractedDuration !== 'unspecified';
+  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
   const hasSeverity = conversation.some((c) => ['mild', 'moderate', 'severe'].includes((c.answer || '').toLowerCase().trim()));
 
   if (!hasDuration && currentCount === 0) {
@@ -310,9 +316,12 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
   return {
     status: 'complete',
     summary: {
-      symptoms: extractedConcepts.length > 0 ? extractedConcepts : ['unspecified symptom'],
-      duration: extractedDuration,
-      severity: extractedSeverity,
+      symptoms: canonicalCase.positiveSymptoms,
+      positiveSymptoms: canonicalCase.positiveSymptoms,
+      negativeFindings: canonicalCase.negativeFindings,
+      context: canonicalCase.context,
+      duration: canonicalCase.duration,
+      severity: canonicalCase.severity,
       additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
     },
   };
@@ -524,40 +533,33 @@ Output JSON:`;
  * Validate and sanitize summary output from Gemini
  */
 const validateAndFormatSummary = (rawSummary, initialSymptoms, conversation) => {
-  const validSeverities = ['mild', 'moderate', 'severe'];
+  const canonicalCase = clinicalCaseService.buildCanonicalClinicalCase({
+    symptoms: initialSymptoms,
+    conversation,
+    duration: typeof rawSummary?.duration === 'string' ? rawSummary.duration : '',
+    severity: typeof rawSummary?.severity === 'string' ? rawSummary.severity : '',
+    positiveSymptoms: Array.isArray(rawSummary?.positiveSymptoms) ? rawSummary.positiveSymptoms : (Array.isArray(rawSummary?.symptoms) ? rawSummary.symptoms : []),
+    negativeFindings: Array.isArray(rawSummary?.negativeFindings) ? rawSummary.negativeFindings : [],
+    context: Array.isArray(rawSummary?.context) ? rawSummary.context : [],
+  });
 
-  let rawSymptomsList = Array.isArray(rawSummary.symptoms) && rawSummary.symptoms.length > 0
-    ? rawSummary.symptoms
-    : initialSymptoms;
-
-  let symptomsList = extractSymptomConcepts(rawSymptomsList, conversation);
-  if (symptomsList.length === 0) {
-    symptomsList = extractSymptomConcepts(initialSymptoms, conversation);
-  }
-  if (symptomsList.length === 0) {
-    symptomsList = ['unspecified symptom'];
-  }
-
-  let severity = typeof rawSummary.severity === 'string' ? rawSummary.severity.toLowerCase().trim() : '';
-  if (!validSeverities.includes(severity)) {
-    severity = parseSeverityFromAnswers(conversation);
-  }
-
-  let duration = typeof rawSummary.duration === 'string' ? rawSummary.duration.trim() : '';
-  if (!duration || duration === 'unspecified') {
-    duration = parseDurationFromAnswers(conversation);
-  }
-
-  let additionalContext = Array.isArray(rawSummary.additionalContext)
+  let additionalContext = Array.isArray(rawSummary?.additionalContext)
     ? rawSummary.additionalContext.map((c) => (typeof c === 'string' ? c.trim() : '')).filter(Boolean)
     : [];
+
+  if (additionalContext.length === 0 && Array.isArray(conversation)) {
+    additionalContext = conversation.map((c) => `${c.question}: ${c.answer}`);
+  }
 
   return {
     status: 'complete',
     summary: {
-      symptoms: symptomsList,
-      duration: duration || 'unspecified',
-      severity: severity || 'moderate',
+      symptoms: canonicalCase.positiveSymptoms,
+      positiveSymptoms: canonicalCase.positiveSymptoms,
+      negativeFindings: canonicalCase.negativeFindings,
+      context: canonicalCase.context,
+      duration: canonicalCase.duration || 'unspecified',
+      severity: canonicalCase.severity || 'moderate',
       additionalContext,
     },
   };
