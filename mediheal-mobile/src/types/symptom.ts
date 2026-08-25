@@ -4,7 +4,7 @@ export type SeverityLevel = 'mild' | 'moderate' | 'severe';
 export interface SymptomAnalysisRequest {
   symptoms: string[];
   duration?: string;
-  severity?: SeverityLevel;
+  severity?: SeverityLevel | null;
   conversation?: SymptomConversationTurn[];
   analysisRequestId?: string;
   language?: string;
@@ -18,6 +18,8 @@ export interface PossibleConditionItem {
 export interface SymptomAnalysisResult {
   symptomCheckId: string;
   symptoms: string[];
+  positiveSymptoms?: string[];
+  context?: string[];
   possibleCondition: string;
   possibleConditions?: PossibleConditionItem[];
   analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
@@ -43,8 +45,10 @@ export interface SymptomCheckRecord {
   _id: string;
   patientId: string;
   symptoms: string[];
+  positiveSymptoms?: string[];
+  context?: string[];
   duration?: string;
-  severity: SeverityLevel;
+  severity?: SeverityLevel | null;
   possibleCondition: string;
   possibleConditions?: PossibleConditionItem[];
   analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
@@ -86,7 +90,7 @@ export interface SymptomFollowUpRequest {
 export interface SymptomSummaryData {
   symptoms: string[];
   duration: string;
-  severity: SeverityLevel;
+  severity: SeverityLevel | null;
   additionalContext: string[];
 }
 

@@ -57,6 +57,40 @@ const cleanConceptKey = (str) => {
 };
 
 /**
+ * Helper to parse duration from natural language text
+ */
+const extractDurationFromText = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  const lower = text.toLowerCase();
+
+  const hoursMatch = lower.match(/(?:past|last|during\s+the\s+last|for|about)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*hours?/i);
+  if (hoursMatch) {
+    const wordToNum = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10', eleven: '11', twelve: '12' };
+    const num = wordToNum[hoursMatch[1].toLowerCase()] || hoursMatch[1];
+    return `${num} ${Number(num) === 1 ? 'hour' : 'hours'}`;
+  }
+
+  const daysMatch = lower.match(/(?:past|last|for|about)?\s*(\d+|one|two|three|four|five|six|seven)\s*days?/i);
+  if (daysMatch) {
+    const wordToNum = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7' };
+    const num = wordToNum[daysMatch[1].toLowerCase()] || daysMatch[1];
+    return `${num} ${Number(num) === 1 ? 'day' : 'days'}`;
+  }
+
+  const weeksMatch = lower.match(/(?:past|last|for|about)?\s*(\d+|one|two|three|four)\s*weeks?/i);
+  if (weeksMatch) {
+    const wordToNum = { one: '1', two: '2', three: '3', four: '4' };
+    const num = wordToNum[weeksMatch[1].toLowerCase()] || weeksMatch[1];
+    return `${num} ${Number(num) === 1 ? 'week' : 'weeks'}`;
+  }
+
+  if (lower.includes('since morning') || lower.includes('this morning')) return 'since morning';
+  if (lower.includes('since yesterday')) return '1 day';
+
+  return '';
+};
+
+/**
  * Extracts causal/mechanism context from natural language text
  */
 const extractContextFromText = (text) => {
@@ -97,6 +131,30 @@ const extractContextFromText = (text) => {
     contexts.push('car accident');
   }
 
+  // Symptom Progression / Trend
+  if (/progressively\s+worsening|gradually\s+worsened|worsening|getting\s+worse/i.test(lower)) {
+    if (lower.includes('abdomen') || lower.includes('abdominal') || lower.includes('stomach')) {
+      contexts.push('abdominal pain progressively worsening');
+    } else {
+      contexts.push('pain progressively worsening');
+    }
+  }
+
+  // Aggravating Factors
+  if (/worse\s+(?:when\s+|with\s+)?walking|\bwalking\b/i.test(lower) && (lower.includes('worse') || lower.includes('especially'))) {
+    contexts.push('pain worse when walking');
+  }
+  if (/worse\s+(?:when\s+|with\s+)?coughing|\bcoughing\b/i.test(lower) && (lower.includes('worse') || lower.includes('especially'))) {
+    contexts.push('pain worse when coughing');
+  }
+  if (/worse\s+(?:when\s+|with\s+)?(?:pressing|pressure)|press(?:ing)?\s+the\s+area/i.test(lower)) {
+    if (lower.includes('lower') || lower.includes('right') || lower.includes('abdomen')) {
+      contexts.push('pain worse when pressing lower right abdomen');
+    } else {
+      contexts.push('pain worse with pressure');
+    }
+  }
+
   return contexts;
 };
 
@@ -107,12 +165,17 @@ const extractContextFromText = (text) => {
 const extractInitialSymptomsAndContext = (initialInput) => {
   const positiveSymptoms = [];
   const context = [];
+  let duration = '';
 
   const rawInputs = Array.isArray(initialInput) ? initialInput : [String(initialInput || '')];
 
   for (const raw of rawInputs) {
     if (!raw || typeof raw !== 'string') continue;
-    
+
+    if (!duration) {
+      duration = extractDurationFromText(raw);
+    }
+
     // Extract context
     const extractedCtx = extractContextFromText(raw);
     extractedCtx.forEach((ctx) => {
@@ -128,7 +191,7 @@ const extractInitialSymptomsAndContext = (initialInput) => {
     clean = clean.replace(/\bafter\s+i\s+fell\b/gi, '');
     clean = clean.replace(/\bwhile\s+playing\s+football\b/gi, '');
     clean = clean.replace(/\bwhile\s+running\b/gi, '');
-    
+
     // Remove redundant phrases
     REDUNDANT_PHRASES.forEach((phrase) => {
       const reg = new RegExp(`\\b${phrase.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'gi');
@@ -137,24 +200,51 @@ const extractInitialSymptomsAndContext = (initialInput) => {
 
     const lower = clean.toLowerCase();
 
-    // Specific symptom matchers (preserving exact patient terminology)
+    // 1. Precise Abdominal Location & Quality Matchers
+    const hasSharp = lower.includes('sharp');
+    const hasLowerRight = (lower.includes('lower') && lower.includes('right')) || lower.includes('right lower');
+    const hasLeftLower = (lower.includes('lower') && lower.includes('left')) || lower.includes('left lower');
+    const hasRightUpper = (lower.includes('upper') && lower.includes('right')) || lower.includes('right upper');
+    const hasAbdominal = lower.includes('abdom') || lower.includes('stomach') || lower.includes('belly');
+
+    if (hasAbdominal) {
+      if (hasLowerRight) {
+        const sym = hasSharp ? 'sharp lower right abdominal pain' : 'lower right abdominal pain';
+        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
+      } else if (hasLeftLower) {
+        const sym = hasSharp ? 'sharp left lower abdominal pain' : 'left lower abdominal pain';
+        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
+      } else if (hasRightUpper) {
+        const sym = hasSharp ? 'sharp right upper abdominal pain' : 'right upper abdominal pain';
+        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
+      } else {
+        const sym = hasSharp ? 'sharp abdominal pain' : 'stomach pain';
+        if (!positiveSymptoms.includes(sym)) positiveSymptoms.push(sym);
+      }
+    }
+
+    // 2. Specific Joint & Body Symptoms
     if (/\bknee\s+pain\b|\bpain\s+in\s+(?:my\s+)?knee\b|\bknee\s+hurts\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('knee pain')) positiveSymptoms.push('knee pain');
+      if (!positiveSymptoms.some(s => s.includes('knee pain'))) positiveSymptoms.push('knee pain');
     }
     if (/\bankle\s+pain\b|\bpain\s+in\s+(?:my\s+)?ankle\b|\bankle\s+hurts\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('ankle pain')) positiveSymptoms.push('ankle pain');
+      if (!positiveSymptoms.some(s => s.includes('ankle pain'))) positiveSymptoms.push('ankle pain');
     }
     if (/\bheadache\b|\bhead\s+hurts\b|\bhead\s+ache\b/i.test(lower)) {
       if (!positiveSymptoms.includes('headache')) positiveSymptoms.push('headache');
     }
-    if (/\bstomach\s+pain\b|\bbelly\s+pain\b|\babdominal\s+pain\b|\bpain\s+in\s+(?:my\s+)?stomach\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('stomach pain')) positiveSymptoms.push('stomach pain');
-    }
     if (/\bchest\s+pain\b|\bpain\s+in\s+(?:my\s+)?chest\b/i.test(lower)) {
       if (!positiveSymptoms.includes('chest pain')) positiveSymptoms.push('chest pain');
     }
-    if (/\bfever\b|\bhigh\s+temperature\b/i.test(lower)) {
-      if (!positiveSymptoms.includes('fever')) positiveSymptoms.push('fever');
+
+    // 3. Systemic / GI / Fever Qualifiers
+    if (/\bloss\s+of\s+appetite\b|\bdecreased\s+appetite\b|\bno\s+appetite\b/i.test(lower)) {
+      if (!positiveSymptoms.includes('loss of appetite')) positiveSymptoms.push('loss of appetite');
+    }
+    if (/\bmild\s+fever\b/i.test(lower)) {
+      if (!positiveSymptoms.includes('mild fever')) positiveSymptoms.push('mild fever');
+    } else if (/\bfever\b|\bhigh\s+temperature\b/i.test(lower)) {
+      if (!positiveSymptoms.includes('fever') && !positiveSymptoms.includes('mild fever')) positiveSymptoms.push('fever');
     }
     if (/\bnausea\b|\bfeeling\s+nauseous\b/i.test(lower)) {
       if (!positiveSymptoms.includes('nausea')) positiveSymptoms.push('nausea');
@@ -188,7 +278,7 @@ const extractInitialSymptomsAndContext = (initialInput) => {
     }
   }
 
-  return { positiveSymptoms, context };
+  return { positiveSymptoms, context, duration };
 };
 
 /**
@@ -205,11 +295,11 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
     negativeFindings: [...activeCase.negativeFindings],
     context: [...activeCase.context],
     duration: activeCase.duration || '',
-    severity: activeCase.severity || 'mild',
+    severity: activeCase.severity || null,
     additionalDetails: [...(activeCase.additionalDetails || [])],
   };
 
-  // Helper: Find primary body location from positive symptoms or context (e.g., "knee", "ankle", "stomach")
+  // Helper: Find primary body location from positive symptoms or context
   const getPrimaryLocation = () => {
     for (const sym of result.positiveSymptoms) {
       const lower = sym.toLowerCase();
@@ -254,7 +344,7 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       continue;
     }
 
-    // 2. Severity extraction
+    // 2. Severity extraction (only when user explicitly answers overall severity question)
     if (
       q.includes('severe') ||
       q.includes('severity') ||
@@ -267,7 +357,7 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       continue;
     }
 
-    // 3. Negative answers ("No", "No swelling", "None", "Haven't been vomiting")
+    // 3. Negative answers
     const isNegative =
       a === 'no' ||
       a.startsWith('no ') ||
@@ -277,7 +367,6 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       a.includes('haven\'t');
 
     if (isNegative) {
-      // Determine what was asked in the question
       if (q.includes('swelling')) {
         const loc = getPrimaryLocation();
         const neg = loc ? `no ${loc} swelling` : 'no swelling';
@@ -292,17 +381,10 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       if (q.includes('nausea')) {
         if (!result.negativeFindings.includes('no nausea')) result.negativeFindings.push('no nausea');
       }
-      if (q.includes('redness')) {
-        if (!result.negativeFindings.includes('no redness')) result.negativeFindings.push('no redness');
-      }
-      if (q.includes('warmth')) {
-        if (!result.negativeFindings.includes('no warmth')) result.negativeFindings.push('no warmth');
-      }
-      // CRITICAL RULE: DO NOT add any symptoms from the question into positiveSymptoms!
       continue;
     }
 
-    // 4. Affirmative answers ("Yes", "There is swelling", "Swelling", "I do", "Vomiting", "Nausea")
+    // 4. Affirmative answers
     const isAffirmative =
       a === 'yes' ||
       a === 'yeah' ||
@@ -314,11 +396,9 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
     if (isAffirmative || a.includes('swelling') || a.includes('nausea') || a.includes('vomiting') || a.includes('difficulty')) {
       const loc = getPrimaryLocation();
 
-      // Check if swelling was affirmed
       if (q.includes('swelling') || a.includes('swelling')) {
         const sym = loc ? `${loc} swelling` : 'swelling';
         if (!result.positiveSymptoms.includes(sym)) {
-          // If generic 'swelling' exists and location is known, upgrade it
           const idx = result.positiveSymptoms.indexOf('swelling');
           if (idx !== -1 && loc) {
             result.positiveSymptoms[idx] = `${loc} swelling`;
@@ -328,57 +408,19 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
         }
       }
 
-      // Check if difficulty bending knee was affirmed
       if (q.includes('bending') || a.includes('bending')) {
         const sym = loc ? `difficulty bending ${loc}` : 'difficulty bending joint';
         if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
       }
 
-      // Check if weight bearing was questioned (e.g., "put weight on your leg")
-      if (q.includes('weight') && (a.includes('cannot') || a.includes("can't") || a.includes('unable') || a.includes('no'))) {
-        const sym = loc ? `inability to bear weight on ${loc}` : 'inability to bear weight';
-        if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
-      }
-
-      // Check if breathing difficulty affirmed
-      if (q.includes('breathing') || a.includes('breathing')) {
-        if (!result.positiveSymptoms.includes('difficulty breathing')) {
-          result.positiveSymptoms.push('difficulty breathing');
-        }
-      }
-
-      // Check specific symptom choices (e.g., Q: "nausea or vomiting?", A: "Nausea")
       if (a.includes('nausea') && !result.positiveSymptoms.includes('nausea')) {
         result.positiveSymptoms.push('nausea');
       }
       if (a.includes('vomiting') && !result.positiveSymptoms.includes('vomiting')) {
         result.positiveSymptoms.push('vomiting');
       }
-      if (a.includes('fever') && !result.positiveSymptoms.includes('fever')) {
+      if (a.includes('fever') && !result.positiveSymptoms.includes('fever') && !result.positiveSymptoms.includes('mild fever')) {
         result.positiveSymptoms.push('fever');
-      }
-      if (a.includes('dizziness') && !result.positiveSymptoms.includes('dizziness')) {
-        result.positiveSymptoms.push('dizziness');
-      }
-
-      // 5. Specific Location Refinement (e.g. Q: "Where is the pain?", A: "Right knee")
-      if (q.includes('where') || q.includes('location')) {
-        if (a.includes('right knee')) {
-          const idx = result.positiveSymptoms.indexOf('knee pain');
-          if (idx !== -1) result.positiveSymptoms[idx] = 'right knee pain';
-          else if (!result.positiveSymptoms.includes('right knee pain')) result.positiveSymptoms.push('right knee pain');
-        } else if (a.includes('left knee')) {
-          const idx = result.positiveSymptoms.indexOf('knee pain');
-          if (idx !== -1) result.positiveSymptoms[idx] = 'left knee pain';
-          else if (!result.positiveSymptoms.includes('left knee pain')) result.positiveSymptoms.push('left knee pain');
-        }
-      }
-    } else {
-      // Non-yes/no specific string answer (e.g. "moderate", "right leg", custom phrase)
-      if (a.length > 2 && a.length <= 100 && !REDUNDANT_PHRASES.includes(a)) {
-        if (!isBareBodyPart(a) && !result.positiveSymptoms.includes(a)) {
-          result.additionalDetails.push(`${q}: ${a}`);
-        }
       }
     }
   }
@@ -388,15 +430,6 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
 
 /**
  * Builds ONE Canonical Clinical Case from raw inputs and conversation history.
- * @param {Object} params
- * @param {Array<string>|string} params.symptoms - Initial symptoms or sentence
- * @param {Array<Object>} [params.conversation] - Array of { question, answer }
- * @param {string} [params.duration] - Optional explicit duration
- * @param {string} [params.severity] - Optional explicit severity
- * @param {Array<string>} [params.positiveSymptoms] - Optional explicit positive symptoms
- * @param {Array<string>} [params.negativeFindings] - Optional explicit negative findings
- * @param {Array<string>} [params.context] - Optional explicit context
- * @returns {Object} Structured Canonical Clinical Case
  */
 const buildCanonicalClinicalCase = (params = {}) => {
   const {
@@ -434,8 +467,8 @@ const buildCanonicalClinicalCase = (params = {}) => {
     positiveSymptoms: combinedPositive,
     negativeFindings: Array.isArray(negativeFindings) ? [...negativeFindings] : [],
     context: combinedContext,
-    duration: typeof duration === 'string' ? duration.trim() : '',
-    severity: typeof severity === 'string' ? severity.trim().toLowerCase() : 'mild',
+    duration: typeof duration === 'string' && duration.trim() ? duration.trim() : (initialData.duration || ''),
+    severity: typeof severity === 'string' && severity.trim() ? severity.trim().toLowerCase() : null,
     additionalDetails: [],
   };
 
@@ -444,7 +477,9 @@ const buildCanonicalClinicalCase = (params = {}) => {
 
   // Ensure default values and sanity
   if (!finalCase.duration) finalCase.duration = 'unspecified';
-  if (!['mild', 'moderate', 'severe'].includes(finalCase.severity)) finalCase.severity = 'moderate';
+  if (finalCase.severity && !['mild', 'moderate', 'severe'].includes(finalCase.severity)) {
+    finalCase.severity = null;
+  }
   if (finalCase.positiveSymptoms.length === 0) {
     finalCase.positiveSymptoms = ['unspecified symptom'];
   }

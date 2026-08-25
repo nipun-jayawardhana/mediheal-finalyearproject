@@ -261,8 +261,14 @@ export default function AnalysisResultScreen() {
           ))}
 
           <Text style={styles.matchedText}>
-            {t('basedOnSymptoms')}: {result.matchedSymptoms.join(', ') || result.symptoms.join(', ')}.
+            {t('basedOnSymptoms')}: {(result.positiveSymptoms && result.positiveSymptoms.length > 0 ? result.positiveSymptoms : (result.matchedSymptoms && result.matchedSymptoms.length > 0 ? result.matchedSymptoms : (result.symptoms || []))).join(', ')}.
           </Text>
+
+          {result.context && result.context.length > 0 && (
+            <Text style={[styles.matchedText, { marginTop: 4, fontStyle: 'italic', color: colors.textSecondary }]}>
+              Relevant details: {result.context.join(', ')}.
+            </Text>
+          )}
         </View>
 
         {/* Guidance / Immediate Care Steps */}

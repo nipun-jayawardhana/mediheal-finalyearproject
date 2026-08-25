@@ -22,12 +22,19 @@ import {
 import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { TranslationKeys } from '../../i18n/en';
 
-const SEVERITY_OPTIONS: { label: string; value: SeverityLevel }[] = [
-  { label: 'Mild', value: 'mild' },
-  { label: 'Moderate', value: 'moderate' },
-  { label: 'Severe', value: 'severe' },
+const SEVERITY_OPTIONS: { labelKey: TranslationKeys; value: SeverityLevel }[] = [
+  { labelKey: 'mild', value: 'mild' },
+  { labelKey: 'moderate', value: 'moderate' },
+  { labelKey: 'severe', value: 'severe' },
 ];
+
+const SEVERITY_LABEL_MAP: Record<SeverityLevel, TranslationKeys> = {
+  mild: 'mild',
+  moderate: 'moderate',
+  severe: 'severe',
+};
 
 export default function SymptomCheckerScreen() {
   const router = useRouter();
@@ -241,8 +248,8 @@ export default function SymptomCheckerScreen() {
         // Fallback: Proceed directly to summary if service unavailable
         setSummaryData({
           symptoms: activeSymptoms,
-          duration: '2 days',
-          severity: 'moderate',
+          duration: 'unspecified',
+          severity: null,
           additionalContext: [],
         });
         setStepMode('summary');
@@ -251,8 +258,8 @@ export default function SymptomCheckerScreen() {
       // Fallback on network/API failure
       setSummaryData({
         symptoms: activeSymptoms,
-        duration: '2 days',
-        severity: 'moderate',
+        duration: 'unspecified',
+        severity: null,
         additionalContext: [],
       });
       setStepMode('summary');
@@ -302,8 +309,8 @@ export default function SymptomCheckerScreen() {
           // Status complete or 3 question limit reached
           const completeSummary = res.data.summary || {
             symptoms: symptomsList,
-            duration: extractFieldValue(newHistory, 'duration') || '2 days',
-            severity: (extractFieldValue(newHistory, 'severity') as SeverityLevel) || 'moderate',
+            duration: extractFieldValue(newHistory, 'duration') || 'unspecified',
+            severity: (extractFieldValue(newHistory, 'severity') as SeverityLevel) || null,
             additionalContext: newHistory.map((c) => `${c.question}: ${c.answer}`),
           };
           setSummaryData(completeSummary);
@@ -313,8 +320,8 @@ export default function SymptomCheckerScreen() {
         // Fallback to summary if API returns unexpected format
         setSummaryData({
           symptoms: symptomsList,
-          duration: extractFieldValue(newHistory, 'duration') || '2 days',
-          severity: 'moderate',
+          duration: extractFieldValue(newHistory, 'duration') || 'unspecified',
+          severity: null,
           additionalContext: newHistory.map((c) => `${c.question}: ${c.answer}`),
         });
         setStepMode('summary');
@@ -323,8 +330,8 @@ export default function SymptomCheckerScreen() {
       // Fallback to summary on error
       setSummaryData({
         symptoms: symptomsList,
-        duration: extractFieldValue(newHistory, 'duration') || '2 days',
-        severity: 'moderate',
+        duration: extractFieldValue(newHistory, 'duration') || 'unspecified',
+        severity: null,
         additionalContext: newHistory.map((c) => `${c.question}: ${c.answer}`),
       });
       setStepMode('summary');
@@ -706,7 +713,7 @@ export default function SymptomCheckerScreen() {
             <View style={styles.summarySection}>
               <Text style={styles.summaryLabel}>{t('initialSymptoms')}:</Text>
               <View style={styles.chipsContainer}>
-                {summaryData.symptoms.map((s, idx) => (
+                {(summaryData.symptoms || []).map((s, idx) => (
                   <View key={idx} style={styles.summaryChip}>
                     <Text style={styles.summaryChipText}>{s}</Text>
                   </View>
@@ -717,7 +724,7 @@ export default function SymptomCheckerScreen() {
             <View style={styles.summaryRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryLabel}>{t('duration')}:</Text>
-                <Text style={styles.summaryVal}>{summaryData.duration}</Text>
+                <Text style={styles.summaryVal}>{summaryData.duration || t('unspecified') || 'Unspecified'}</Text>
               </View>
 
               <View style={styles.summaryCol}>
@@ -728,7 +735,9 @@ export default function SymptomCheckerScreen() {
                     summaryData.severity === 'severe' && { color: colors.danger, fontWeight: '800' },
                   ]}
                 >
-                  {summaryData.severity.toUpperCase()}
+                  {summaryData.severity
+                    ? t(SEVERITY_LABEL_MAP[summaryData.severity]).toUpperCase()
+                    : t('unspecified').toUpperCase()}
                 </Text>
               </View>
             </View>
@@ -762,7 +771,7 @@ export default function SymptomCheckerScreen() {
                       summaryData.severity === item.value && styles.severityTextSelected,
                     ]}
                   >
-                    {item.label}
+                    {t(item.labelKey)}
                   </Text>
                 </TouchableOpacity>
               ))}

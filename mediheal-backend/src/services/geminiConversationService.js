@@ -265,8 +265,15 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
     conversation,
   });
 
-  // Max 3 questions reached -> complete
-  if (currentCount >= 3) {
+  // Check if sufficient clinical context already exists in initial statement
+  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
+  const hasLocation = canonicalCase.positiveSymptoms.some((s) =>
+    ['abdominal', 'stomach', 'knee', 'ankle', 'chest', 'headache'].some((loc) => s.toLowerCase().includes(loc))
+  );
+  const hasSufficientSymptoms = canonicalCase.positiveSymptoms.length >= 3 || (hasDuration && hasLocation && canonicalCase.positiveSymptoms.length >= 2);
+
+  // If duration, location, and sufficient symptoms exist or max 3 questions -> complete
+  if (currentCount >= 3 || (hasDuration && hasSufficientSymptoms)) {
     return {
       status: 'complete',
       summary: {
@@ -281,8 +288,6 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
     };
   }
 
-  // Check which basic fields might be missing from conversation answers
-  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
   const hasSeverity = conversation.some((c) => ['mild', 'moderate', 'severe'].includes((c.answer || '').toLowerCase().trim()));
 
   if (!hasDuration && currentCount === 0) {

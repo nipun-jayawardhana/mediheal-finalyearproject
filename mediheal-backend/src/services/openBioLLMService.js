@@ -128,7 +128,9 @@ const analyzeSymptomsWithOpenBioLLM = async (input, param2 = '', param3 = 'mild'
     : 'none reported';
 
   const durationText = clinicalCase.duration || 'unspecified';
-  const severityText = clinicalCase.severity || 'moderate';
+  const severityText = (clinicalCase.severity && clinicalCase.severity !== 'null' && clinicalCase.severity !== 'unspecified')
+    ? clinicalCase.severity
+    : 'not explicitly rated';
 
   const systemMessage = `You are OpenBioLLM, a specialized biomedical AI assistant for preliminary symptom analysis.
 Your task is to analyze patient symptoms and return a JSON object with possible medical conditions, a recommended medical specialist, and general healthcare guidance steps.

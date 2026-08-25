@@ -93,6 +93,12 @@ export const en = {
   chooseLanguage: 'Choose Your Language',
   languageSub: 'Select your preferred language for MediHeal. You can change this at any time in settings.',
   languageSaved: 'Language saved',
+
+  // Severity & Qualifiers
+  unspecified: 'Unspecified',
+  mild: 'Mild',
+  moderate: 'Moderate',
+  severe: 'Severe',
 };
 
 export type TranslationKeys = keyof typeof en;

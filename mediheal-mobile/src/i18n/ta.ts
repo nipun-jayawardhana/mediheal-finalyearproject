@@ -95,4 +95,10 @@ export const ta: Record<TranslationKeys, string> = {
   chooseLanguage: 'உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்',
   languageSub: 'MediHeal க்கான உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்.',
   languageSaved: 'மொழி சேமிக்கப்பட்டது',
+
+  // Severity & Qualifiers
+  unspecified: 'குறிப்பிடப்படவில்லை',
+  mild: 'லேசான',
+  moderate: 'மிதமான',
+  severe: 'கடுமையான',
 };

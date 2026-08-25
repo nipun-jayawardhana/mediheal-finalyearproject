@@ -264,6 +264,42 @@ const isEmergencySymptom = (rawSymptoms) => {
 };
 
 /**
+ * Checks for Acute / Urgent Abdominal Red-Flag Combinations
+ * (e.g. localized lower-right abdominal pain + worsening + nausea/fever/loss of appetite)
+ */
+const isUrgentAbdominalSymptom = (positiveSymptoms = [], context = []) => {
+  const allText = [...positiveSymptoms, ...context].join(' ').toLowerCase();
+
+  const hasLocalizedAbdominalPain =
+    allText.includes('lower right abdominal') ||
+    allText.includes('right lower abdominal') ||
+    allText.includes('lower right abdomen') ||
+    allText.includes('right lower quadrant') ||
+    allText.includes('sharp abdominal pain') ||
+    allText.includes('lower abdominal pain') ||
+    allText.includes('stomach pain') ||
+    allText.includes('abdominal pain');
+
+  if (!hasLocalizedAbdominalPain) return false;
+
+  const hasWorsening =
+    allText.includes('worsening') ||
+    allText.includes('worsened') ||
+    allText.includes('getting worse') ||
+    allText.includes('coughing') ||
+    allText.includes('walking') ||
+    allText.includes('pressure');
+
+  const hasSystemicOrGI =
+    allText.includes('nausea') ||
+    allText.includes('vomiting') ||
+    allText.includes('fever') ||
+    allText.includes('appetite');
+
+  return (hasLocalizedAbdominalPain && (hasWorsening || hasSystemicOrGI));
+};
+
+/**
  * Analyzes symptoms based on safe rule-based matching and emergency triggers.
  * Accepts either a raw symptom array or a canonical clinical case object.
  * @param {Array<string>|Object} input - Array of symptom strings OR canonical clinical case object
@@ -290,7 +326,9 @@ const analyzeSymptoms = (input, defaultDuration = '', defaultSeverity = 'mild') 
   const positive = Array.isArray(clinicalCase.positiveSymptoms) ? clinicalCase.positiveSymptoms : [];
   const context = Array.isArray(clinicalCase.context) ? clinicalCase.context : [];
   const duration = clinicalCase.duration || defaultDuration || 'unspecified';
-  const severity = clinicalCase.severity || defaultSeverity || 'mild';
+  const severity = (clinicalCase.severity && clinicalCase.severity !== 'null' && clinicalCase.severity !== 'unspecified')
+    ? clinicalCase.severity
+    : (defaultSeverity && defaultSeverity !== 'mild' ? defaultSeverity : null);
 
   const normalizedInput = normalizeSymptoms([...positive, ...context]);
 
@@ -300,6 +338,8 @@ const analyzeSymptoms = (input, defaultDuration = '', defaultSeverity = 'mild') 
     ...context,
     ...normalizedInput,
   ]);
+
+  const isUrgentAbdominal = isUrgentAbdominalSymptom(positive, context);
 
   // 2. Perform Rule Matching
   let bestRule = null;
@@ -325,7 +365,19 @@ const analyzeSymptoms = (input, defaultDuration = '', defaultSeverity = 'mild') 
   let emergencyRecommended;
   let matchedSymptoms;
 
-  if (bestRule && maxMatchedSymptoms.length > 0) {
+  if (isUrgentAbdominal) {
+    possibleCondition = 'Possible acute abdominal condition requiring urgent evaluation';
+    possibleConditions = [{ condition: possibleCondition, confidence: 'high' }];
+    riskLevel = 'high';
+    recommendedSpecialist = 'Gastroenterologist';
+    guidance = [
+      'Seek prompt in-person medical assessment, especially because the pain is localized and worsening.',
+      'Do not consume solid food or take strong painkillers until evaluated by a healthcare professional.',
+      'Consult a Gastroenterologist or visit an urgent care clinic immediately.',
+    ];
+    emergencyRecommended = true;
+    matchedSymptoms = positive;
+  } else if (bestRule && maxMatchedSymptoms.length > 0) {
     possibleCondition = bestRule.possibleCondition;
     possibleConditions = [{ condition: possibleCondition, confidence: 'medium' }];
     riskLevel = bestRule.riskLevel;

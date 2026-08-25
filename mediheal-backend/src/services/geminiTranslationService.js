@@ -148,15 +148,16 @@ Your task is to translate patient symptom descriptions from Sinhala (si), Tamil 
 
 STRICT SAFETY RULES:
 - Do NOT invent, assume, or add medical symptoms that were not explicitly mentioned by the patient.
-- Translate semantic meaning accurately (e.g., Sinhala "බඩේ කැක්කුම" -> "stomach pain", Tamil "காய்ச்சல்" -> "fever").
-- Retain proper medical terms or abbreviations (e.g. "migraine", "BP", "diabetes").
-- Extract up to 10 distinct, concise symptom concept phrases (<= 50 chars each).
+- PRESERVE EXACT ANATOMICAL LOCATIONS: Preserve specific locations (e.g. "lower right abdomen", "left lower abdomen", "upper right abdomen", "right knee"). Do NOT normalize "lower right abdomen" to generic "stomach".
+- PRESERVE PAIN QUALITY & QUALIFIERS: Preserve pain quality modifiers (e.g. "sharp", "burning", "throbbing", "cramping") and qualifiers (e.g. "loss of appetite", "mild fever").
+- PRESERVE DURATION, PROGRESSION & AGGRAVATING FACTORS: Preserve duration (e.g. "past 12 hours", "for 2 days"), trend (e.g. "progressively worsening"), and aggravating factors (e.g. "worse when walking", "worse when coughing", "worse with pressure").
+- Extract up to 10 distinct, concise symptom concept phrases (<= 80 chars each).
 
 Respond strictly with JSON:
 {
   "detectedLanguage": "si",
-  "englishText": "I have fever and cough",
-  "symptomConcepts": ["fever", "cough"]
+  "englishText": "During the last 12 hours I developed sharp pain in the lower-right abdomen. The pain has gradually worsened, especially when walking, coughing, or pressing the area. I have nausea, loss of appetite, and a mild fever.",
+  "symptomConcepts": ["sharp lower right abdominal pain", "nausea", "loss of appetite", "mild fever"]
 }`;
 
   const userPrompt = `Source Language Hint: ${sourceLanguage}
