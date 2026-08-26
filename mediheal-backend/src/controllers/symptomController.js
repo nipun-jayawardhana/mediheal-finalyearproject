@@ -191,71 +191,71 @@ const analyzeSymptoms = async (req, res, next) => {
       ...clinicalCase.context,
     ]);
 
-    let finalAnalysis = null;
+    // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
+    console.log(`[CLINICAL CASE][${reqId}] (isEmergency: ${isEmergency})`);
+    console.log('Positive symptoms:');
+    console.log(clinicalCase.positiveSymptoms.join(' |\n') || 'none');
+    console.log('\nNegative findings:');
+    console.log(clinicalCase.negativeFindings.join(' |\n') || 'none');
+    console.log('\nDuration:');
+    console.log(clinicalCase.duration || 'unspecified');
+    console.log('\nSeverity:');
+    console.log(clinicalCase.severity || 'not explicitly rated');
+    console.log('\nAdditional details:');
+    console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.join(' |\n') : 'none');
 
-    if (isEmergency) {
-      // Deterministic Emergency Triggered: DO NOT call LLM. Force high risk emergency.
-      const ruleResult = symptomService.analyzeSymptoms(clinicalCase);
+    // Attempt OpenBioLLM Inference using Complete Canonical Case
+    try {
+      const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
+        clinicalCase,
+        reqId
+      );
+
+      // Calculate base controlled MediHeal risk level
+      let computedRisk = 'low';
+      if (clinicalCase.severity === 'severe') computedRisk = 'medium';
+      else if (clinicalCase.severity === 'moderate') computedRisk = 'low';
+
       finalAnalysis = {
-        ...ruleResult,
-        analysisSource: 'rule-based-emergency',
+        symptoms: clinicalCase.positiveSymptoms,
+        positiveSymptoms: clinicalCase.positiveSymptoms,
+        negativeFindings: clinicalCase.negativeFindings,
+        context: clinicalCase.context,
+        additionalDetails: clinicalCase.additionalDetails || [],
+        duration: clinicalCase.duration,
+        severity: clinicalCase.severity,
+        possibleCondition: aiResult.topCondition,
+        possibleConditions: aiResult.possibleConditions,
+        riskLevel: computedRisk,
+        recommendedSpecialist: aiResult.recommendedSpecialist,
+        guidance: aiResult.guidance,
+        matchedSymptoms: normalizedInputSymptoms,
+        emergencyRecommended: false,
+        disclaimer: symptomService.MEDICAL_DISCLAIMER,
+        analysisSource: 'openbiollm',
+        modelName: aiResult.modelName,
+      };
+    } catch (aiError) {
+      // Log AI error server-side silently, fallback to safe rule-based engine
+      console.warn(`${tag} OpenBioLLM inference failed (${aiError.message})`);
+      console.log(`${tag} Using rule-based fallback`);
+      const fallbackResult = symptomService.analyzeSymptoms(clinicalCase);
+      finalAnalysis = {
+        ...fallbackResult,
+        analysisSource: isEmergency ? 'rule-based-emergency' : 'rule-based-fallback',
         modelName: '',
       };
-    } else {
-      // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
-      console.log(`[CLINICAL CASE][${reqId}]`);
-      console.log('Positive symptoms:');
-      console.log(clinicalCase.positiveSymptoms.join(' |\n') || 'none');
-      console.log('\nNegative findings:');
-      console.log(clinicalCase.negativeFindings.join(' |\n') || 'none');
-      console.log('\nDuration:');
-      console.log(clinicalCase.duration || 'unspecified');
-      console.log('\nSeverity:');
-      console.log(clinicalCase.severity || 'not explicitly rated');
-      console.log('\nAdditional details:');
-      console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.join(' |\n') : 'none');
+    }
 
-      // Non-emergency: Attempt OpenBioLLM Inference using Complete Canonical Case ONLY
-      try {
-        const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
-          clinicalCase,
-          reqId
-        );
-
-        // Calculate controlled MediHeal risk level
-        let computedRisk = 'low';
-        if (clinicalCase.severity === 'severe') computedRisk = 'medium';
-        else if (clinicalCase.severity === 'moderate') computedRisk = 'low';
-
-        finalAnalysis = {
-          symptoms: clinicalCase.positiveSymptoms,
-          positiveSymptoms: clinicalCase.positiveSymptoms,
-          negativeFindings: clinicalCase.negativeFindings,
-          context: clinicalCase.context,
-          additionalDetails: clinicalCase.additionalDetails || [],
-          duration: clinicalCase.duration,
-          severity: clinicalCase.severity,
-          possibleCondition: aiResult.topCondition,
-          possibleConditions: aiResult.possibleConditions,
-          riskLevel: computedRisk,
-          recommendedSpecialist: aiResult.recommendedSpecialist,
-          guidance: aiResult.guidance,
-          matchedSymptoms: normalizedInputSymptoms,
-          emergencyRecommended: false,
-          disclaimer: symptomService.MEDICAL_DISCLAIMER,
-          analysisSource: 'openbiollm',
-          modelName: aiResult.modelName,
-        };
-      } catch (aiError) {
-        // Log AI error server-side silently, fallback to safe rule-based engine
-        console.warn(`${tag} OpenBioLLM inference failed (${aiError.message})`);
-        console.log(`${tag} Using rule-based fallback`);
-        const fallbackResult = symptomService.analyzeSymptoms(clinicalCase);
-        finalAnalysis = {
-          ...fallbackResult,
-          analysisSource: 'rule-based-fallback',
-          modelName: '',
-        };
+    // 4. SAFETY OVERRIDE MUST WIN: Deterministic emergency classification overrides model risk
+    if (isEmergency) {
+      finalAnalysis.riskLevel = 'high';
+      finalAnalysis.emergencyRecommended = true;
+      if (!Array.isArray(finalAnalysis.guidance)) {
+        finalAnalysis.guidance = [symptomService.MEDICAL_DISCLAIMER];
+      }
+      if (!finalAnalysis.guidance.some(g => g.toLowerCase().includes('immediate') || g.toLowerCase().includes('emergency'))) {
+        finalAnalysis.guidance.unshift('Seek immediate professional medical assistance.');
       }
     }
 
@@ -441,33 +441,35 @@ const handleFollowUp = async (req, res, next) => {
     // 2. Deterministic Emergency Safety Check on ALL cumulative conversation context
     const isEmergency = symptomService.isEmergencySymptom(normalizedAll);
 
-    if (isEmergency) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          status: 'emergency',
-          isEmergency: true,
-          summary: {
-            symptoms: symptomService.normalizeSymptoms(canonicalSymptoms),
-            duration: 'acute',
-            severity: 'severe',
-            additionalContext: ['Emergency red flag symptoms detected during follow-up conversation.'],
-          },
-          emergencyWarning: targetLang === 'si'
-            ? 'අධික අවදානම් රෝග ලක්ෂණ හඳුනාගෙන ඇත! වහාම වෛද්‍ය උපදෙස් ලබා ගන්න.'
-            : targetLang === 'ta'
-            ? 'அதிக ஆபத்து அறிகுறிகள் கண்டறியப்பட்டுள்ளன! உடனடியாக மருத்துவ உதவியை நாடுங்கள்.'
-            : 'High risk symptoms detected. Immediate medical attention is recommended.',
-        },
-      });
-    }
-
-    // 3. Non-emergency: Generate next follow-up question or structured summary via Gemini
-    const result = await geminiConversationService.generateFollowUp(
+    // 3. Generate next follow-up question or structured summary via Gemini
+    let result = await geminiConversationService.generateFollowUp(
       canonicalSymptoms,
       conversation,
       questionCount
     );
+
+    if (!result) {
+      result = {
+        status: 'complete',
+        summary: {
+          symptoms: symptomService.normalizeSymptoms(canonicalSymptoms),
+          duration: 'unspecified',
+          severity: null,
+          additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
+        },
+      };
+    }
+
+    // Attach non-blocking emergency metadata to result if high-risk triggers detected
+    if (isEmergency) {
+      result.isEmergency = true;
+      result.emergencyFlag = true;
+      result.emergencyWarning = targetLang === 'si'
+        ? 'අධික අවදානම් රෝග ලක්ෂණ හඳුනාගෙන ඇත! වහාම වෛද්‍ය උපදෙස් ලබා ගන්න.'
+        : targetLang === 'ta'
+        ? 'அதிக ஆபத்து அறிகுறிகள் கண்டறியப்பட்டுள்ளன! உடனடியாக மருத்துவ உதவியை நாடுங்கள்.'
+        : 'High risk symptoms detected. Immediate medical attention is recommended.';
+    }
 
     // 4. Translate question and quick options into patient target language if non-English
     if (result && result.status === 'ask' && result.question && targetLang !== 'en') {

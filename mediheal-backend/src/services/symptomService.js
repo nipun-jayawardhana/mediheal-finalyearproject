@@ -15,7 +15,13 @@ const EMERGENCY_GUIDANCE_MESSAGE = 'Seek immediate professional medical assistan
 // High-risk emergency symptom triggers (normalized lowercase)
 const EMERGENCY_SYMPTOMS = [
   'severe chest pain',
+  'chest pain',
+  'chest tightness',
+  'tight and heavy feeling in chest',
+  'chest heaviness',
   'difficulty breathing',
+  'shortness of breath',
+  'short of breath',
   'unconsciousness',
   'sudden weakness on one side',
   'severe bleeding',
@@ -256,11 +262,43 @@ const normalizeSymptoms = (inputSymptoms) => {
  */
 const isEmergencySymptom = (rawSymptoms) => {
   const normalizedInput = normalizeSymptoms(rawSymptoms);
-  return normalizedInput.some((userSym) =>
+  const normalizedMatched = normalizedInput.some((userSym) =>
     EMERGENCY_SYMPTOMS.some(
       (emergSym) => userSym === emergSym || userSym.includes(emergSym)
     )
   );
+  if (normalizedMatched) return true;
+
+  // Additional raw text check for complex descriptions (e.g. chest heaviness/tightness radiating to shoulder/arm, shortness of breath)
+  const combinedRawText = (Array.isArray(rawSymptoms) ? rawSymptoms.join(' ') : String(rawSymptoms || '')).toLowerCase();
+  
+  const hasChestRedFlags =
+    (combinedRawText.includes('chest') || combinedRawText.includes('පපුවේ') || combinedRawText.includes('நெஞ்சு')) &&
+    (combinedRawText.includes('tight') ||
+      combinedRawText.includes('heavy') ||
+      combinedRawText.includes('pain') ||
+      combinedRawText.includes('discomfort') ||
+      combinedRawText.includes('pressure') ||
+      combinedRawText.includes('spread') ||
+      combinedRawText.includes('shoulder') ||
+      combinedRawText.includes('arm'));
+
+  const hasRespiratoryRedFlags =
+    combinedRawText.includes('short of breath') ||
+    combinedRawText.includes('shortness of breath') ||
+    combinedRawText.includes('difficulty breathing') ||
+    combinedRawText.includes('trouble breathing') ||
+    combinedRawText.includes('can\'t breathe') ||
+    combinedRawText.includes('හුස්ම');
+
+  const hasUnconsciousnessOrStroke =
+    combinedRawText.includes('unconscious') ||
+    combinedRawText.includes('fainted') ||
+    combinedRawText.includes('seizure') ||
+    combinedRawText.includes('weakness on one side') ||
+    combinedRawText.includes('severe bleeding');
+
+  return hasChestRedFlags || hasRespiratoryRedFlags || hasUnconsciousnessOrStroke;
 };
 
 /**

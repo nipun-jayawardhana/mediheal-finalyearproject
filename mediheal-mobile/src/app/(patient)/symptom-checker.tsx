@@ -63,6 +63,7 @@ export default function SymptomCheckerScreen() {
   // Emergency Trigger State
   const [isEmergency, setIsEmergency] = useState<boolean>(false);
   const [emergencyWarning, setEmergencyWarning] = useState<string>('');
+  const [emergencyWarningAcknowledged, setEmergencyWarningAcknowledged] = useState<boolean>(false);
 
   // Loading & Error States
   const [loading, setLoading] = useState<boolean>(false);
@@ -191,6 +192,7 @@ export default function SymptomCheckerScreen() {
     setIsAnalyzing(false);
     setIsEmergency(false);
     setEmergencyWarning('');
+    setEmergencyWarningAcknowledged(false);
     setErrorMsg('');
     setInputError('');
     setLoading(false);
@@ -234,8 +236,9 @@ export default function SymptomCheckerScreen() {
         if (res.data.status === 'emergency' || res.data.isEmergency) {
           setIsEmergency(true);
           setEmergencyWarning(res.data.emergencyWarning || 'High risk symptoms detected! Seek immediate medical attention.');
-          setStepMode('conversing');
-        } else if (res.data.status === 'ask' && res.data.question) {
+        }
+
+        if (res.data.status === 'ask' && res.data.question) {
           setCurrentQuestion(res.data.question);
           setCurrentQuickOptions(res.data.quickOptions || []);
           setQuestionCount(1);
@@ -243,6 +246,8 @@ export default function SymptomCheckerScreen() {
         } else if (res.data.status === 'complete' && res.data.summary) {
           setSummaryData(res.data.summary);
           setStepMode('summary');
+        } else {
+          setStepMode('conversing');
         }
       } else {
         // Fallback: Proceed directly to summary if service unavailable
@@ -300,8 +305,12 @@ export default function SymptomCheckerScreen() {
       if (res && res.success && res.data) {
         if (res.data.status === 'emergency' || res.data.isEmergency) {
           setIsEmergency(true);
-          setEmergencyWarning(res.data.emergencyWarning || 'High risk symptoms detected! Seek immediate medical attention.');
-        } else if (res.data.status === 'ask' && res.data.question && newQCount < 3) {
+          if (res.data.emergencyWarning) {
+            setEmergencyWarning(res.data.emergencyWarning);
+          }
+        }
+
+        if (res.data.status === 'ask' && res.data.question && newQCount < 3) {
           setCurrentQuestion(res.data.question);
           setCurrentQuickOptions(res.data.quickOptions || []);
           setQuestionCount(newQCount + 1);
@@ -419,22 +428,48 @@ export default function SymptomCheckerScreen() {
           />
         ) : null}
 
-        {/* Emergency Alert Card (if triggered) */}
-        {isEmergency && (
+        {/* Emergency Alert Card (Prominent Unacknowledged Warning) */}
+        {isEmergency && !emergencyWarningAcknowledged && (
           <View style={styles.emergencyCard}>
             <View style={styles.emergencyHeaderRow}>
               <Text style={styles.emergencyIcon}>🚨</Text>
               <View style={styles.emergencyTextCol}>
                 <Text style={styles.emergencyTitle}>{t('urgentEmergencyTitle')}</Text>
-                <Text style={styles.emergencySub}>{emergencyWarning}</Text>
+                <Text style={styles.emergencySub}>
+                  {emergencyWarning || t('highRiskNoticeBody')}
+                </Text>
               </View>
             </View>
+            <View style={styles.emergencyActionsRow}>
+              <TouchableOpacity
+                style={styles.emergencyBtnPrimary}
+                activeOpacity={0.8}
+                onPress={() => router.push('/(patient)/emergency-countdown' as any)}
+              >
+                <Text style={styles.emergencyBtnPrimaryText}>{t('triggerEmergencySosNow')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.emergencyBtnSecondary}
+                activeOpacity={0.8}
+                onPress={() => setEmergencyWarningAcknowledged(true)}
+              >
+                <Text style={styles.emergencyBtnSecondaryText}>{t('continueAssessment')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Persistent Compact Emergency Banner (When acknowledged) */}
+        {isEmergency && emergencyWarningAcknowledged && (
+          <View style={styles.compactEmergencyBanner}>
+            <Text style={styles.compactBannerIcon}>🚨</Text>
+            <Text style={styles.compactBannerText}>{t('highRiskBannerText')}</Text>
             <TouchableOpacity
-              style={styles.emergencyBtn}
+              style={styles.compactSosBtn}
               activeOpacity={0.8}
               onPress={() => router.push('/(patient)/emergency-countdown' as any)}
             >
-              <Text style={styles.emergencyBtnText}>{t('triggerEmergencySosNow')}</Text>
+              <Text style={styles.compactSosBtnText}>🚨 SOS</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -589,7 +624,7 @@ export default function SymptomCheckerScreen() {
         )}
 
         {/* STEP MODE 2: CONVERSATIONAL FOLLOW-UP ASSESSOR */}
-        {stepMode === 'conversing' && !isEmergency && (
+        {stepMode === 'conversing' && (
           <View>
             {/* Progress Badge */}
             <View style={styles.progressCard}>
@@ -1057,6 +1092,70 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 15,
+  },
+  emergencyActionsRow: {
+    flexDirection: 'column',
+    marginTop: spacing.md,
+  },
+  emergencyBtnPrimary: {
+    backgroundColor: colors.danger,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.xs + 2,
+  },
+  emergencyBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  emergencyBtnSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderColor: colors.danger,
+    borderWidth: 1.5,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  emergencyBtnSecondaryText: {
+    color: colors.danger,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  compactEmergencyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.dangerLight,
+    borderColor: colors.danger,
+    borderWidth: 1.5,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    marginBottom: spacing.md,
+  },
+  compactBannerIcon: {
+    fontSize: 20,
+    marginRight: spacing.xs,
+  },
+  compactBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.danger,
+    marginRight: spacing.xs,
+  },
+  compactSosBtn: {
+    backgroundColor: colors.danger,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  compactSosBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   progressCard: {
     backgroundColor: colors.card,
