@@ -124,8 +124,12 @@ const analyzeSymptomsWithOpenBioLLM = async (input, param2 = '', param3 = 'mild'
     : 'none';
 
   const negText = Array.isArray(clinicalCase.negativeFindings) && clinicalCase.negativeFindings.length > 0
-    ? clinicalCase.negativeFindings.join(', ')
+    ? clinicalCase.negativeFindings.map((s) => `- ${s}`).join('\n')
     : 'none reported';
+
+  const addDetailsText = Array.isArray(clinicalCase.additionalDetails) && clinicalCase.additionalDetails.length > 0
+    ? clinicalCase.additionalDetails.map((s) => `- ${s}`).join('\n')
+    : 'none';
 
   const durationText = clinicalCase.duration || 'unspecified';
   const severityText = (clinicalCase.severity && clinicalCase.severity !== 'null' && clinicalCase.severity !== 'unspecified')
@@ -149,6 +153,9 @@ Strict Rules:
 Positive symptoms:
 ${posText}
 
+Negative findings:
+${negText}
+
 Relevant context / mechanism:
 ${ctxText}
 
@@ -158,8 +165,8 @@ ${durationText}
 Severity:
 ${severityText}
 
-Negative findings:
-${negText}
+Additional details:
+${addDetailsText}
 
 Provide preliminary possible conditions based ONLY on the supplied patient information.
 Do not treat context items as symptoms.

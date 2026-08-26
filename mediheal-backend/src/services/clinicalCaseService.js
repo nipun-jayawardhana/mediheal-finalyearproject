@@ -318,6 +318,67 @@ const extractInitialSymptomsAndContext = (initialInput) => {
 };
 
 /**
+ * Helper to extract symptom candidate objects from a question string
+ */
+const extractQuestionSymptomCandidates = (q, primaryLocation = '') => {
+  const lowerQ = q.toLowerCase();
+  const candidates = [];
+
+  const addCand = (sym, negForm) => {
+    if (sym && !candidates.some((c) => c.sym === sym)) {
+      candidates.push({ sym, negForm: negForm || `no ${sym}` });
+    }
+  };
+
+  if (lowerQ.includes('swelling') || lowerQ.includes('swollen')) {
+    const sym = primaryLocation ? `${primaryLocation} swelling` : 'swelling';
+    const negForm = primaryLocation ? `no ${primaryLocation} swelling` : 'no swelling';
+    addCand(sym, negForm);
+  }
+
+  if (lowerQ.includes('breathing') || lowerQ.includes('shortness of breath')) {
+    addCand('difficulty breathing', 'no breathing difficulty');
+  }
+
+  if (lowerQ.includes('cough')) {
+    addCand('cough', 'no cough');
+  }
+  if (lowerQ.includes('body aches') || lowerQ.includes('body ache')) {
+    addCand('body aches', 'no body aches');
+  }
+
+  if (lowerQ.includes('nausea')) {
+    addCand('nausea', 'no nausea');
+  }
+  if (lowerQ.includes('vomit')) {
+    addCand('vomiting', 'no vomiting');
+  }
+
+  if (lowerQ.includes('fever') || lowerQ.includes('temperature')) {
+    addCand('fever', 'no fever');
+  }
+
+  if (lowerQ.includes('bending')) {
+    const sym = primaryLocation ? `difficulty bending ${primaryLocation}` : 'difficulty bending joint';
+    addCand(sym, `no ${sym}`);
+  }
+  if (lowerQ.includes('stiffness') || lowerQ.includes('stiff')) {
+    const sym = primaryLocation ? `${primaryLocation} stiffness` : 'stiffness';
+    addCand(sym, `no ${sym}`);
+  }
+
+  if (lowerQ.includes('chill')) {
+    addCand('chills', 'no chills');
+  }
+
+  if (lowerQ.includes('headache')) {
+    addCand('headache', 'no headache');
+  }
+
+  return candidates;
+};
+
+/**
  * Question-Aware Answer Processing:
  * Processes each (Question, Answer) turn to extract symptoms, negative findings, duration, severity, or location inheritance.
  */
@@ -380,59 +441,136 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       continue;
     }
 
-    // 2. Severity extraction (only when user explicitly answers overall severity question)
+    // 2. Severity extraction (when question or answer specifies overall/pain severity level, excluding fever qualifiers)
     if (
       q.includes('severe') ||
       q.includes('severity') ||
       q.includes('how severe') ||
       ['mild', 'moderate', 'severe'].includes(a)
     ) {
-      if (a.includes('severe')) result.severity = 'severe';
-      else if (a.includes('moderate')) result.severity = 'moderate';
-      else if (a.includes('mild')) result.severity = 'mild';
-      continue;
+      if (!a.includes('fever')) {
+        if (a.includes('severe')) result.severity = 'severe';
+        else if (a.includes('moderate')) result.severity = 'moderate';
+        else if (a.includes('mild') && (a === 'mild' || q.includes('overall') || q.includes('pain') || q.includes('symptom'))) result.severity = 'mild';
+      }
     }
 
-    // 3. Negative answers
+    // 3. Fever Qualifier / Specific Fever Answers (e.g. Q: "How high is your fever...", A: "Mild fever")
+    if (q.includes('fever') || q.includes('temperature')) {
+      if (a.includes('mild fever') || a === 'mild fever' || (a.includes('mild') && !a.includes('severity'))) {
+        if (!result.positiveSymptoms.includes('fever')) {
+          result.positiveSymptoms.push('fever');
+        }
+        const detailStr = 'fever described as mild';
+        if (!result.additionalDetails.includes(detailStr)) {
+          result.additionalDetails.push(detailStr);
+        }
+        // Crucial: Do NOT mutate global severity to mild!
+        continue;
+      }
+    }
+
+    const loc = getPrimaryLocation();
+    const qCandidates = extractQuestionSymptomCandidates(q, loc);
+
+    // 4. Negative Answers
     const isNegative =
       a === 'no' ||
-      a.startsWith('no ') ||
+      a === 'neither' ||
       a === 'none' ||
       a === 'nothing' ||
+      a.startsWith('no ') ||
       a.includes('not having') ||
-      a.includes('haven\'t');
+      a.includes('haven\'t') ||
+      a.includes('no breathing') ||
+      a.includes('no trouble') ||
+      a.includes('no cough') ||
+      a.includes('no fever') ||
+      a.includes('no pain');
 
     if (isNegative) {
-      if (q.includes('swelling')) {
-        const loc = getPrimaryLocation();
-        const neg = loc ? `no ${loc} swelling` : 'no swelling';
-        if (!result.negativeFindings.includes(neg)) result.negativeFindings.push(neg);
-      }
-      if (q.includes('fever')) {
-        if (!result.negativeFindings.includes('no fever')) result.negativeFindings.push('no fever');
-      }
-      if (q.includes('vomiting') || q.includes('vomit')) {
-        if (!result.negativeFindings.includes('no vomiting')) result.negativeFindings.push('no vomiting');
-      }
-      if (q.includes('nausea')) {
-        if (!result.negativeFindings.includes('no nausea')) result.negativeFindings.push('no nausea');
+      if (qCandidates.length > 0) {
+        qCandidates.forEach((cand) => {
+          if (!result.negativeFindings.includes(cand.negForm)) {
+            result.negativeFindings.push(cand.negForm);
+          }
+        });
+      } else {
+        if (q.includes('swelling')) {
+          const neg = loc ? `no ${loc} swelling` : 'no swelling';
+          if (!result.negativeFindings.includes(neg)) result.negativeFindings.push(neg);
+        } else if (q.includes('vomit')) {
+          if (!result.negativeFindings.includes('no vomiting')) result.negativeFindings.push('no vomiting');
+        } else if (q.includes('nausea')) {
+          if (!result.negativeFindings.includes('no nausea')) result.negativeFindings.push('no nausea');
+        } else if (q.includes('fever')) {
+          if (!result.negativeFindings.includes('no fever')) result.negativeFindings.push('no fever');
+        }
       }
       continue;
     }
 
-    // 4. Affirmative answers
+    // 5. Affirmative / Short Answers ("Yes", "Yes, both", "Both", "Only cough", etc.)
+    const isBoth = a.includes('both');
+    const isOnlyCough = a.includes('only cough');
+    const isOnlyNausea = a.includes('only nausea');
     const isAffirmative =
       a === 'yes' ||
       a === 'yeah' ||
       a === 'yep' ||
+      a.includes('yes,') ||
       a.includes('there is') ||
       a.includes('i do') ||
-      a.includes('yes,');
+      isBoth;
 
-    if (isAffirmative || a.includes('swelling') || a.includes('nausea') || a.includes('vomiting') || a.includes('difficulty')) {
-      const loc = getPrimaryLocation();
+    if (isBoth) {
+      qCandidates.forEach((cand) => {
+        if (!result.positiveSymptoms.includes(cand.sym)) {
+          result.positiveSymptoms.push(cand.sym);
+        }
+      });
+    } else if (isOnlyCough) {
+      if (!result.positiveSymptoms.includes('cough')) {
+        result.positiveSymptoms.push('cough');
+      }
+      qCandidates.forEach((cand) => {
+        if (cand.sym !== 'cough' && !result.negativeFindings.includes(cand.negForm)) {
+          result.negativeFindings.push(cand.negForm);
+        }
+      });
+    } else if (isOnlyNausea) {
+      if (!result.positiveSymptoms.includes('nausea')) {
+        result.positiveSymptoms.push('nausea');
+      }
+      qCandidates.forEach((cand) => {
+        if (cand.sym !== 'nausea' && !result.negativeFindings.includes(cand.negForm)) {
+          result.negativeFindings.push(cand.negForm);
+        }
+      });
+    } else if (isAffirmative) {
+      if (qCandidates.length > 0) {
+        qCandidates.forEach((cand) => {
+          if (!result.positiveSymptoms.includes(cand.sym)) {
+            result.positiveSymptoms.push(cand.sym);
+          }
+        });
+      }
+    }
 
-      if (q.includes('swelling') || a.includes('swelling')) {
+    if (a.includes('cough') && !result.positiveSymptoms.includes('cough')) {
+      result.positiveSymptoms.push('cough');
+    }
+    if (a.includes('body aches') && !result.positiveSymptoms.includes('body aches')) {
+      result.positiveSymptoms.push('body aches');
+    }
+    if (a.includes('nausea') && !result.positiveSymptoms.includes('nausea')) {
+      result.positiveSymptoms.push('nausea');
+    }
+    if (a.includes('vomiting') && !result.positiveSymptoms.includes('vomiting')) {
+      result.positiveSymptoms.push('vomiting');
+    }
+    if (a.includes('swelling') || q.includes('swelling')) {
+      if (isAffirmative || a.includes('swelling')) {
         const sym = loc ? `${loc} swelling` : 'swelling';
         if (!result.positiveSymptoms.includes(sym)) {
           const idx = result.positiveSymptoms.indexOf('swelling');
@@ -442,21 +580,6 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
             result.positiveSymptoms.push(sym);
           }
         }
-      }
-
-      if (q.includes('bending') || a.includes('bending')) {
-        const sym = loc ? `difficulty bending ${loc}` : 'difficulty bending joint';
-        if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
-      }
-
-      if (a.includes('nausea') && !result.positiveSymptoms.includes('nausea')) {
-        result.positiveSymptoms.push('nausea');
-      }
-      if (a.includes('vomiting') && !result.positiveSymptoms.includes('vomiting')) {
-        result.positiveSymptoms.push('vomiting');
-      }
-      if (a.includes('fever') && !result.positiveSymptoms.includes('fever') && !result.positiveSymptoms.includes('mild fever')) {
-        result.positiveSymptoms.push('fever');
       }
     }
   }

@@ -203,12 +203,17 @@ const analyzeSymptoms = async (req, res, next) => {
       };
     } else {
       // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
-      console.log('[CLINICAL CASE]');
+      console.log(`[CLINICAL CASE][${reqId}]`);
       console.log('Positive symptoms:');
       console.log(clinicalCase.positiveSymptoms.join(' |\n') || 'none');
-      console.log(`Context: ${clinicalCase.context.join(' | ') || 'none'}`);
-      console.log(`Duration: ${clinicalCase.duration}`);
-      console.log(`Severity: ${clinicalCase.severity || 'not explicitly rated'}`);
+      console.log('\nNegative findings:');
+      console.log(clinicalCase.negativeFindings.join(' |\n') || 'none');
+      console.log('\nDuration:');
+      console.log(clinicalCase.duration || 'unspecified');
+      console.log('\nSeverity:');
+      console.log(clinicalCase.severity || 'not explicitly rated');
+      console.log('\nAdditional details:');
+      console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.join(' |\n') : 'none');
 
       // Non-emergency: Attempt OpenBioLLM Inference using Complete Canonical Case ONLY
       try {
@@ -227,6 +232,7 @@ const analyzeSymptoms = async (req, res, next) => {
           positiveSymptoms: clinicalCase.positiveSymptoms,
           negativeFindings: clinicalCase.negativeFindings,
           context: clinicalCase.context,
+          additionalDetails: clinicalCase.additionalDetails || [],
           duration: clinicalCase.duration,
           severity: clinicalCase.severity,
           possibleCondition: aiResult.topCondition,
@@ -260,6 +266,7 @@ const analyzeSymptoms = async (req, res, next) => {
       positiveSymptoms: clinicalCase.positiveSymptoms,
       negativeFindings: clinicalCase.negativeFindings,
       context: clinicalCase.context,
+      additionalDetails: clinicalCase.additionalDetails || [],
       conversation: Array.isArray(conversation) ? conversation : [],
       duration: finalAnalysis.duration,
       severity: finalAnalysis.severity,

@@ -29,6 +29,10 @@ const symptomCheckSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    additionalDetails: {
+      type: [String],
+      default: [],
+    },
     conversation: [
       {
         question: { type: String, trim: true },
