@@ -192,11 +192,13 @@ const analyzeSymptoms = async (req, res, next) => {
     ]);
 
     // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
-    console.log(`[CLINICAL CASE][${reqId}] (isEmergency: ${isEmergency})`);
-    console.log('Positive symptoms:');
+    console.log(`[CLINICAL CASE][${reqId}]`);
+    console.log('\nPositive symptoms:');
     console.log(clinicalCase.positiveSymptoms.join(' |\n') || 'none');
     console.log('\nNegative findings:');
     console.log(clinicalCase.negativeFindings.join(' |\n') || 'none');
+    console.log('\nContext:');
+    console.log(clinicalCase.context.join(' |\n') || 'none');
     console.log('\nDuration:');
     console.log(clinicalCase.duration || 'unspecified');
     console.log('\nSeverity:');

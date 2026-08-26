@@ -47,10 +47,10 @@ const symptomCheckSchema = new mongoose.Schema(
     severity: {
       type: String,
       enum: {
-        values: ['mild', 'moderate', 'severe'],
+        values: ['mild', 'moderate', 'severe', null, ''],
         message: '{VALUE} is not a valid severity option. Allowed: mild, moderate, severe',
       },
-      default: 'mild',
+      default: null,
     },
     possibleCondition: {
       type: String,
