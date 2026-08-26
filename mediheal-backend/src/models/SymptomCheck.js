@@ -65,7 +65,7 @@ const symptomCheckSchema = new mongoose.Schema(
     ],
     analysisSource: {
       type: String,
-      enum: ['openbiollm', 'rule-based-fallback', 'rule-based-emergency'],
+      enum: ['openbiollm', 'gemini-secondary', 'rule-based-fallback', 'rule-based-emergency'],
       default: 'rule-based-fallback',
     },
     modelName: {

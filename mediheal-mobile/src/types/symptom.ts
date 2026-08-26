@@ -51,7 +51,7 @@ export interface SymptomCheckRecord {
   severity?: SeverityLevel | null;
   possibleCondition: string;
   possibleConditions?: PossibleConditionItem[];
-  analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
+  analysisSource?: 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
   modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;

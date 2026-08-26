@@ -4,6 +4,7 @@ const symptomService = require('../services/symptomService');
 const openBioLLMService = require('../services/openBioLLMService');
 const geminiConversationService = require('../services/geminiConversationService');
 const geminiTranslationService = require('../services/geminiTranslationService');
+const geminiMedicalFallbackService = require('../services/geminiMedicalFallbackService');
 const clinicalCaseService = require('../services/clinicalCaseService');
 
 /**
@@ -206,7 +207,13 @@ const analyzeSymptoms = async (req, res, next) => {
     console.log('\nAdditional details:');
     console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.join(' |\n') : 'none');
 
-    // Attempt OpenBioLLM Inference using Complete Canonical Case
+    const GLOBAL_ANALYSIS_DEADLINE_MS = 32000;
+    const deadlineAt = startTime + GLOBAL_ANALYSIS_DEADLINE_MS;
+    const MINIMUM_GEMINI_BUDGET_MS = 5000;
+
+    let finalAnalysis = null;
+
+    // Attempt Primary OpenBioLLM Inference using Complete Canonical Case
     try {
       const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
         clinicalCase,
@@ -238,15 +245,63 @@ const analyzeSymptoms = async (req, res, next) => {
         modelName: aiResult.modelName,
       };
     } catch (aiError) {
-      // Log AI error server-side silently, fallback to safe rule-based engine
-      console.warn(`${tag} OpenBioLLM inference failed (${aiError.message})`);
-      console.log(`${tag} Using rule-based fallback`);
-      const fallbackResult = symptomService.analyzeSymptoms(clinicalCase);
-      finalAnalysis = {
-        ...fallbackResult,
-        analysisSource: isEmergency ? 'rule-based-emergency' : 'rule-based-fallback',
-        modelName: '',
-      };
+      console.warn(`${tag} OpenBioLLM primary inference failed (${aiError.message})`);
+
+      const remainingBudgetMs = deadlineAt - Date.now();
+      let secondarySuccess = false;
+
+      // Attempt Secondary Gemini AI Analysis if remaining time budget is sufficient
+      if (remainingBudgetMs >= MINIMUM_GEMINI_BUDGET_MS) {
+        try {
+          const geminiBudgetMs = Math.min(remainingBudgetMs - 3000, 8000);
+          console.log(`${tag} Attempting secondary Gemini failover (Remaining budget: ${remainingBudgetMs}ms, Secondary ceiling: ${geminiBudgetMs}ms)`);
+
+          const secondaryResult = await geminiMedicalFallbackService.analyzeSymptomsWithGeminiSecondary(
+            clinicalCase,
+            reqId,
+            geminiBudgetMs
+          );
+
+          let computedRisk = 'low';
+          if (clinicalCase.severity === 'severe') computedRisk = 'medium';
+
+          finalAnalysis = {
+            symptoms: clinicalCase.positiveSymptoms,
+            positiveSymptoms: clinicalCase.positiveSymptoms,
+            negativeFindings: clinicalCase.negativeFindings,
+            context: clinicalCase.context,
+            additionalDetails: clinicalCase.additionalDetails || [],
+            duration: clinicalCase.duration,
+            severity: clinicalCase.severity,
+            possibleCondition: secondaryResult.topCondition,
+            possibleConditions: secondaryResult.possibleConditions,
+            riskLevel: computedRisk,
+            recommendedSpecialist: secondaryResult.recommendedSpecialist,
+            guidance: secondaryResult.guidance,
+            matchedSymptoms: normalizedInputSymptoms,
+            emergencyRecommended: false,
+            disclaimer: symptomService.MEDICAL_DISCLAIMER,
+            analysisSource: 'gemini-secondary',
+            modelName: secondaryResult.modelName,
+          };
+          secondarySuccess = true;
+        } catch (secondaryError) {
+          console.warn(`${tag} Secondary Gemini failover unavailable (${secondaryError.message})`);
+        }
+      } else {
+        console.warn(`${tag} Insufficient budget for secondary AI failover (${remainingBudgetMs}ms remaining < ${MINIMUM_GEMINI_BUDGET_MS}ms minimum)`);
+      }
+
+      // Final Rule-Based Fallback if both primary and secondary AI fail or budget was insufficient
+      if (!secondarySuccess) {
+        console.log(`${tag} Using rule-based fallback`);
+        const fallbackResult = symptomService.analyzeSymptoms(clinicalCase);
+        finalAnalysis = {
+          ...fallbackResult,
+          analysisSource: isEmergency ? 'rule-based-emergency' : 'rule-based-fallback',
+          modelName: '',
+        };
+      }
     }
 
     // 4. SAFETY OVERRIDE MUST WIN: Deterministic emergency classification overrides model risk

@@ -123,8 +123,8 @@ export default function AnalysisResultScreen() {
         {__DEV__ && result?.analysisSource && (
           <View
             style={{
-              backgroundColor: result.analysisSource === 'openbiollm' ? '#DCFCE7' : '#FEF3C7',
-              borderColor: result.analysisSource === 'openbiollm' ? '#166534' : '#B45309',
+              backgroundColor: result.analysisSource === 'openbiollm' ? '#DCFCE7' : result.analysisSource === 'gemini-secondary' ? '#E0F2FE' : '#FEF3C7',
+              borderColor: result.analysisSource === 'openbiollm' ? '#166534' : result.analysisSource === 'gemini-secondary' ? '#0369A1' : '#B45309',
               borderWidth: 1,
               borderRadius: borderRadius.md,
               paddingVertical: 4,
@@ -135,12 +135,20 @@ export default function AnalysisResultScreen() {
           >
             <Text
               style={{
-                color: result.analysisSource === 'openbiollm' ? '#166534' : '#B45309',
+                color: result.analysisSource === 'openbiollm' ? '#166534' : result.analysisSource === 'gemini-secondary' ? '#0369A1' : '#B45309',
                 fontSize: 11,
                 fontWeight: '700',
               }}
             >
-              🛠️ AI Source: {result.analysisSource === 'openbiollm' ? `OpenBioLLM (${result.modelName || 'aaditya/Llama3-OpenBioLLM-8B'})` : result.analysisSource === 'rule-based-emergency' ? 'Rule Engine (Emergency)' : 'Safe Fallback'}
+              🛠️ AI Source: {
+                result.analysisSource === 'openbiollm'
+                  ? `OpenBioLLM (${result.modelName || 'aaditya/Llama3-OpenBioLLM-8B'})`
+                  : result.analysisSource === 'gemini-secondary'
+                  ? `Gemini Secondary (${result.modelName || 'gemini-flash-lite-latest'})`
+                  : result.analysisSource === 'rule-based-emergency'
+                  ? 'Rule Engine (Emergency)'
+                  : 'Safe Fallback'
+              }
             </Text>
           </View>
         )}
