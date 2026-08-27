@@ -40,7 +40,9 @@ export const analyzeSymptomsApi = async (
       { timeout: 40000 }
     );
     const duration = Date.now() - startTime;
+    const recId = response.data?.analysis?._id || response.data?.analysis?.symptomCheckId;
     console.log(`[SYMPTOM CLIENT][${reqId}] Analysis response received in ${duration}ms`);
+    console.log(`[SYMPTOM CLIENT][${reqId}] Analyze response ID: ${recId || 'MISSING'}`);
     return response.data;
   } catch (error) {
     const duration = Date.now() - startTime;

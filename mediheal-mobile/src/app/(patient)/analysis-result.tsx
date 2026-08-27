@@ -14,46 +14,70 @@ import { SymptomCheckRecord } from '../../types/symptom';
 import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { formatConditionForDisplay } from '../../utils/languageUtils';
+
+import { Platform } from 'react-native';
 
 export default function AnalysisResultScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const rawId = params.id;
+  const symptomCheckId = Array.isArray(rawId) ? rawId[0] : (typeof rawId === 'string' ? rawId.trim() : '');
   const { user } = useAuth();
   const { language, t } = useLanguage();
 
   const [result, setResult] = useState<SymptomCheckRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { isSpeaking, speak, stopSpeech } = useVoice({ language });
 
-  const fetchResult = useCallback(async () => {
-    if (!id) {
-      setErrorMsg('No symptom check record ID provided.');
-      setLoading(false);
-      return;
-    }
+  if (__DEV__) {
+    console.log('[RESULT ROUTE] URL:', Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.href : 'native');
+    console.log('[RESULT ROUTE] Raw params:', params);
+    console.log('[RESULT ROUTE] Resolved symptomCheckId:', symptomCheckId || 'MISSING');
 
+    if (symptomCheckId && errorMsg && errorMsg.includes('ID is required')) {
+      console.error('[RESULT STATE] Invalid stale error: valid symptomCheckId exists');
+    }
+  }
+
+  const fetchResult = useCallback(async (targetId: string) => {
+    setErrorMsg(null);
     setLoading(true);
-    setErrorMsg('');
 
     try {
-      const res = await getSymptomCheckByIdApi(id, language);
+      console.log('[RESULT API CALL] argument:', targetId, 'type:', typeof targetId);
+      console.log(`[RESULT API] GET /symptoms/${targetId} started`);
+      const res = await getSymptomCheckByIdApi(targetId, language);
+      console.log(`[RESULT API] Response success: ${Boolean(res?.success)}`);
+
       if (res && res.success && res.data) {
+        console.log(`[RESULT API] Record ID returned: ${res.data._id || targetId}`);
+        console.log('[RESULT API] Result loaded successfully');
         setResult(res.data);
+        setErrorMsg(null);
       } else {
+        console.warn('[RESULT API] Fetch failed: response unsuccessful or missing data');
         setErrorMsg('Failed to load analysis result record.');
       }
     } catch (err: any) {
+      console.error(`[RESULT API] Fetch failed. Message: ${err.message}`);
       setErrorMsg(err.message || 'Unable to retrieve analysis results.');
     } finally {
       setLoading(false);
     }
-  }, [id, language]);
+  }, [language]);
 
   useEffect(() => {
-    fetchResult();
-  }, [fetchResult]);
+    if (symptomCheckId) {
+      setErrorMsg(null);
+      fetchResult(symptomCheckId);
+    } else {
+      setLoading(false);
+      setErrorMsg('Symptom check ID is required');
+    }
+  }, [symptomCheckId, fetchResult]);
 
   // Play Audio Text-to-Speech using real backend analysis data ONLY
   const handleToggleAudio = () => {
@@ -61,17 +85,19 @@ export default function AnalysisResultScreen() {
       stopSpeech();
     } else if (result) {
       const condList = Array.isArray(result.possibleConditions) && result.possibleConditions.length > 0
-        ? result.possibleConditions.map((c) => c.condition).join(', ')
-        : result.possibleCondition;
+        ? result.possibleConditions.map((c) => formatConditionForDisplay(c.condition, language)).join(', ')
+        : formatConditionForDisplay(result.possibleCondition, language);
+
+      const specialistLabel = formatConditionForDisplay(result.displayRecommendedSpecialist || result.recommendedSpecialist, language);
 
       const guidanceText = Array.isArray(result.guidance) && result.guidance.length > 0
         ? result.guidance.join('. ')
         : 'Consult a qualified doctor.';
 
-      let audioSummary = `Symptom Analysis Result. Possible conditions include: ${condList}. Risk Level: ${result.riskLevel} risk. Recommended Specialist: ${result.recommendedSpecialist}. Immediate Care Steps: ${guidanceText}. Disclaimer: ${result.disclaimer}`;
+      let audioSummary = `${t('analysisResultsTitle')}. ${t('possibleConditions')}: ${condList}. ${t('riskAssessment')}: ${result.riskLevel}. ${t('recommendedSpecialist')}: ${specialistLabel}. ${t('immediateCareSteps')}: ${guidanceText}.`;
 
       if (result.emergencyRecommended || result.riskLevel === 'high') {
-        audioSummary = `Urgent Medical Attention Recommended. ${audioSummary}`;
+        audioSummary = `${t('urgentEmergencyTitle')}. ${audioSummary}`;
       }
 
       speak(audioSummary);
@@ -92,7 +118,7 @@ export default function AnalysisResultScreen() {
     router.replace('/(patient)/symptom-checker' as any);
   };
 
-  if (loading) {
+  if (loading && !result) {
     return <LoadingView message="Retrieving your symptom analysis..." />;
   }
 
@@ -100,7 +126,18 @@ export default function AnalysisResultScreen() {
     return (
       <ScreenContainer backgroundColor={colors.background}>
         <AppHeader title="Analysis Results" onBackPress={() => { stopSpeech(); router.back(); }} />
-        <ErrorView message={errorMsg || 'Analysis result not found.'} onRetry={fetchResult} />
+        <ErrorView
+          message={errorMsg || 'Analysis result not found.'}
+          onRetry={() => {
+            if (symptomCheckId) {
+              setErrorMsg(null);
+              fetchResult(symptomCheckId);
+            } else {
+              stopSpeech();
+              router.replace('/(patient)/symptom-checker' as any);
+            }
+          }}
+        />
       </ScreenContainer>
     );
   }
@@ -148,7 +185,7 @@ export default function AnalysisResultScreen() {
                   : result.analysisSource === 'rule-based-emergency'
                   ? 'Rule Engine (Emergency)'
                   : 'Safe Fallback'
-              }
+              } | Canonical: {result.possibleCondition || (result.possibleConditions && result.possibleConditions[0]?.condition)}
             </Text>
           </View>
         )}
@@ -229,68 +266,93 @@ export default function AnalysisResultScreen() {
             </View>
           </View>
 
-          {conditionsList.map((item, idx) => (
-            <View
-              key={idx}
-              style={{
-                backgroundColor: idx === 0 ? colors.primaryLight : '#F8FAFC',
-                borderRadius: borderRadius.md,
-                padding: spacing.md,
-                marginBottom: spacing.xs,
-                borderWidth: idx === 0 ? 1.5 : 1,
-                borderColor: idx === 0 ? colors.primary : colors.border,
-              }}
-            >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text
-                  style={[
-                    styles.conditionTitle,
-                    { fontSize: idx === 0 ? 18 : 15, fontWeight: idx === 0 ? '800' : '600' },
-                  ]}
-                >
-                  {idx + 1}. {item.condition}
-                </Text>
-                {item.confidence && (
-                  <View
-                    style={{
-                      backgroundColor: idx === 0 ? colors.primary : '#94A3B8',
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: borderRadius.pill,
-                    }}
-                  >
-                    <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>
-                      {item.confidence} confidence
+          {conditionsList.map((item, idx) => {
+            const rawDisplay = language !== 'en' && Array.isArray(result.displayPossibleConditions) && result.displayPossibleConditions[idx]
+              ? result.displayPossibleConditions[idx].condition
+              : item.condition;
+            const displayCond = formatConditionForDisplay(rawDisplay, language) || item.condition || 'More Information Needed';
+            return (
+              <View
+                key={idx}
+                style={{
+                  backgroundColor: idx === 0 ? colors.primaryLight : '#F8FAFC',
+                  borderRadius: borderRadius.md,
+                  padding: spacing.md,
+                  marginBottom: spacing.xs,
+                  borderWidth: idx === 0 ? 1.5 : 1,
+                  borderColor: idx === 0 ? colors.primary : colors.border,
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View style={{ flex: 1, marginRight: spacing.xs }}>
+                    <Text
+                      style={[
+                        styles.conditionTitle,
+                        { fontSize: idx === 0 ? 17 : 15, fontWeight: idx === 0 ? '700' : '600', flexWrap: 'wrap' },
+                      ]}
+                      numberOfLines={2}
+                    >
+                      {idx + 1}. {displayCond}
                     </Text>
                   </View>
-                )}
+                  {item.confidence && (
+                    <View
+                      style={{
+                        backgroundColor: idx === 0 ? colors.primary : '#94A3B8',
+                        paddingHorizontal: 8,
+                        paddingVertical: 2,
+                        borderRadius: borderRadius.pill,
+                      }}
+                    >
+                      <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' }}>
+                        {item.confidence} confidence
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           <Text style={styles.matchedText}>
-            {t('basedOnSymptoms')}: {(result.positiveSymptoms && result.positiveSymptoms.length > 0 ? result.positiveSymptoms : (result.matchedSymptoms && result.matchedSymptoms.length > 0 ? result.matchedSymptoms : (result.symptoms || []))).join(', ')}.
+            {t('basedOnSymptoms')}: {(
+              (language !== 'en' && Array.isArray(result.displayPositiveSymptoms) && result.displayPositiveSymptoms.length > 0)
+                ? result.displayPositiveSymptoms
+                : (Array.isArray(result.positiveSymptoms) && result.positiveSymptoms.length > 0
+                  ? result.positiveSymptoms
+                  : (result.symptoms || []))
+            ).join(', ')}.
           </Text>
 
-          {result.context && result.context.length > 0 && (
+          {((language !== 'en' && Array.isArray(result.displayContext) && result.displayContext.length > 0) || (result.context && result.context.length > 0)) && (
             <Text style={[styles.matchedText, { marginTop: 4, fontStyle: 'italic', color: colors.textSecondary }]}>
-              Relevant details: {result.context.join(', ')}.
+              Relevant details: {(
+                (language !== 'en' && Array.isArray(result.displayContext) && result.displayContext.length > 0)
+                  ? result.displayContext
+                  : (result.context || [])
+              ).join(', ')}.
             </Text>
           )}
         </View>
 
         {/* Guidance / Immediate Care Steps */}
         <InfoCard title={t('immediateCareSteps')} subtitle={t('preliminaryGuidance')}>
-          {result.guidance && result.guidance.length > 0 ? (
-            result.guidance.map((step, idx) => (
+          {(() => {
+            const steps = (language !== 'en' && Array.isArray(result.displayGuidance) && result.displayGuidance.length > 0)
+              ? result.displayGuidance
+              : (result.guidance || []);
+
+            if (steps.length === 0) {
+              return <Text style={styles.guidanceText}>Consult a qualified healthcare professional for evaluation.</Text>;
+            }
+
+            return steps.map((step: string, idx: number) => (
               <View key={idx} style={styles.guidanceItem}>
                 <Text style={styles.guidanceBullet}>•</Text>
                 <Text style={styles.guidanceText}>{step}</Text>
               </View>
-            ))
-          ) : (
-            <Text style={styles.guidanceText}>Consult a qualified healthcare professional for evaluation.</Text>
-          )}
+            ));
+          })()}
         </InfoCard>
 
         {/* Recommended Specialist Card */}
@@ -300,13 +362,15 @@ export default function AnalysisResultScreen() {
               <Text style={styles.specialistIcon}>🩺</Text>
             </View>
             <View style={styles.specialistTextCol}>
-              <Text style={styles.specialistTitle}>{result.displayRecommendedSpecialist || result.recommendedSpecialist}</Text>
+              <Text style={styles.specialistTitle}>
+                {formatConditionForDisplay(result.displayRecommendedSpecialist || result.recommendedSpecialist, language)}
+              </Text>
               <Text style={styles.specialistSub}>{t('recommendedSpecialist')}</Text>
             </View>
           </View>
 
           <AppButton
-            title={`${t('findDoctor')} (${result.displayRecommendedSpecialist || result.recommendedSpecialist})`}
+            title={`${t('findDoctor')} (${formatConditionForDisplay(result.displayRecommendedSpecialist || result.recommendedSpecialist, language)})`}
             onPress={handleSpecialistPress}
             style={styles.findDoctorBtn}
           />

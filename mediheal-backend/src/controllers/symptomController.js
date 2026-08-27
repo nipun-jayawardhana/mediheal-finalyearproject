@@ -42,11 +42,14 @@ const analyzeSymptoms = async (req, res, next) => {
 
       if (existingCheck) {
         const elapsed = Date.now() - startTime;
+        console.log(`${tag} Persisted SymptomCheck: ${existingCheck._id}`);
+        console.log(`${tag} Response record ID: ${existingCheck._id}`);
         console.log(`${tag} Idempotency hit: Returning existing SymptomCheck record ${existingCheck._id} in ${elapsed}ms`);
         return res.status(200).json({
           success: true,
           message: 'Symptom analysis completed successfully (cached result)',
           analysis: {
+            _id: existingCheck._id,
             symptomCheckId: existingCheck._id,
             symptoms: existingCheck.symptoms,
             positiveSymptoms: existingCheck.positiveSymptoms || existingCheck.symptoms,
@@ -372,6 +375,9 @@ const analyzeSymptoms = async (req, res, next) => {
       displayLanguage: targetLang,
     });
 
+    console.log(`${tag} Persisted SymptomCheck: ${symptomCheck._id}`);
+    console.log(`${tag} Response record ID: ${symptomCheck._id}`);
+
     // 8. Output Translation: Translate patient-facing analysis result fields if targetLang != 'en'
     const outTransStart = Date.now();
     const translatedOutput = await geminiTranslationService.translateAnalysisResult(
@@ -388,16 +394,25 @@ const analyzeSymptoms = async (req, res, next) => {
       success: true,
       message: 'Symptom analysis completed successfully',
       analysis: {
+        _id: symptomCheck._id,
         symptomCheckId: symptomCheck._id,
         symptoms: symptomCheck.symptoms,
-        possibleCondition: translatedOutput.displayPossibleCondition || symptomCheck.possibleCondition,
-        possibleConditions: translatedOutput.displayPossibleConditions || symptomCheck.possibleConditions,
+        positiveSymptoms: symptomCheck.positiveSymptoms,
+        negativeFindings: symptomCheck.negativeFindings,
+        context: symptomCheck.context,
+        possibleCondition: symptomCheck.possibleCondition,
+        possibleConditions: symptomCheck.possibleConditions,
+        displayPossibleCondition: translatedOutput.displayPossibleCondition || symptomCheck.possibleCondition,
+        displayPossibleConditions: translatedOutput.displayPossibleConditions || symptomCheck.possibleConditions,
+        displayPositiveSymptoms: translatedOutput.displayPositiveSymptoms || symptomCheck.positiveSymptoms,
+        displayContext: translatedOutput.displayContext || symptomCheck.context,
         analysisSource: symptomCheck.analysisSource,
         modelName: symptomCheck.modelName,
         riskLevel: symptomCheck.riskLevel,
         recommendedSpecialist: symptomCheck.recommendedSpecialist,
         displayRecommendedSpecialist: translatedOutput.displayRecommendedSpecialist || symptomCheck.recommendedSpecialist,
-        guidance: translatedOutput.displayGuidance || symptomCheck.guidance,
+        guidance: symptomCheck.guidance,
+        displayGuidance: translatedOutput.displayGuidance || symptomCheck.guidance,
         matchedSymptoms: symptomCheck.matchedSymptoms,
         emergencyRecommended: symptomCheck.emergencyRecommended,
         disclaimer: translatedOutput.displayDisclaimer || symptomCheck.disclaimer,
@@ -418,8 +433,9 @@ const analyzeSymptoms = async (req, res, next) => {
 const getSymptomHistory = async (req, res, next) => {
   try {
     const patientId = req.user._id;
-
-    const history = await SymptomCheck.find({ patientId }).sort({ createdAt: -1 });
+    const history = await SymptomCheck.find({ patientId })
+      .sort({ createdAt: -1 })
+      .limit(20);
 
     return res.status(200).json({
       success: true,
@@ -433,29 +449,36 @@ const getSymptomHistory = async (req, res, next) => {
 
 /**
  * @desc    Get single symptom check by ID
- * @route   GET /api/symptoms/:symptomCheckId
+ * @route   GET /api/symptoms/:id
  * @access  Private (Patient only)
  */
 const getSymptomCheckById = async (req, res, next) => {
   try {
-    const { symptomCheckId } = req.params;
+    const rawParam = req.params.symptomCheckId || req.params.id;
+    const symptomCheckId = typeof rawParam === 'string' ? rawParam.trim() : '';
 
-    // Validate ObjectId before query
-    if (!mongoose.Types.ObjectId.isValid(symptomCheckId)) {
+    console.log('[SYMPTOM GET] req.params:', req.params);
+    console.log('[SYMPTOM GET] resolved ID:', symptomCheckId || 'MISSING');
+
+    if (!symptomCheckId) {
+      console.warn('[SYMPTOM GET] Rejecting request: symptomCheckId parameter is empty');
       return res.status(400).json({
         success: false,
-        message: 'Invalid symptom check ID format',
+        message: 'Symptom check ID is required',
       });
     }
 
     const symptomCheck = await SymptomCheck.findById(symptomCheckId);
 
     if (!symptomCheck) {
+      console.warn(`[SYMPTOM GET] Record not found for ID ${symptomCheckId}`);
       return res.status(404).json({
         success: false,
         message: 'Symptom check record not found',
       });
     }
+
+    console.log(`[SYMPTOM GET] Record found: ${symptomCheck._id}`);
 
     // Ownership check: patient can access only their own history
     if (symptomCheck.patientId.toString() !== req.user._id.toString()) {
@@ -470,11 +493,13 @@ const getSymptomCheckById = async (req, res, next) => {
 
     if (targetLang !== 'en') {
       const translatedOutput = await geminiTranslationService.translateAnalysisResult(symptomCheck, targetLang);
-      responseData.possibleCondition = translatedOutput.displayPossibleCondition || symptomCheck.possibleCondition;
-      responseData.possibleConditions = translatedOutput.displayPossibleConditions || symptomCheck.possibleConditions;
+      responseData.displayPossibleCondition = translatedOutput.displayPossibleCondition || symptomCheck.possibleCondition;
+      responseData.displayPossibleConditions = translatedOutput.displayPossibleConditions || symptomCheck.possibleConditions;
       responseData.displayRecommendedSpecialist = translatedOutput.displayRecommendedSpecialist || symptomCheck.recommendedSpecialist;
-      responseData.guidance = translatedOutput.displayGuidance || symptomCheck.guidance;
-      responseData.disclaimer = translatedOutput.displayDisclaimer || symptomCheck.disclaimer;
+      responseData.displayPositiveSymptoms = translatedOutput.displayPositiveSymptoms || symptomCheck.positiveSymptoms;
+      responseData.displayContext = translatedOutput.displayContext || symptomCheck.context;
+      responseData.displayGuidance = translatedOutput.displayGuidance || symptomCheck.guidance;
+      responseData.displayDisclaimer = translatedOutput.displayDisclaimer || symptomCheck.disclaimer;
     }
 
     return res.status(200).json({

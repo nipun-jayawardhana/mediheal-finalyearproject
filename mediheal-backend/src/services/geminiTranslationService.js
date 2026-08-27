@@ -250,6 +250,8 @@ const translateAnalysisResult = async (analysisResult, targetLanguage = 'en') =>
     return {
       displayPossibleConditions: analysisResult.possibleConditions || [],
       displayPossibleCondition: analysisResult.possibleCondition || '',
+      displayPositiveSymptoms: analysisResult.positiveSymptoms || [],
+      displayContext: analysisResult.context || [],
       displayGuidance: analysisResult.guidance || [],
       displayRecommendedSpecialist: analysisResult.recommendedSpecialist || '',
       displayDisclaimer: analysisResult.disclaimer || '',
@@ -265,10 +267,12 @@ const translateAnalysisResult = async (analysisResult, targetLanguage = 'en') =>
 Translate the provided medical analysis result object into clear, comforting, easy-to-understand ${langName}.
 
 STRICT RULES:
-- "displayPossibleConditions": Array of objects. For each condition, translate condition name into ${langName}. If helpful, append English term in parentheses e.g. "මයිග්‍රේන් (Migraine)". Retain original "confidence" string unchanged ("high", "medium", "low").
-- "displayPossibleCondition": Top condition translated in ${langName}.
-- "displayGuidance": Array of translated self-care guidance steps.
-- "displayRecommendedSpecialist": Translated specialist display label (e.g. "Cardiologist" -> "හෘද රෝග විශේෂඥ (Cardiologist)").
+- "displayPossibleConditions": Array of objects. Translate each condition name strictly into ${langName} ONLY. DO NOT append English names or parenthetical text in parentheses (e.g. return "මුත්රා මාර්ග ආසාදනය", NOT "මුත්රා මාර්ග ආසාදනය (Urinary Tract Infection)"). Retain original "confidence" string unchanged ("high", "medium", "low").
+- "displayPossibleCondition": Top condition translated in ${langName} ONLY (no English in parentheses).
+- "displayPositiveSymptoms": Array of translated positive symptom names in ${langName}.
+- "displayContext": Array of translated context/trigger strings in ${langName}.
+- "displayGuidance": Array of translated self-care guidance steps in ${langName}.
+- "displayRecommendedSpecialist": Translated specialist display label strictly in ${langName} ONLY (e.g. return "හෘද රෝග විශේෂඥ", NOT "හෘද රෝග විශේෂඥ (Cardiologist)").
 - "displayDisclaimer": Translated standard medical disclaimer.
 - Do NOT alter any JSON keys.
 - Do NOT invent or modify medical advice.
@@ -279,6 +283,8 @@ Respond strictly with JSON:
     { "condition": "...", "confidence": "high" }
   ],
   "displayPossibleCondition": "...",
+  "displayPositiveSymptoms": ["...", "..."],
+  "displayContext": ["...", "..."],
   "displayGuidance": ["...", "..."],
   "displayRecommendedSpecialist": "...",
   "displayDisclaimer": "...",
@@ -288,6 +294,8 @@ Respond strictly with JSON:
   const inputPayload = {
     possibleConditions: analysisResult.possibleConditions || [],
     possibleCondition: analysisResult.possibleCondition || '',
+    positiveSymptoms: analysisResult.positiveSymptoms || [],
+    context: analysisResult.context || [],
     guidance: analysisResult.guidance || [],
     recommendedSpecialist: analysisResult.recommendedSpecialist || '',
     disclaimer: analysisResult.disclaimer || '',
@@ -308,9 +316,15 @@ Output JSON:`;
         ? parsed.displayPossibleConditions
         : analysisResult.possibleConditions,
       displayPossibleCondition: parsed.displayPossibleCondition || analysisResult.possibleCondition,
+      displayPositiveSymptoms: Array.isArray(parsed.displayPositiveSymptoms) && parsed.displayPositiveSymptoms.length > 0
+        ? parsed.displayPositiveSymptoms
+        : (analysisResult.positiveSymptoms || []),
+      displayContext: Array.isArray(parsed.displayContext) && parsed.displayContext.length > 0
+        ? parsed.displayContext
+        : (analysisResult.context || []),
       displayGuidance: Array.isArray(parsed.displayGuidance) && parsed.displayGuidance.length > 0
         ? parsed.displayGuidance
-        : analysisResult.guidance,
+        : (analysisResult.guidance || []),
       displayRecommendedSpecialist: parsed.displayRecommendedSpecialist || analysisResult.recommendedSpecialist,
       displayDisclaimer: parsed.displayDisclaimer || analysisResult.disclaimer,
       displayEmergencyWarning: parsed.displayEmergencyWarning || (analysisResult.emergencyRecommended ? 'High risk symptoms detected! Please seek immediate medical assistance.' : ''),
@@ -321,6 +335,8 @@ Output JSON:`;
   return {
     displayPossibleConditions: analysisResult.possibleConditions || [],
     displayPossibleCondition: analysisResult.possibleCondition || '',
+    displayPositiveSymptoms: analysisResult.positiveSymptoms || [],
+    displayContext: analysisResult.context || [],
     displayGuidance: analysisResult.guidance || [],
     displayRecommendedSpecialist: analysisResult.recommendedSpecialist || '',
     displayDisclaimer: analysisResult.disclaimer || '',

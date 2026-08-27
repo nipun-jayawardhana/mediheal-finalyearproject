@@ -20,6 +20,7 @@ export interface PossibleConditionItem {
 }
 
 export interface SymptomAnalysisResult {
+  _id?: string;
   symptomCheckId: string;
   symptoms: string[];
   positiveSymptoms?: string[];
@@ -28,7 +29,12 @@ export interface SymptomAnalysisResult {
   additionalDetails?: string[];
   possibleCondition: string;
   possibleConditions?: PossibleConditionItem[];
-  analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
+  displayPossibleCondition?: string;
+  displayPossibleConditions?: PossibleConditionItem[];
+  displayPositiveSymptoms?: string[];
+  displayContext?: string[];
+  displayGuidance?: string[];
+  analysisSource?: 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
   modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
@@ -59,6 +65,11 @@ export interface SymptomCheckRecord {
   severity?: SeverityLevel | null;
   possibleCondition: string;
   possibleConditions?: PossibleConditionItem[];
+  displayPossibleCondition?: string;
+  displayPossibleConditions?: PossibleConditionItem[];
+  displayPositiveSymptoms?: string[];
+  displayContext?: string[];
+  displayGuidance?: string[];
   analysisSource?: 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
   modelName?: string;
   riskLevel: RiskLevel;

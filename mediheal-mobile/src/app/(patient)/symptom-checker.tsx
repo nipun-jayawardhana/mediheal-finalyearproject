@@ -388,12 +388,13 @@ export default function SymptomCheckerScreen() {
         language,
       });
 
-      if (res && res.success && res.analysis?.symptomCheckId) {
-        router.push({
-          pathname: '/(patient)/analysis-result' as any,
-          params: { id: res.analysis.symptomCheckId },
-        });
+      const targetId = res?.analysis?._id || res?.analysis?.symptomCheckId;
+
+      if (res && res.success && targetId) {
+        console.log(`[SYMPTOM CLIENT][${reqId}] Navigating to analysis-result id=${targetId}`);
+        router.replace(`/analysis-result?id=${encodeURIComponent(targetId)}`);
       } else {
+        console.error(`[SYMPTOM CLIENT][${reqId}] ERROR: Successful analyze response missing _id`);
         setErrorMsg('Unexpected response from symptom analysis service');
       }
     } catch (err: any) {
