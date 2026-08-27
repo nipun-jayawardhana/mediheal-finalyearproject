@@ -195,19 +195,22 @@ const analyzeSymptoms = async (req, res, next) => {
     console.log(`[SYMPTOM PIPELINE][${reqId}] Initial input received`);
 
     // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
-    console.log(`[CLINICAL CASE][${reqId}]\nFinal canonical case assembled\n`);
-    console.log('Positive symptoms:');
-    console.log(clinicalCase.positiveSymptoms.map((s) => `- ${s}`).join('\n') || '- none reported');
-    console.log('\nNegative findings:');
-    console.log(clinicalCase.negativeFindings.map((s) => `- ${s}`).join('\n') || '- none reported');
-    console.log('\nContext:');
-    console.log(clinicalCase.context.map((s) => `- ${s}`).join('\n') || '- none');
-    console.log('\nDuration:');
-    console.log(`- ${clinicalCase.duration || 'unspecified'}`);
-    console.log('\nSeverity:');
-    console.log(`- ${clinicalCase.severity || 'not explicitly rated'}`);
-    console.log('\nAdditional details:');
-    console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.map((s) => `- ${s}`).join('\n') : '- none');
+    console.log(`[CANONICAL CASE][${reqId}][OPENBIOLLM]\n${JSON.stringify(clinicalCase, null, 2)}`);
+
+    // Automatic equality check in development if summary canonical case passed in request body
+    if (Array.isArray(bodyPos) && bodyPos.length > 0) {
+      const summaryPosSet = new Set(bodyPos.map(s => String(s).toLowerCase().trim()));
+      const openBioPosSet = new Set(clinicalCase.positiveSymptoms.map(s => String(s).toLowerCase().trim()));
+      let mismatch = summaryPosSet.size !== openBioPosSet.size;
+      if (!mismatch) {
+        for (const s of summaryPosSet) {
+          if (!openBioPosSet.has(s)) { mismatch = true; break; }
+        }
+      }
+      if (mismatch) {
+        console.error(`[CASE INTEGRITY][${reqId}] SUMMARY/OPENBIOLLM MISMATCH`);
+      }
+    }
 
     const GLOBAL_ANALYSIS_DEADLINE_MS = 32000;
     const deadlineAt = startTime + GLOBAL_ANALYSIS_DEADLINE_MS;
@@ -486,6 +489,7 @@ const handleFollowUp = async (req, res, next) => {
     if (Array.isArray(conversation) && conversation.length > 0) {
       conversation.forEach((c, idx) => {
         console.log(`[GEMINI FOLLOWUP][${reqId}] Question ${idx + 1}: ${c.question || ''}\nAnswer ${idx + 1}: ${c.answer || ''}`);
+        console.log(`[FOLLOWUP ANSWER][${reqId}]\nQuestion: ${c.question || ''}\nAnswer: ${c.answer || ''}`);
       });
     }
 
@@ -501,7 +505,15 @@ const handleFollowUp = async (req, res, next) => {
       }
     }
 
-    // 1. Gather all text from initial symptoms and conversation Q&As for emergency evaluation
+    // 1. Build active canonical case for context logging & turn merging
+    const activeCase = clinicalCaseService.buildCanonicalClinicalCase({
+      symptoms: canonicalSymptoms,
+      conversation,
+    });
+
+    console.log(`[FOLLOWUP CONTEXT][${reqId}]\nCurrent canonical case:\n${JSON.stringify(activeCase, null, 2)}`);
+
+    // 2. Gather all text from initial symptoms and conversation Q&As for emergency evaluation
     const allInputStrings = [...symptoms, ...canonicalSymptoms];
     if (Array.isArray(conversation)) {
       conversation.forEach((c) => {
@@ -512,15 +524,21 @@ const handleFollowUp = async (req, res, next) => {
 
     const normalizedAll = symptomService.normalizeSymptoms(allInputStrings);
 
-    // 2. Deterministic Emergency Safety Check on ALL cumulative conversation context
+    // 3. Deterministic Emergency Safety Check on ALL cumulative conversation context
     const isEmergency = symptomService.isEmergencySymptom(normalizedAll);
 
-    // 3. Generate next follow-up question or structured summary via Gemini
+    // 4. Generate next follow-up question or structured summary via Gemini
+    console.log(`[FOLLOWUP FLOW][${reqId}] Initial case extracted`);
+    console.log(`[FOLLOWUP FLOW][${reqId}] Generating question ${Number(questionCount) + 1}`);
+    console.log(`[FOLLOWUP FLOW][${reqId}] Gemini request started`);
+
     let result = await geminiConversationService.generateFollowUp(
       canonicalSymptoms,
       conversation,
       questionCount
     );
+
+    console.log(`[FOLLOWUP FLOW][${reqId}] Gemini response received`);
 
     if (!result) {
       result = {
@@ -532,6 +550,39 @@ const handleFollowUp = async (req, res, next) => {
           additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
         },
       };
+    }
+
+    if (result.status === 'ask' && result.question) {
+      console.log(`[FOLLOWUP FLOW][${reqId}] Question accepted: "${result.question}"`);
+      console.log(`[FOLLOWUP FLOW][${reqId}] Waiting for patient answer`);
+    } else if (result.status === 'complete') {
+      const summaryReason = questionCount >= 3 ? 'max follow-up count reached (3)' : 'sufficient context gathered or model completed';
+      console.log(`[FOLLOWUP FLOW][${reqId}] Moving to summary — reason: ${summaryReason}`);
+
+      const summaryCanonicalCase = clinicalCaseService.buildCanonicalClinicalCase({
+        symptoms: canonicalSymptoms,
+        conversation,
+        duration: result.summary?.duration,
+        severity: result.summary?.severity,
+        positiveSymptoms: result.summary?.positiveSymptoms || result.summary?.symptoms,
+        negativeFindings: result.summary?.negativeFindings,
+        context: result.summary?.context,
+        additionalDetails: result.summary?.additionalDetails,
+      });
+
+      result.summary = {
+        ...result.summary,
+        symptoms: summaryCanonicalCase.positiveSymptoms,
+        positiveSymptoms: summaryCanonicalCase.positiveSymptoms,
+        negativeFindings: summaryCanonicalCase.negativeFindings,
+        context: summaryCanonicalCase.context,
+        duration: summaryCanonicalCase.duration,
+        severity: summaryCanonicalCase.severity,
+        additionalDetails: summaryCanonicalCase.additionalDetails || [],
+      };
+
+      console.log(`[FOLLOWUP MERGE][${reqId}]\nAdded positives: ${JSON.stringify(summaryCanonicalCase.positiveSymptoms)}\nAdded negatives: ${JSON.stringify(summaryCanonicalCase.negativeFindings)}\nAdded context: ${JSON.stringify(summaryCanonicalCase.context)}\nAdded details: ${JSON.stringify(summaryCanonicalCase.additionalDetails)}`);
+      console.log(`[CANONICAL CASE][${reqId}][SUMMARY]\n${JSON.stringify(summaryCanonicalCase, null, 2)}`);
     }
 
     // Attach non-blocking emergency metadata to result if high-risk triggers detected

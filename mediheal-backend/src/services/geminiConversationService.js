@@ -265,15 +265,8 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
     conversation,
   });
 
-  // Check if sufficient clinical context already exists in initial statement
-  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
-  const hasLocation = canonicalCase.positiveSymptoms.some((s) =>
-    ['abdominal', 'stomach', 'knee', 'ankle', 'chest', 'headache'].some((loc) => s.toLowerCase().includes(loc))
-  );
-  const hasSufficientSymptoms = canonicalCase.positiveSymptoms.length >= 3 || (hasDuration && hasLocation && canonicalCase.positiveSymptoms.length >= 2);
-
-  // If duration, location, and sufficient symptoms exist or max 3 questions -> complete
-  if (currentCount >= 3 || (hasDuration && hasSufficientSymptoms)) {
+  // Only complete if max follow-ups (3) reached
+  if (currentCount >= 3) {
     return {
       status: 'complete',
       summary: {
@@ -281,19 +274,21 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
         positiveSymptoms: canonicalCase.positiveSymptoms,
         negativeFindings: canonicalCase.negativeFindings,
         context: canonicalCase.context,
-        duration: canonicalCase.duration,
+        duration: canonicalCase.duration || 'unspecified',
         severity: canonicalCase.severity,
+        additionalDetails: canonicalCase.additionalDetails || [],
         additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
       },
     };
   }
 
-  const hasSeverity = conversation.some((c) => ['mild', 'moderate', 'severe'].includes((c.answer || '').toLowerCase().trim()));
+  const hasSeverity = canonicalCase.severity !== null || conversation.some((c) => ['mild', 'moderate', 'severe'].includes((c.answer || '').toLowerCase().trim()));
+  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
 
   if (!hasDuration && currentCount === 0) {
     return {
       status: 'ask',
-      question: 'How long have you had these symptoms?',
+      question: 'How long have you been experiencing these symptoms?',
       field: 'duration',
       quickOptions: ['Today', '1-3 days', 'More than 3 days'],
     };
@@ -302,22 +297,34 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
   if (!hasSeverity && currentCount < 2) {
     return {
       status: 'ask',
-      question: 'How severe is your discomfort: mild, moderate, or severe?',
+      question: 'How severe is your overall discomfort: mild, moderate, or severe?',
       field: 'severity',
       quickOptions: ['Mild', 'Moderate', 'Severe'],
+    };
+  }
+
+  const hasUrinary = canonicalCase.positiveSymptoms.some((s) =>
+    ['urinate', 'urinating', 'discharge', 'penis', 'tip'].some((term) => s.toLowerCase().includes(term))
+  );
+
+  if (hasUrinary && currentCount < 3) {
+    return {
+      status: 'ask',
+      question: 'Have you noticed any urinary frequency, urgency, blood in your urine, or testicular pain?',
+      field: 'associated_urinary_symptoms',
+      quickOptions: ['Yes', 'No'],
     };
   }
 
   if (currentCount < 3) {
     return {
       status: 'ask',
-      question: 'Are you experiencing any other symptoms like dizziness, nausea, or fever?',
+      question: 'Are you experiencing any other associated symptoms or changes in your condition?',
       field: 'associated_symptoms',
       quickOptions: ['Yes', 'No'],
     };
   }
 
-  // Default to complete
   return {
     status: 'complete',
     summary: {
@@ -325,11 +332,112 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
       positiveSymptoms: canonicalCase.positiveSymptoms,
       negativeFindings: canonicalCase.negativeFindings,
       context: canonicalCase.context,
-      duration: canonicalCase.duration,
+      duration: canonicalCase.duration || 'unspecified',
       severity: canonicalCase.severity,
+      additionalDetails: canonicalCase.additionalDetails || [],
       additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
     },
   };
+};
+
+/**
+ * Question Quality & Clinical Relevance Validator
+ * Validates candidate follow-up questions against active complaint domains, known findings, and previous turns.
+ */
+const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions = [], previousAnswers = [] }) => {
+  if (!question || typeof question !== 'string') {
+    return { accepted: false, reason: 'invalid' };
+  }
+
+  const cleanQ = question.trim();
+  const lowerQ = cleanQ.toLowerCase();
+
+  // 1. Length & Basic Structure Validation
+  if (cleanQ.length < 10 || cleanQ.length > 220) {
+    return { accepted: false, reason: 'invalid' };
+  }
+
+  // 2. Duplicate / Previous Question Topic Check (Concept-Level)
+  const isDuplicate = previousQuestions.some((prev) => {
+    const lowerP = String(prev).toLowerCase();
+    if (lowerP === lowerQ) return true;
+    if (lowerP.includes('how long') && lowerQ.includes('how long')) return true;
+    if (lowerP.includes('when did') && lowerQ.includes('when did')) return true;
+    if (lowerP.includes('how severe') && lowerQ.includes('how severe')) return true;
+    if (lowerP.includes('swelling') && lowerQ.includes('swelling')) return true;
+    if (lowerP.includes('urination') && lowerQ.includes('urination')) return true;
+    if (lowerP.includes('discharge') && lowerQ.includes('discharge')) return true;
+    if (lowerP.includes('redness') && lowerQ.includes('redness')) return true;
+    return false;
+  });
+  if (isDuplicate) {
+    return { accepted: false, reason: 'duplicate' };
+  }
+
+  // 3. Known Information Guard
+  // A. Duration already known
+  const hasKnownDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified' && canonicalCase.duration !== '';
+  if (hasKnownDuration && (/\bhow\s+long\b|\bwhen\s+did\b|\bhow\s+many\s+days\b|\bduration\b|\bhow\s+long\s+has\b|\bsince\s+when\b/i.test(lowerQ))) {
+    return { accepted: false, reason: 'already_answered' };
+  }
+
+  // B. Symptoms/mechanisms/aggravations already answered
+  const allKnownFindings = [
+    ...(canonicalCase.positiveSymptoms || []),
+    ...(canonicalCase.negativeFindings || []),
+    ...(canonicalCase.context || []),
+  ].map((s) => s.toLowerCase());
+
+  if (lowerQ.includes('weight') && allKnownFindings.some((s) => s.includes('weight'))) {
+    if (!lowerQ.includes('completely unable') && !lowerQ.includes('bear any weight')) {
+      return { accepted: false, reason: 'already_answered' };
+    }
+  }
+
+  if (lowerQ.includes('unstable') && allKnownFindings.some((s) => s.includes('unstable') || s.includes('instability'))) {
+    return { accepted: false, reason: 'already_answered' };
+  }
+
+  if (lowerQ.includes('fever') && allKnownFindings.some((s) => s.includes('fever'))) {
+    return { accepted: false, reason: 'already_answered' };
+  }
+
+  if ((lowerQ.includes('vomit') || lowerQ.includes('vomiting')) && allKnownFindings.some((s) => s.includes('vomit'))) {
+    return { accepted: false, reason: 'already_answered' };
+  }
+
+  if (lowerQ.includes('abdominal pain') && allKnownFindings.some((s) => s.includes('abdominal') || s.includes('stomach'))) {
+    return { accepted: false, reason: 'already_answered' };
+  }
+
+  // 4. Complaint Domain Relevance Guard (Generic across medical domains)
+  const activeDomains = clinicalCaseService.getComplaintDomains(canonicalCase);
+
+  const questionDomains = new Set();
+  if (/\burinat|\burine|\bpeni|\bdischarge\b|\bprostate\b|\bbladder\b|\btestic\b|\bgenital\b/i.test(lowerQ)) {
+    questionDomains.add('urinary_genital');
+  }
+  if (/\bstomach\b|\babdomen\b|\babdominal\b|\bspicy\b|\bbowel\b|\bdiarrh\b|\bheartburn\b|\bacid\b|\bepigastric\b/i.test(lowerQ)) {
+    questionDomains.add('gastrointestinal');
+  }
+  if (/\bcough\b|\bwheez\b|\bsputum\b|\blung\b|\bphlegm\b/i.test(lowerQ)) {
+    questionDomains.add('respiratory');
+  }
+  if (/\bchest\s+pain\b|\bpalpitations\b|\bchest\s+tight\b|\bcardiac\b/i.test(lowerQ)) {
+    questionDomains.add('cardiovascular');
+  }
+  if (/\bheadache\b|\bdizzy\b|\bdizziness\b|\bphotophobia\b|\bseizure\b|\bstroke\b/i.test(lowerQ)) {
+    questionDomains.add('neurological_heent');
+  }
+
+  // If question is in a domain NOT present in activeDomains AND not systemic/general safety
+  for (const qDomain of questionDomains) {
+    if (!activeDomains.has(qDomain) && !activeDomains.has('systemic_general')) {
+      return { accepted: false, reason: 'unrelated_domain' };
+    }
+  }
+
+  return { accepted: true, reason: 'relevant' };
 };
 
 /**
@@ -346,56 +454,78 @@ const generateFollowUp = async (symptoms = [], conversation = [], questionCount 
     return extractStructuredSummary(symptoms, conversation);
   }
 
+  // Extract canonical case to provide full context to Gemini
+  const canonicalCase = clinicalCaseService.buildCanonicalClinicalCase({
+    symptoms,
+    conversation,
+  });
+
+  const previousQuestions = conversation.map((c) => c.question || '').filter(Boolean);
+  const previousAnswers = conversation.map((c) => c.answer || '').filter(Boolean);
+
   // Log conversation begin
   console.log('[GEMINI CONVERSATION]');
   console.log(`Model: ${configuredModel}`);
 
   if (!apiKey) {
     console.warn('⚠️ [GEMINI SERVICE] GEMINI_API_KEY not configured. Using deterministic fallback.');
-    return getDeterministicFallback(symptoms, conversation, currentCount);
+    return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
   }
 
-  const symptomsText = Array.isArray(symptoms) ? symptoms.join(', ') : String(symptoms);
   const formattedHistory = conversation
     .map((item, idx) => `Q${idx + 1}: ${item.question}\nA${idx + 1}: ${item.answer}`)
     .join('\n\n');
 
   const systemPrompt = `You are MediHeal's conversational symptom assistant for elderly patients.
-Your task is to ask 1 short, polite follow-up question (1 sentence max) to clarify symptoms, OR output a complete summary when enough context is gathered or 3 questions have been reached.
+Your task is to ask 1 short, polite follow-up question (1 sentence max) to clarify missing clinical information, OR output a complete summary when 3 questions have been reached or no useful follow-up question remains.
 
 Respond strictly with a single JSON object matching one of these two schemas:
 
 Schema 1 (When asking a follow-up question):
 {
   "status": "ask",
-  "question": "How long have you had these symptoms?",
-  "field": "duration",
-  "quickOptions": ["Today", "1-3 days", "More than 3 days"]
+  "question": "Have you noticed any redness, warmth, or locking in your joint?",
+  "field": "associated_symptoms",
+  "quickOptions": ["Yes", "No"]
 }
 
 Schema 2 (When conversation is complete or 3 questions reached):
 {
   "status": "complete",
   "summary": {
-    "symptoms": ["lower back pain", "pain spreading to right hip", "tight thigh muscles", "knee instability", "ankle instability"],
-    "duration": "today",
-    "severity": "moderate",
+    "symptoms": ["right knee pain", "knee swelling", "knee instability"],
+    "positiveSymptoms": ["right knee pain", "knee swelling", "knee instability"],
+    "negativeFindings": ["able to move toes normally"],
+    "context": ["twisted knee while walking downstairs"],
+    "duration": "1 day",
+    "severity": null,
     "additionalContext": []
   }
 }
 
-Strict Rules for Schema 2 (Summary):
-- "symptoms" MUST be an array of concise individual symptom concept phrases (max 10 items, <= 100 characters each). Do NOT return a long natural-language paragraph as a single symptom.
-- "duration" MUST be extracted accurately from the user's answers (e.g. "today", "1 day", "3 days", "1 week").
-- "severity" MUST be one of: "mild", "moderate", or "severe".
-- Do NOT prescribe medications, claim a medical diagnosis, or provide markdown explanations outside the JSON.`;
+Strict Rules:
+- Ask ONLY about clinically relevant missing information for the active complaint.
+- Do NOT ask questions about information already provided (e.g. if duration or symptoms are already known, DO NOT ask them again!).
+- Do NOT introduce an unrelated body system domain (e.g. do NOT ask about difficulty urinating for a traumatic knee injury!).
+- Do NOT repeat previous questions.
+- Preserve the patient's anatomical location and mechanism.
+- If no additional useful question is necessary or max questions reached, return Schema 2 (status: "complete").`;
 
-  const userPrompt = `Initial Symptom Description: ${symptomsText}
+  const userPrompt = `Patient Cumulative Clinical Case:
+Positive Symptoms: ${canonicalCase.positiveSymptoms.join(', ') || 'none reported'}
+Negative Findings: ${canonicalCase.negativeFindings.join(', ') || 'none'}
+Injury Mechanism / Context: ${canonicalCase.context.join(', ') || 'none'}
+Current Duration: ${canonicalCase.duration || 'unspecified'}
+Current Severity: ${canonicalCase.severity || 'null'}
+Additional Details: ${canonicalCase.additionalDetails.join(', ') || 'none'}
 
-Conversation History so far:
-${formattedHistory || 'None'}
+Previous Questions Asked: ${previousQuestions.join(' | ') || 'none'}
+Previous Answers: ${previousAnswers.join(' | ') || 'none'}
 
 Current Question Count: ${currentCount} / 3
+
+Instruction:
+Generate 1 relevant follow-up question (Schema 1) targeting missing clinical information ONLY. Do not re-ask known information or introduce unrelated body systems. If no useful question remains, return Schema 2.
 
 Output JSON:`;
 
@@ -429,109 +559,235 @@ Output JSON:`;
 
     clearTimeout(timeoutId);
 
-    if (response.status === 429) {
-      console.warn('[GEMINI SERVICE] Daily/rate quota unavailable.');
-      console.warn('[GEMINI SERVICE] Using deterministic conversational fallback.');
-      return getDeterministicFallback(symptoms, conversation, currentCount);
-    }
-
-    if (response.status === 503) {
-      console.warn(`[GEMINI SERVICE] Model ${configuredModel} returned HTTP 503 capacity spike. Retrying once...`);
-      await new Promise((r) => setTimeout(r, 1500));
-      const retryRes = await fetch(endpointUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      if (retryRes.ok) {
-        const retryData = await retryRes.json();
-        const retryContent = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (retryContent) {
-          const parsedRetry = parseJSONFromText(retryContent);
-          if (parsedRetry && typeof parsedRetry === 'object') {
-            console.log('[GEMINI CONVERSATION]');
-            console.log('Follow-up generated successfully');
-            if (parsedRetry.status === 'ask' && parsedRetry.question) {
-              return {
-                status: 'ask',
-                question: parsedRetry.question.trim().substring(0, 150),
-                field: parsedRetry.field || 'follow_up',
-                quickOptions: Array.isArray(parsedRetry.quickOptions)
-                  ? parsedRetry.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
-                  : undefined,
-              };
-            }
-            if (parsedRetry.status === 'complete' && parsedRetry.summary) {
-              return validateAndFormatSummary(parsedRetry.summary, symptoms, conversation);
-            }
-          }
-        }
-      }
-      console.warn(`⚠️ [GEMINI SERVICE] Retry for ${configuredModel} failed. Using deterministic fallback.`);
-      return getDeterministicFallback(symptoms, conversation, currentCount);
-    }
-
     if (!response.ok) {
-      console.warn(`⚠️ [GEMINI SERVICE] HTTP ${response.status} from ${configuredModel}. Using deterministic fallback.`);
-      return getDeterministicFallback(symptoms, conversation, currentCount);
+      console.warn(`⚠️ [GEMINI SERVICE] HTTP ${response.status}. Using validated deterministic fallback.`);
+      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
     }
 
     const data = await response.json();
     const candidateContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!candidateContent) {
-      console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} returned empty text. Using deterministic fallback.`);
-      return getDeterministicFallback(symptoms, conversation, currentCount);
+      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
     }
 
     const parsed = parseJSONFromText(candidateContent);
     if (!parsed || typeof parsed !== 'object') {
-      console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} did not return valid JSON object. Using deterministic fallback.`);
-      return getDeterministicFallback(symptoms, conversation, currentCount);
+      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
     }
 
-    // Output Contract Validation
-    if (parsed.status === 'ask') {
-      if (!parsed.question || typeof parsed.question !== 'string') {
-        console.warn(`⚠️ [GEMINI SERVICE] Invalid question in response. Using deterministic fallback.`);
-        return getDeterministicFallback(symptoms, conversation, currentCount);
+    if (parsed.status === 'ask' && parsed.question && typeof parsed.question === 'string') {
+      let candidateQ = parsed.question.trim();
+      if (candidateQ.length > 150) candidateQ = candidateQ.substring(0, 147) + '...';
+
+      console.log(`[FOLLOWUP CANDIDATE] Question: "${candidateQ}"`);
+      const val = validateFollowUpQuestion({
+        question: candidateQ,
+        canonicalCase,
+        previousQuestions,
+        previousAnswers,
+      });
+
+      console.log(`[FOLLOWUP VALIDATION] accepted=${val.accepted} reason=${val.reason}`);
+
+      if (val.accepted) {
+        return {
+          status: 'ask',
+          question: candidateQ,
+          field: parsed.field || 'follow_up',
+          quickOptions: Array.isArray(parsed.quickOptions)
+            ? parsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
+            : undefined,
+        };
       }
 
-      let cleanQuestion = parsed.question.trim();
-      if (cleanQuestion.length > 150) {
-        cleanQuestion = cleanQuestion.substring(0, 147) + '...';
-      }
+      // ONE-ATTEMPT CONTROLLED REGENERATION WITH FEEDBACK
+      console.log(`[FOLLOWUP REGENERATION] Attempting controlled retry for rejected question...`);
+      const retryUserPrompt = `${userPrompt}\n\nCRITICAL FEEDBACK:
+Your candidate question "${candidateQ}" was REJECTED because it was ${val.reason} (e.g. asking for already known information or introducing an unrelated body system domain).
+Generate ONE different, clinically relevant follow-up question targeting missing information only, or return Schema 2 if no useful question remains.`;
 
-      console.log('[GEMINI CONVERSATION]');
-      console.log('Follow-up generated successfully');
-
-      return {
-        status: 'ask',
-        question: cleanQuestion,
-        field: parsed.field || 'follow_up',
-        quickOptions: Array.isArray(parsed.quickOptions)
-          ? parsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
-          : undefined,
+      const retryPayload = {
+        contents: [
+          { parts: [{ text: systemPrompt }, { text: retryUserPrompt }] },
+        ],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1000, responseMimeType: 'application/json' },
       };
+
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), 8000);
+      try {
+        const retryRes = await fetch(endpointUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(retryPayload),
+          signal: retryController.signal,
+        });
+        clearTimeout(retryTimeoutId);
+
+        if (retryRes.ok) {
+          const retryData = await retryRes.json();
+          const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
+          const retryParsed = parseJSONFromText(retryText);
+
+          if (retryParsed && retryParsed.status === 'ask' && retryParsed.question) {
+            let retryQ = retryParsed.question.trim();
+            if (retryQ.length > 150) retryQ = retryQ.substring(0, 147) + '...';
+
+            const retryVal = validateFollowUpQuestion({
+              question: retryQ,
+              canonicalCase,
+              previousQuestions,
+              previousAnswers,
+            });
+
+            console.log(`[FOLLOWUP VALIDATION][RETRY] accepted=${retryVal.accepted} reason=${retryVal.reason}`);
+            if (retryVal.accepted) {
+              return {
+                status: 'ask',
+                question: retryQ,
+                field: retryParsed.field || 'follow_up',
+                quickOptions: Array.isArray(retryParsed.quickOptions)
+                  ? retryParsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
+                  : undefined,
+              };
+            }
+          }
+        }
+      } catch (rErr) {
+        clearTimeout(retryTimeoutId);
+      }
+
+      // If regeneration also fails -> fallback
+      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
     }
 
     if (parsed.status === 'complete' && parsed.summary) {
-      console.log('[GEMINI CONVERSATION]');
-      console.log('Follow-up generated successfully');
       return validateAndFormatSummary(parsed.summary, symptoms, conversation);
-    }
-
-    if (currentCount >= 3) {
-      return extractStructuredSummary(symptoms, conversation);
     }
   } catch (err) {
     clearTimeout(timeoutId);
-    console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} failed/error: ${err.message}. Using deterministic fallback.`);
+    console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} error: ${err.message}. Using validated fallback.`);
   }
 
-  // Fallback if Gemini failed
-  return getDeterministicFallback(symptoms, conversation, currentCount);
+  return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
+};
+
+/**
+ * Validated Deterministic Fallback Strategy
+ */
+const getValidatedDeterministicFallback = (symptoms, conversation = [], questionCount = 0, inputCanonicalCase = null, previousQuestions = [], previousAnswers = []) => {
+  const currentCount = Number(questionCount) || conversation.length || 0;
+  const canonicalCase = inputCanonicalCase || clinicalCaseService.buildCanonicalClinicalCase({ symptoms, conversation });
+
+  if (currentCount >= 3) {
+    return {
+      status: 'complete',
+      summary: {
+        symptoms: canonicalCase.positiveSymptoms,
+        positiveSymptoms: canonicalCase.positiveSymptoms,
+        negativeFindings: canonicalCase.negativeFindings,
+        context: canonicalCase.context,
+        duration: canonicalCase.duration || 'unspecified',
+        severity: canonicalCase.severity,
+        additionalDetails: canonicalCase.additionalDetails || [],
+        additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
+      },
+    };
+  }
+
+  const activeDomains = clinicalCaseService.getComplaintDomains(canonicalCase);
+  const hasSeverity = canonicalCase.severity !== null;
+  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
+
+  const candidates = [];
+
+  if (!hasDuration) {
+    candidates.push({
+      status: 'ask',
+      question: 'How long have you been experiencing these symptoms?',
+      field: 'duration',
+      quickOptions: ['Today', '1-3 days', 'More than 3 days'],
+    });
+  }
+
+  if (!hasSeverity) {
+    candidates.push({
+      status: 'ask',
+      question: 'How severe is your overall discomfort: mild, moderate, or severe?',
+      field: 'severity',
+      quickOptions: ['Mild', 'Moderate', 'Severe'],
+    });
+  }
+
+  if (activeDomains.has('musculoskeletal')) {
+    candidates.push({
+      status: 'ask',
+      question: 'Have you noticed any redness, warmth, or locking in the joint?',
+      field: 'associated_musculoskeletal_symptoms',
+      quickOptions: ['Yes', 'No'],
+    });
+  }
+
+  if (activeDomains.has('urinary_genital')) {
+    candidates.push({
+      status: 'ask',
+      question: 'Have you noticed any urinary frequency, urgency, or blood in your urine?',
+      field: 'associated_urinary_symptoms',
+      quickOptions: ['Yes', 'No'],
+    });
+  }
+
+  if (activeDomains.has('gastrointestinal')) {
+    candidates.push({
+      status: 'ask',
+      question: 'Have you noticed any changes in your bowel movements or abdominal bloating?',
+      field: 'associated_gi_symptoms',
+      quickOptions: ['Yes', 'No'],
+    });
+  }
+
+  if (activeDomains.has('respiratory')) {
+    candidates.push({
+      status: 'ask',
+      question: 'Are you having any wheezing, chest tightness, or coughing up phlegm?',
+      field: 'associated_respiratory_symptoms',
+      quickOptions: ['Yes', 'No'],
+    });
+  }
+
+  candidates.push({
+    status: 'ask',
+    question: 'Are you experiencing any other associated symptoms or changes in your condition?',
+    field: 'associated_symptoms',
+    quickOptions: ['Yes', 'No'],
+  });
+
+  for (const cand of candidates) {
+    const val = validateFollowUpQuestion({
+      question: cand.question,
+      canonicalCase,
+      previousQuestions,
+      previousAnswers,
+    });
+    if (val.accepted) {
+      return cand;
+    }
+  }
+
+  return {
+    status: 'complete',
+    summary: {
+      symptoms: canonicalCase.positiveSymptoms,
+      positiveSymptoms: canonicalCase.positiveSymptoms,
+      negativeFindings: canonicalCase.negativeFindings,
+      context: canonicalCase.context,
+      duration: canonicalCase.duration || 'unspecified',
+      severity: canonicalCase.severity,
+      additionalDetails: canonicalCase.additionalDetails || [],
+      additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
+    },
+  };
 };
 
 /**
@@ -579,6 +835,7 @@ const extractStructuredSummary = async (symptoms, conversation) => {
 
 module.exports = {
   generateFollowUp,
+  validateFollowUpQuestion,
   getDeterministicFallback,
   validateAndFormatSummary,
   parseDurationFromAnswers,

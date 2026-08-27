@@ -377,6 +377,10 @@ export default function SymptomCheckerScreen() {
     try {
       const res = await analyzeSymptomsApi({
         symptoms: summaryData.symptoms,
+        positiveSymptoms: summaryData.positiveSymptoms || summaryData.symptoms,
+        negativeFindings: summaryData.negativeFindings || [],
+        context: summaryData.context || [],
+        additionalDetails: summaryData.additionalDetails || [],
         duration: summaryData.duration,
         severity: summaryData.severity,
         conversation,

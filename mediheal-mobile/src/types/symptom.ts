@@ -5,6 +5,10 @@ export interface SymptomAnalysisRequest {
   symptoms: string[];
   duration?: string;
   severity?: SeverityLevel | null;
+  positiveSymptoms?: string[];
+  negativeFindings?: string[];
+  context?: string[];
+  additionalDetails?: string[];
   conversation?: SymptomConversationTurn[];
   analysisRequestId?: string;
   language?: string;
@@ -19,7 +23,9 @@ export interface SymptomAnalysisResult {
   symptomCheckId: string;
   symptoms: string[];
   positiveSymptoms?: string[];
+  negativeFindings?: string[];
   context?: string[];
+  additionalDetails?: string[];
   possibleCondition: string;
   possibleConditions?: PossibleConditionItem[];
   analysisSource?: 'openbiollm' | 'rule-based-fallback' | 'rule-based-emergency';
@@ -46,7 +52,9 @@ export interface SymptomCheckRecord {
   patientId: string;
   symptoms: string[];
   positiveSymptoms?: string[];
+  negativeFindings?: string[];
   context?: string[];
+  additionalDetails?: string[];
   duration?: string;
   severity?: SeverityLevel | null;
   possibleCondition: string;
@@ -89,6 +97,10 @@ export interface SymptomFollowUpRequest {
 
 export interface SymptomSummaryData {
   symptoms: string[];
+  positiveSymptoms?: string[];
+  negativeFindings?: string[];
+  context?: string[];
+  additionalDetails?: string[];
   duration: string;
   severity: SeverityLevel | null;
   additionalContext: string[];

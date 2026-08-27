@@ -75,78 +75,129 @@ const extractNegationsFromText = (text) => {
   if (!text || typeof text !== 'string') return negations;
   const lower = text.toLowerCase().trim();
 
+  const addNeg = (val) => {
+    if (val && !negations.includes(val)) negations.push(val);
+  };
+
   // Fever Negation (English + Sinhala + Tamil)
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of)\s+(?:had\s+|have\s+)?(?:a\s+)?fever\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+(?:had\s+|have\s+)?(?:a\s+)?fever\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bfever\b/i.test(lower) ||
     lower.includes('no fever') || lower.includes('have no fever') || lower.includes('not have fever') || lower.includes('don\'t have fever') || lower.includes('do not have fever') || lower.includes('not had a fever') ||
     lower.includes('උණ නැත') || lower.includes('උණ නෑ') || (lower.includes('උණ') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('காய்ச்சல் இல்லை') || (lower.includes('காய்ச்சல்') && lower.includes('இல்லை'))
   ) {
-    if (!negations.includes('no fever')) negations.push('no fever');
+    addNeg('no fever');
+  }
+
+  // Abdominal / Stomach Pain Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+(?:had\s+|have\s+)?(?:severe\s+|sharp\s+|burning\s+|upper\s+|lower\s+)?(?:abdominal\s+pain|stomach\s+pain|belly\s+pain|abdomen\s+pain)\b/i.test(lower) ||
+    /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\b(?:abdominal|stomach)\s+pain\b/i.test(lower) ||
+    lower.includes('no severe abdominal pain') || lower.includes('no abdominal pain') || lower.includes('no stomach pain') ||
+    lower.includes('not have severe abdominal pain') || lower.includes('do not have fever or severe abdominal pain') ||
+    lower.includes('do not have severe abdominal pain') || lower.includes('don\'t have severe abdominal pain') || lower.includes('without severe abdominal pain')
+  ) {
+    if (lower.includes('severe')) {
+      addNeg('no severe abdominal pain');
+    } else {
+      addNeg('no abdominal pain');
+    }
   }
 
   // Vomiting Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?(?:vomit|vomited|vomiting|throwing\s+up)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?(?:vomit|vomited|vomiting|throwing\s+up)\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bvomit/i.test(lower) ||
     lower.includes('not vomited') || lower.includes('have not vomited') || lower.includes('no vomiting') || lower.includes('do not vomit') ||
     lower.includes('වමනය නැත') || lower.includes('වමනය නෑ') || (lower.includes('වමනය') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('வாந்தி இல்லை') || (lower.includes('வாந்தி') && lower.includes('இல்லை'))
   ) {
-    if (!negations.includes('no vomiting')) negations.push('no vomiting');
+    addNeg('no vomiting');
   }
 
   // Diarrhea Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?diarrhea\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?diarrhea\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bdiarrh/i.test(lower) ||
     lower.includes('no diarrhea') || lower.includes('do not have diarrhea') || lower.includes('don\'t have diarrhea') || lower.includes('not have diarrhea')
   ) {
-    if (!negations.includes('no diarrhea')) negations.push('no diarrhea');
+    addNeg('no diarrhea');
   }
 
   // Chest Pain Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?chest\s+pain\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?chest\s+pain\b/i.test(lower) ||
     lower.includes('no chest pain') || lower.includes('don\'t have chest pain')
   ) {
-    if (!negations.includes('no chest pain')) negations.push('no chest pain');
+    addNeg('no chest pain');
   }
 
-  // Shortness of Breath / Breathing Difficulty Negation (handles coordinated "no chest pain or shortness of breath")
+  // Shortness of Breath / Breathing Difficulty Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:shortness\s+of\s+breath|difficulty\s+breathing|breathing\s+difficulty)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:shortness\s+of\s+breath|difficulty\s+breathing|breathing\s+difficulty)\b/i.test(lower) ||
     lower.includes('no shortness of breath') || lower.includes('no difficulty breathing') ||
     (lower.includes('no chest pain') && (lower.includes('shortness of breath') || lower.includes('breathing')))
   ) {
-    if (!negations.includes('no breathing difficulty')) negations.push('no breathing difficulty');
+    addNeg('no breathing difficulty');
+  }
+
+  // Sweating Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:excessive\s+)?sweating\b/i.test(lower) ||
+    lower.includes('no sweating') || lower.includes('no excessive sweating')
+  ) {
+    addNeg('no sweating');
   }
 
   // Cough Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+a\s+)?cough\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+a\s+)?cough\b/i.test(lower) ||
     lower.includes('no cough') || lower.includes('do not have a cough') || lower.includes('don\'t have a cough') ||
     lower.includes('කැස්ස නැත') || lower.includes('කැස්ස නෑ') || (lower.includes('කැස්ස') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('இருமல் இல்லை') || (lower.includes('இருமல்') && lower.includes('இல்லை'))
   ) {
-    if (!negations.includes('no cough')) negations.push('no cough');
+    addNeg('no cough');
   }
 
   // Head Injury Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\b[\s\w,]*\b(?:head\s+injury|injured\s+my\s+head|injury\s+to\s+(?:my\s+)?head)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\b[\s\w,]*\b(?:head\s+injury|injured\s+my\s+head|injury\s+to\s+(?:my\s+)?head)\b/i.test(lower) ||
     lower.includes('not injured my head') || lower.includes('no recent head injury') || lower.includes('no head injury')
   ) {
-    if (!negations.includes('no recent head injury')) negations.push('no recent head injury');
+    addNeg('no recent head injury');
   }
 
   // Numbness Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?numbness\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?numbness\b/i.test(lower) ||
     lower.includes('no numbness')
   ) {
-    if (!negations.includes('no numbness')) negations.push('no numbness');
+    addNeg('no numbness');
+  }
+
+  // Coordinated Negation Scope Engine (Handles "no X or Y", "do not have X or Y", "without X or Y", "no X, Y or Z")
+  const negScopeMatches = lower.matchAll(/\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+([\w\s,]+?)(?=\.|$|;|\bbut\b|\bhowever\b|\bexcept\b)/gi);
+  for (const match of negScopeMatches) {
+    const scopeBody = match[1].trim();
+    if (!scopeBody) continue;
+
+    const items = scopeBody.split(/\s+(?:or|and)\s+|,/).map((s) => s.trim()).filter(Boolean);
+    for (const item of items) {
+      const cleanItem = item.replace(/^(?:a|an|the|my|any|severe)\s+/i, '').trim();
+      if (!cleanItem || cleanItem.length < 3) continue;
+
+      if (cleanItem.includes('fever')) addNeg('no fever');
+      else if (cleanItem.includes('vomit')) addNeg('no vomiting');
+      else if (cleanItem.includes('diarrh')) addNeg('no diarrhea');
+      else if (cleanItem.includes('chest pain')) addNeg('no chest pain');
+      else if (cleanItem.includes('shortness of breath') || cleanItem.includes('breathing')) addNeg('no breathing difficulty');
+      else if (cleanItem.includes('sweating')) addNeg('no sweating');
+      else if (cleanItem.includes('cough')) addNeg('no cough');
+      else if (cleanItem.includes('abdominal pain') || cleanItem.includes('stomach pain') || cleanItem.includes('belly pain')) {
+        addNeg(item.includes('severe') ? 'no severe abdominal pain' : 'no abdominal pain');
+      }
+    }
   }
 
   return negations;
@@ -174,7 +225,7 @@ const extractDurationFromText = (text) => {
 
   // 3. English duration patterns
   if (lower.includes('since yesterday evening') || lower.includes('yesterday evening')) return '1 day';
-  if (lower.includes('since yesterday')) return '1 day';
+  if (lower.includes('since yesterday') || lower.includes('yesterday')) return '1 day';
   if (lower.includes('since morning') || lower.includes('this morning')) return 'since morning';
 
   const hoursMatch = lower.match(/(?:past|last|during\s+the\s+last|for|about)?\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*hours?/i);
@@ -333,16 +384,16 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
   }
 
   // 2. DURATION check
+  const hasSymptomKeyword = /pain|fever|cough|nausea|burp|burn|urinate|urination|discharge|discomfort|ache|hurt|sore|swell|stiff|weak|numb|tingle|rash|bleeding/i.test(lower);
   if (
-    /^(?:for\s+the\s+past|for\s+the\s+last|for|since|during)\s+/i.test(lower) ||
+    (/^(?:for\s+the\s+past|for\s+the\s+last|for|since|during)\s+/i.test(lower) ||
     /^(?:past\s+\d+|last\s+\d+|two\s+days|three\s+days|this\s+morning|yesterday)/i.test(lower) ||
     lower.includes('for the past') ||
     lower.includes('since yesterday') ||
-    lower.includes('since this morning')
+    lower.includes('since this morning')) &&
+    !hasSymptomKeyword
   ) {
-    if (!lower.includes('pain') && !lower.includes('fever') && !lower.includes('cough') && !lower.includes('nausea') && !lower.includes('burp')) {
-      return { role: 'DURATION', value: extractDurationFromText(itemStr) || lower };
-    }
+    return { role: 'DURATION', value: extractDurationFromText(itemStr) || lower };
   }
 
   // 3. PROGRESSION / TREND check
@@ -449,11 +500,14 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
   }
 
   // Joint / Musculoskeletal
-  if (!matchedSymptom && (/\bknee\s+pain\b|\bpain\s+in\s+(?:my\s+)?knee\b|\bknee\s+hurts\b/i.test(lower))) {
-    matchedSymptom = 'knee pain';
+  if (!matchedSymptom && (/\bknee\s+pain\b|\bpain\s+in\s+(?:my\s+)?knee\b|\bknee\s+hurts\b|\bswollen\s+and\s+painful\b/i.test(lower))) {
+    matchedSymptom = fullRawText.toLowerCase().includes('knee') ? 'right knee pain' : 'knee pain';
   }
   if (!matchedSymptom && (/\bankle\s+pain\b|\bpain\s+in\s+(?:my\s+)?ankle\b|\bankle\s+hurts\b/i.test(lower))) {
     matchedSymptom = 'ankle pain';
+  }
+  if (!matchedSymptom && (/\bunstable\b|\binstability\b|\bknee\s+feels\s+unstable\b/i.test(lower))) {
+    matchedSymptom = fullRawText.toLowerCase().includes('knee') ? 'knee instability' : 'joint instability';
   }
   if (!matchedSymptom && (/\bheadache\b|\bhead\s+hurts\b|\bhead\s+ache\b/i.test(lower))) {
     if ((lower.includes('left side') || lower.includes('left-sided')) && lower.includes('throbbing')) {
@@ -486,6 +540,20 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
     matchedSymptom = 'vomiting';
   }
 
+  // Urinary / Genital / Local Discomfort Symptoms
+  if (!matchedSymptom && (/\b(?:burning|painful|discomfort)\s+(?:feeling\s+)?(?:when|with|during)?\s*(?:i\s+)?urinate\b|\b(?:burning|pain)\s+(?:feeling\s+)?(?:when|during|with)\s+urining\b|\b(?:burning|painful)\s+urination\b|\bdysuria\b/i.test(lower))) {
+    matchedSymptom = 'burning feeling when urinating';
+  }
+  if (!matchedSymptom && (/\b(?:unusual\s+)?(?:penile\s+discharge|discharge\s+from\s+(?:my\s+)?penis)\b|\b(?:small\s+amount\s+of\s+)?unusual\s+discharge\b/i.test(lower))) {
+    matchedSymptom = 'unusual penile discharge';
+  }
+  if (!matchedSymptom && (/\bdiscomfort\s+around\s+(?:the\s+)?tip\b|\btip\s+discomfort\b|\bdiscomfort\s+at\s+(?:the\s+)?tip\b/i.test(lower))) {
+    matchedSymptom = 'discomfort around the tip';
+  }
+  if (!matchedSymptom && (/\b(?:excessive\s+)?sweating\b|\bprofuse\s+sweating\b/i.test(lower))) {
+    matchedSymptom = 'sweating';
+  }
+
   // Cough (ONLY if reported as positive symptom)
   if (!matchedSymptom && (/\bcough\b|\bcoughing\b/i.test(lower))) {
     const rawLower = fullRawText.toLowerCase();
@@ -502,8 +570,8 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
   if (!matchedSymptom && (/\bankle\s+swelling\b|\bswollen\s+ankle\b|\bankle\s+is\s+swollen\b/i.test(lower))) {
     matchedSymptom = 'ankle swelling';
   }
-  if (!matchedSymptom && (/\bknee\s+swelling\b|\bswollen\s+knee\b|\bknee\s+is\s+swollen\b|\bswelling\s+in\s+(?:my\s+)?knee\b/i.test(lower))) {
-    matchedSymptom = 'knee swelling';
+  if (!matchedSymptom && (/\bknee\s+swelling\b|\bswollen\s+knee\b|\bknee\s+is\s+swollen\b|\bswelling\s+in\s+(?:my\s+)?knee\b|\bswollen\b|\bswelling\b/i.test(lower))) {
+    matchedSymptom = fullRawText.toLowerCase().includes('knee') ? 'knee swelling' : 'swelling';
   }
 
   if (matchedSymptom) {
@@ -511,7 +579,11 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
   }
 
   // Fallback for clean symptom-like terms
-  if (lower.includes('pain') || lower.includes('hurt') || lower.includes('ache') || lower.includes('swell') || lower.includes('taste') || lower.includes('burp')) {
+  if (
+    lower.includes('pain') || lower.includes('hurt') || lower.includes('ache') || lower.includes('swell') ||
+    lower.includes('taste') || lower.includes('burp') || lower.includes('urinate') || lower.includes('urination') ||
+    lower.includes('discharge') || lower.includes('discomfort') || lower.includes('burning') || lower.includes('sweat')
+  ) {
     return { role: 'POSITIVE_SYMPTOM', value: lower };
   }
 
@@ -529,12 +601,6 @@ const deduplicateAndRefineSymptoms = (symptomArray, contextArray = [], negativeF
   const hasCoughContext = contextText.includes('coughing');
 
   const negText = (Array.isArray(negativeFindingsArray) ? negativeFindingsArray.join(' ') : String(negativeFindingsArray || '')).toLowerCase();
-  const hasNoFever = negText.includes('no fever');
-  const hasNoVomiting = negText.includes('no vomiting');
-  const hasNoDiarrhea = negText.includes('no diarrhea');
-  const hasNoChestPain = negText.includes('no chest pain');
-  const hasNoCough = negText.includes('no cough');
-  const hasNoBreathing = negText.includes('no breathing');
 
   for (const item of symptomArray) {
     if (!item || typeof item !== 'string') continue;
@@ -552,8 +618,12 @@ const deduplicateAndRefineSymptoms = (symptomArray, contextArray = [], negativeF
       if (cleanLower === 'chest pain') return nLower.includes('no chest pain');
       if (cleanLower === 'cough') return nLower.includes('no cough');
       if (cleanLower === 'difficulty breathing' || cleanLower === 'shortness of breath') return nLower.includes('no breathing');
+      if (cleanLower === 'sweating' || cleanLower === 'excessive sweating') return nLower.includes('no sweating');
       if (cleanLower.includes('head injury')) return nLower.includes('no recent head injury') || nLower.includes('no head injury');
       if (cleanLower === 'numbness') return nLower.includes('no numbness');
+      if (cleanLower.includes('abdominal') || cleanLower.includes('stomach') || cleanLower.includes('belly')) {
+        return nLower.includes('no severe abdominal pain') || nLower.includes('no abdominal pain') || nLower.includes('no stomach pain');
+      }
       return nLower === `no ${cleanLower}` || nLower.includes(`no ${cleanLower}`);
     });
     if (isExplicitlyNegated) continue;
@@ -594,6 +664,12 @@ const deduplicateAndRefineSymptoms = (symptomArray, contextArray = [], negativeF
       clean = 'frequent burping';
     } else if (clean.includes('swallow')) {
       clean = 'swallowing difficulty/pain';
+    } else if (clean.includes('urinate') || clean.includes('urination')) {
+      clean = 'burning feeling when urinating';
+    } else if (clean.includes('discharge')) {
+      clean = 'unusual penile discharge';
+    } else if (clean.includes('tip') || clean.includes('discomfort around')) {
+      clean = 'discomfort around the tip';
     } else if (clean.includes('burning') && clean.includes('upper') && (clean.includes('abdom') || clean.includes('stomach') || clean.includes('middle'))) {
       clean = 'burning upper abdominal pain';
     } else if (clean.includes('sharp') && (clean.includes('lower right') || clean.includes('right lower')) && (clean.includes('abdom') || clean.includes('side'))) {
@@ -804,6 +880,67 @@ const extractQuestionSymptomCandidates = (q, primaryLocation = '') => {
 };
 
 /**
+ * Classifies active complaint domain(s) for a canonical clinical case
+ * Domains: musculoskeletal, gastrointestinal, urinary_genital, respiratory, cardiovascular, neurological_heent, dermatological, systemic_general
+ */
+const getComplaintDomains = (canonicalCase = {}) => {
+  const domains = new Set();
+  const allText = [
+    ...(canonicalCase.positiveSymptoms || []),
+    ...(canonicalCase.context || []),
+    ...(canonicalCase.additionalDetails || []),
+    canonicalCase.duration || '',
+  ].join(' ').toLowerCase();
+
+  // Musculoskeletal
+  if (/\b(?:knee|ankle|hip|leg|arm|shoulder|wrist|joint|foot|feet|back|spine|elbow|thigh|muscle|twist|twisted|fell|fall|walking|downstairs|bend|bending|weight|bearing|instability|unstable|locking|stiffness|swelling|sprain|fracture)\b/i.test(allText)) {
+    domains.add('musculoskeletal');
+  }
+
+  // Gastrointestinal
+  if (/\b(?:stomach|abdom|belly|nausea|nauseous|vomit|vomiting|diarrh|spicy|appetite|burp|burping|heartburn|sour\s+taste|acid|reflux|bowel|stool|cramp|epigastric)\b/i.test(allText)) {
+    domains.add('gastrointestinal');
+  }
+
+  // Urinary / Genital
+  if (/\b(?:urining|urinate|urination|urine|penis|penile|discharge|tip|dysuria|prostate|bladder|testic|testicular|genital|flank)\b/i.test(allText)) {
+    domains.add('urinary_genital');
+  }
+
+  // Respiratory
+  if (/\b(?:cough|coughing|breath|breathing|shortness\s+of\s+breath|wheez|sputum|lung|throat|phlegm)\b/i.test(allText)) {
+    domains.add('respiratory');
+  }
+
+  // Cardiovascular
+  if (/\b(?:chest\s+pain|chest\s+tight|palpitations|cardiac|heart)\b/i.test(allText)) {
+    domains.add('cardiovascular');
+  }
+
+  // Neurological / HEENT
+  if (/\b(?:headache|head\s+ache|dizzy|dizziness|vision|light\s+sensitivity|photophobia|confusion|numb|numbness|tingling|seizure|stroke|faint|fainting|ear|eye)\b/i.test(allText)) {
+    domains.add('neurological_heent');
+  }
+
+  // Dermatological
+  if (/\b(?:rash|skin|itching|blister|hives|lesion|spot|spots)\b/i.test(allText)) {
+    domains.add('dermatological');
+  }
+
+  // Systemic / General Safety
+  if (/\b(?:fever|chills|fatigue|weakness|body\s+aches|sweating)\b/i.test(allText)) {
+    domains.add('systemic_general');
+  }
+
+  // Fallback to systemic_general if empty
+  if (domains.size === 0) {
+    domains.add('systemic_general');
+  }
+
+  return domains;
+};
+
+/**
  * Question-Aware Answer Processing:
  * Processes each (Question, Answer) turn to extract symptoms, negative findings, duration, severity, or location inheritance.
  */
@@ -871,18 +1008,30 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       }
     }
 
-    // 1. Duration extraction
+    // 1. Duration extraction & discrepancy handling
     if (
       q.includes('how long') ||
       q.includes('when did') ||
       q.includes('duration') ||
-      ['today', '1 day', '2 days', '3 days', '1 week', '2 weeks', '1-3 days', 'more than 3 days'].includes(a)
+      ['today', '1 day', '2 days', '3 days', '1 week', '2 weeks', '1-3 days', 'more than 3 days', 'about a week'].includes(a)
     ) {
-      if (a.includes('today')) result.duration = 'today';
-      else if (a.includes('yesterday') || a.includes('1 day')) result.duration = '1 day';
-      else if (a.includes('three days') || a.includes('3 days')) result.duration = '3 days';
-      else if (a.includes('week')) result.duration = a;
-      else if (a.length < 30) result.duration = a;
+      let newDur = '';
+      if (a.includes('today')) newDur = 'today';
+      else if (a.includes('yesterday') || a.includes('1 day')) newDur = '1 day';
+      else if (a.includes('three days') || a.includes('3 days')) newDur = '3 days';
+      else if (a.includes('week')) newDur = a;
+      else if (a.length < 30) newDur = a;
+
+      if (newDur) {
+        if (result.duration && result.duration !== 'unspecified' && result.duration !== newDur) {
+          const discMsg = `duration discrepancy: initial report ${result.duration}; later response ${newDur}`;
+          if (!result.additionalDetails.includes(discMsg)) {
+            result.additionalDetails.push(discMsg);
+          }
+        } else {
+          result.duration = newDur;
+        }
+      }
       continue;
     }
 
@@ -947,7 +1096,7 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       continue;
     }
 
-    // 5. Affirmative / Short Answers ("Yes", "Yes, both", "Both", "Only cough", etc.)
+    // 5. Affirmative / Short / Specific Item Answers
     const isBoth = a.includes('both');
     const isOnlyCough = a.includes('only cough');
     const isOnlyNausea = a.includes('only nausea');
@@ -959,6 +1108,23 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       a.includes('there is') ||
       a.includes('i do') ||
       isBoth;
+
+    // Split answer into specific affirmed concepts (e.g. "redness, warmth" -> ["redness", "warmth"])
+    const answerTerms = a.split(/[,;]|\s+and\s+/).map((t) => t.trim()).filter((t) => t.length > 0);
+
+    for (const term of answerTerms) {
+      if (['redness', 'red', 'warmth', 'warm', 'heat'].includes(term)) {
+        if (term.includes('red')) {
+          const sym = loc ? `${loc} redness` : 'redness';
+          if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
+        }
+        if (term.includes('warm') || term.includes('heat')) {
+          const sym = loc ? `${loc} warmth` : 'warmth';
+          if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
+        }
+        continue;
+      }
+    }
 
     if (isBoth) {
       qCandidates.forEach((cand) => {
@@ -1112,5 +1278,6 @@ module.exports = {
   extractNegationsFromText,
   classifyClauseRole,
   deduplicateAndRefineSymptoms,
+  getComplaintDomains,
   REDUNDANT_PHRASES,
 };
