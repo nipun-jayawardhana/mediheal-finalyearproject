@@ -226,6 +226,7 @@ export const ta: Record<TranslationKeys, string> = {
 
   // Language Selection Screen
   chooseLanguage: 'உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்',
+  selectLanguageTitle: 'மொழியைத் தேர்ந்தெடுக்கவும்',
   languageSub: 'MediHeal க்கான உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்.',
   languageSaved: 'மொழி சேமிக்கப்பட்டது',
 

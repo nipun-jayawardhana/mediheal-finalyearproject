@@ -226,6 +226,7 @@ export const si: Record<TranslationKeys, string> = {
 
   // Language Selection Screen
   chooseLanguage: 'ඔබේ භාෂාව තෝරන්න',
+  selectLanguageTitle: 'භාෂාව තෝරන්න',
   languageSub: 'MediHeal සඳහා ඔබ කැමති භාෂාව තෝරන්න. ඔබට මෙය ඕනෑම වේලාවක වෙනස් කළ හැක.',
   languageSaved: 'භාෂාව සුරකින ලදී',
 

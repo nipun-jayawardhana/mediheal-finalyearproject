@@ -224,6 +224,7 @@ export const en = {
 
   // Language Selection Screen
   chooseLanguage: 'Choose Your Language',
+  selectLanguageTitle: 'Choose Language',
   languageSub: 'Select your preferred language for MediHeal. You can change this at any time in settings.',
   languageSaved: 'Language saved',
 

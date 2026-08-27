@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,15 +22,26 @@ import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
 import { useLanguage } from '../../context/LanguageContext';
+import { SUPPORTED_LANGUAGES, LanguageCode } from '../../utils/languageStorage';
 
 export default function PatientHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { language, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
 
   const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [langModalVisible, setLangModalVisible] = useState(false);
+
+  const currentLangOption =
+    SUPPORTED_LANGUAGES.find((l) => l.code === language) || SUPPORTED_LANGUAGES[0];
+  const currentLanguageNativeName = currentLangOption.nativeName;
+
+  const handleSelectLanguage = async (code: LanguageCode) => {
+    setLangModalVisible(false);
+    await setLanguage(code);
+  };
 
   const { isSpeaking, speak, stopSpeech } = useVoice({ language });
 
@@ -152,21 +165,111 @@ export default function PatientHomeScreen() {
           onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
           accessibilityRole="button"
           accessibilityLabel="Open settings"
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <Text style={styles.headerIcon}>☰</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>{t('appTitle')}</Text>
+        <Text style={styles.headerTitle} pointerEvents="none">
+          {t('appTitle')}
+        </Text>
 
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
-          accessibilityRole="button"
-          accessibilityLabel="View profile"
-        >
-          <Text style={styles.headerIcon}>👤</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightContainer}>
+          <TouchableOpacity
+            style={styles.langSelectorPill}
+            onPress={() => { stopSpeech(); setLangModalVisible(true); }}
+            accessibilityRole="button"
+            accessibilityLabel={`Change language. Current language: ${currentLangOption.name}`}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.langGlobeIcon}>🌐</Text>
+            <Text style={styles.langPillText}>{currentLanguageNativeName}</Text>
+            <Text style={styles.langChevron}>▼</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerIconBtn}
+            onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
+            accessibilityRole="button"
+            accessibilityLabel="View profile"
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Text style={styles.headerIcon}>👤</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Elderly-Friendly Language Selection Modal */}
+      <Modal
+        visible={langModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setLangModalVisible(false)}
+        >
+          <Pressable
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('selectLanguageTitle')}</Text>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setLangModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close language selection"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalOptionsList}>
+              {SUPPORTED_LANGUAGES.map((item) => {
+                const isSelected = language === item.code;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectLanguage(item.code)}
+                    style={[
+                      styles.langOptionCard,
+                      isSelected && styles.langOptionCardSelected,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${item.nativeName}`}
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <View style={styles.langOptionLeft}>
+                      <Text style={styles.langOptionFlag}>{item.flag}</Text>
+                      <View style={styles.langOptionTextCol}>
+                        <Text
+                          style={[
+                            styles.langOptionNative,
+                            isSelected && styles.langOptionTextSelected,
+                          ]}
+                        >
+                          {item.nativeName}
+                        </Text>
+                        <Text style={styles.langOptionEnglish}>{item.name}</Text>
+                      </View>
+                    </View>
+                    {isSelected ? (
+                      <View style={styles.checkBadge}>
+                        <Text style={styles.checkBadgeText}>✓</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.content}>
         {errorMsg ? (
@@ -350,11 +453,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    minHeight: 56,
+    position: 'relative',
   },
   headerTitle: {
     ...typography.header,
     color: colors.primary,
     fontWeight: '800',
+    fontSize: 22,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    zIndex: 0,
   },
   headerIconBtn: {
     width: 44,
@@ -365,9 +476,138 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
+    zIndex: 1,
   },
   headerIcon: {
     fontSize: 22,
+  },
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    zIndex: 1,
+  },
+  langSelectorPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.pill,
+    height: 44,
+    paddingHorizontal: 12,
+    gap: 6,
+    ...shadows.card,
+  },
+  langGlobeIcon: {
+    fontSize: 18,
+  },
+  langPillText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  langChevron: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginLeft: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    ...shadows.card,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    ...typography.subheader,
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  modalOptionsList: {
+    gap: spacing.sm,
+  },
+  langOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.border,
+    minHeight: 60,
+  },
+  langOptionCardSelected: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  langOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  langOptionFlag: {
+    fontSize: 28,
+  },
+  langOptionTextCol: {},
+  langOptionNative: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  langOptionEnglish: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  langOptionTextSelected: {
+    color: colors.primaryDark,
+  },
+  checkBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkBadgeText: {
+    color: colors.textWhite,
+    fontSize: 16,
+    fontWeight: '800',
   },
   content: {
     paddingVertical: spacing.md,
