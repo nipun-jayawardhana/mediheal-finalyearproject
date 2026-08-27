@@ -477,24 +477,31 @@ export default function SymptomCheckerScreen() {
         {/* STEP MODE 1: INITIAL SYMPTOM ENTRY */}
         {stepMode === 'initial' && (
           <View>
-            {/* Header Bot Greeting Bubble matching visual reference */}
-            <View style={styles.chatBubbleBot}>
-              <View style={styles.botTextCol}>
-                <Text style={styles.botBubbleTitle}>{t('whereDoesItHurt')}</Text>
-                <Text style={styles.botBubbleSub}>{t('tapMicOrType')}</Text>
-              </View>
+            {/* Redesigned Top Blue Hero Card for Voice & Symptom Input */}
+            <View style={styles.voiceHeroCard}>
+              <Text style={styles.voiceHeroTitle}>{t('whereDoesItHurt')}</Text>
+              <Text style={styles.voiceHeroSubtitle}>{t('tapMicOrType')}</Text>
 
               <TouchableOpacity
-                style={[
-                  styles.headerMicBtn,
-                  isListening && styles.headerMicBtnActive,
-                ]}
+                style={styles.heroMicOuterRing}
                 onPress={handleToggleMic}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={isListening ? 'Stop listening' : 'Tap to speak symptoms'}
+                accessibilityLabel={
+                  isListening
+                    ? 'Stop listening'
+                    : 'Tap microphone to speak your symptoms'
+                }
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Text style={styles.headerMicIcon}>{isListening ? '⏹️' : '🎙️'}</Text>
+                <View
+                  style={[
+                    styles.heroMicButton,
+                    isListening && styles.heroMicButtonActive,
+                  ]}
+                >
+                  <Text style={styles.heroMicIcon}>{isListening ? '⏹️' : '🎙️'}</Text>
+                </View>
               </TouchableOpacity>
             </View>
 
@@ -883,6 +890,62 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#DBEAFE',
     marginTop: 2,
+  },
+  voiceHeroCard: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  voiceHeroTitle: {
+    ...typography.subheader,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  voiceHeroSubtitle: {
+    ...typography.caption,
+    fontSize: 14,
+    color: '#DBEAFE',
+    textAlign: 'center',
+    marginBottom: spacing.md + 4,
+    paddingHorizontal: spacing.sm,
+  },
+  heroMicOuterRing: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: spacing.xs,
+  },
+  heroMicButton: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  heroMicButtonActive: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 2,
+    borderColor: colors.danger,
+  },
+  heroMicIcon: {
+    fontSize: 36,
   },
   headerMicBtn: {
     width: 48,
