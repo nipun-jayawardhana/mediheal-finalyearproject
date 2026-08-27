@@ -310,31 +310,76 @@ JSON Output:`;
         }
 
         if (response.status === 429) {
-          console.warn(`${tag} HTTP 429 — provider capacity/rate limit (after ${attemptDuration}ms)`);
+          const remainingModelBudget = Math.max(0, deadlineAt - Date.now());
+          console.warn(`${tag} HTTP status: 429`);
+          console.warn(`${tag} Provider: featherless-ai`);
+          console.warn(`${tag} Error category: PROVIDER_CAPACITY_EXCEEDED`);
+          console.warn(`${tag} Model elapsed: ${attemptDuration}ms`);
+          console.warn(`${tag} Configured model deadline: ${TOTAL_AI_DEADLINE_MS}ms`);
+          console.warn(`${tag} Remaining model budget: ${remainingModelBudget}ms`);
+
           lastError = new Error(`Provider rate limited (HTTP 429)`);
-          if (attemptDuration < 5000) {
+
+          const FAST_FAILURE_THRESHOLD_MS = 5000;
+          if (attemptDuration < FAST_FAILURE_THRESHOLD_MS && remainingModelBudget >= 6000) {
+            console.log(`${tag} Retrying rate limit (attempt duration ${attemptDuration}ms < ${FAST_FAILURE_THRESHOLD_MS}ms)`);
             continue;
           } else {
+            if (attemptDuration >= FAST_FAILURE_THRESHOLD_MS) {
+              console.warn(`${tag} Retry skipped — transient failure occurred too late for safe retry (attempt duration: ${attemptDuration}ms >= ${FAST_FAILURE_THRESHOLD_MS}ms limit)`);
+            } else {
+              console.warn(`${tag} Retry skipped — remaining model budget below minimum retry budget (remaining: ${remainingModelBudget}ms)`);
+            }
             break;
           }
         }
 
         if (response.status === 502) {
-          console.warn(`${tag} HTTP 502 — upstream provider error (after ${attemptDuration}ms)`);
+          const remainingModelBudget = Math.max(0, deadlineAt - Date.now());
+          console.warn(`${tag} HTTP status: 502`);
+          console.warn(`${tag} Provider: featherless-ai`);
+          console.warn(`${tag} Error category: PROVIDER_BAD_GATEWAY`);
+          console.warn(`${tag} Model elapsed: ${attemptDuration}ms`);
+          console.warn(`${tag} Configured model deadline: ${TOTAL_AI_DEADLINE_MS}ms`);
+          console.warn(`${tag} Remaining model budget: ${remainingModelBudget}ms`);
+
           lastError = new Error(`Provider gateway error (HTTP 502)`);
-          if (attemptDuration < 5000) {
+
+          const FAST_FAILURE_THRESHOLD_MS = 5000;
+          if (attemptDuration < FAST_FAILURE_THRESHOLD_MS && remainingModelBudget >= 6000) {
+            console.log(`${tag} Retrying gateway error (attempt duration ${attemptDuration}ms < ${FAST_FAILURE_THRESHOLD_MS}ms)`);
             continue;
           } else {
+            if (attemptDuration >= FAST_FAILURE_THRESHOLD_MS) {
+              console.warn(`${tag} Retry skipped — transient failure occurred too late for safe retry (attempt duration: ${attemptDuration}ms >= ${FAST_FAILURE_THRESHOLD_MS}ms limit)`);
+            } else {
+              console.warn(`${tag} Retry skipped — remaining model budget below minimum retry budget (remaining: ${remainingModelBudget}ms)`);
+            }
             break;
           }
         }
 
         if (response.status === 503) {
-          console.warn(`${tag} HTTP 503 — provider temporarily unavailable (after ${attemptDuration}ms)`);
+          const remainingModelBudget = Math.max(0, deadlineAt - Date.now());
+          console.warn(`${tag} HTTP status: 503`);
+          console.warn(`${tag} Provider: featherless-ai`);
+          console.warn(`${tag} Error category: PROVIDER_TEMPORARILY_UNAVAILABLE`);
+          console.warn(`${tag} Model elapsed: ${attemptDuration}ms`);
+          console.warn(`${tag} Configured model deadline: ${TOTAL_AI_DEADLINE_MS}ms`);
+          console.warn(`${tag} Remaining model budget: ${remainingModelBudget}ms`);
+
           lastError = new Error(`Provider temporarily unavailable (HTTP 503)`);
-          if (attemptDuration < 5000) {
+
+          const FAST_FAILURE_THRESHOLD_MS = 5000;
+          if (attemptDuration < FAST_FAILURE_THRESHOLD_MS && remainingModelBudget >= 6000) {
+            console.log(`${tag} Retrying transient provider error (attempt duration ${attemptDuration}ms < ${FAST_FAILURE_THRESHOLD_MS}ms)`);
             continue;
           } else {
+            if (attemptDuration >= FAST_FAILURE_THRESHOLD_MS) {
+              console.warn(`${tag} Retry skipped — transient failure occurred too late for safe retry (attempt duration: ${attemptDuration}ms >= ${FAST_FAILURE_THRESHOLD_MS}ms limit)`);
+            } else {
+              console.warn(`${tag} Retry skipped — remaining model budget below minimum retry budget (remaining: ${remainingModelBudget}ms)`);
+            }
             break;
           }
         }
@@ -458,9 +503,17 @@ JSON Output:`;
   }
 
   const finalElapsed = Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt);
-  console.warn(`${tag} Global deadline reached`);
-  console.warn(`${tag} Total model elapsed: ${finalElapsed}ms`);
-  throw lastError || new Error('Failed to complete OpenBioLLM inference within deadline');
+  const remainingModelBudget = Math.max(0, TOTAL_AI_DEADLINE_MS - finalElapsed);
+  const wasDeadlineReached = globalController.signal.aborted || finalElapsed >= (TOTAL_AI_DEADLINE_MS - SAFETY_MARGIN_MS);
+
+  if (wasDeadlineReached) {
+    console.warn(`${tag} Global deadline reached (${finalElapsed}ms >= ${TOTAL_AI_DEADLINE_MS}ms)`);
+  } else {
+    console.warn(`${tag} Primary model execution terminated before global deadline`);
+    console.warn(`${tag} Model elapsed: ${finalElapsed}ms | Configured model deadline: ${TOTAL_AI_DEADLINE_MS}ms | Remaining model budget: ${remainingModelBudget}ms`);
+    console.warn(`${tag} Termination reason: ${lastError ? lastError.message : 'Primary model attempt failed'}`);
+  }
+  throw lastError || new Error('Failed to complete OpenBioLLM inference');
 };
 
 module.exports = {

@@ -499,10 +499,10 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
     matchedSymptom = 'difficulty breathing';
   }
 
-  if (!matchedSymptom && (/\bankle\s+swelling\b|\bswollen\s+ankle\b/i.test(lower))) {
+  if (!matchedSymptom && (/\bankle\s+swelling\b|\bswollen\s+ankle\b|\bankle\s+is\s+swollen\b/i.test(lower))) {
     matchedSymptom = 'ankle swelling';
   }
-  if (!matchedSymptom && (/\bknee\s+swelling\b|\bswollen\s+knee\b/i.test(lower))) {
+  if (!matchedSymptom && (/\bknee\s+swelling\b|\bswollen\s+knee\b|\bknee\s+is\s+swollen\b|\bswelling\s+in\s+(?:my\s+)?knee\b/i.test(lower))) {
     matchedSymptom = 'knee swelling';
   }
 
