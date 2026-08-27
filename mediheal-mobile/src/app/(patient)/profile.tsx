@@ -13,16 +13,20 @@ import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
 import { getPatientProfileApi } from '../../services/patientService';
 import { PatientProfile } from '../../types/patient';
-import { getStoredLanguage, SUPPORTED_LANGUAGES } from '../../utils/languageStorage';
+import { SUPPORTED_LANGUAGES } from '../../utils/languageStorage';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function PatientProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { language, t } = useLanguage();
 
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [currentLangName, setCurrentLangName] = useState('English');
+
+  const currentLangObj = SUPPORTED_LANGUAGES.find((l) => l.code === language);
+  const currentLangName = currentLangObj ? `${currentLangObj.flag} ${currentLangObj.nativeName} (${currentLangObj.name})` : 'English';
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -45,12 +49,6 @@ export default function PatientProfileScreen() {
 
   useEffect(() => {
     fetchProfile();
-    const loadLang = async () => {
-      const code = await getStoredLanguage();
-      const name = SUPPORTED_LANGUAGES.find((l) => l.code === code)?.name || 'English';
-      setCurrentLangName(name);
-    };
-    loadLang();
   }, [fetchProfile]);
 
   const handleSignOut = async () => {
@@ -65,8 +63,8 @@ export default function PatientProfileScreen() {
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
       <AppHeader
-        title="Profile & Settings"
-        subtitle="Manage your account and preferences"
+        title={t('profileSettings')}
+        subtitle={t('manageAccountPreferences')}
         onBackPress={() => router.back()}
       />
 
@@ -77,21 +75,21 @@ export default function PatientProfileScreen() {
 
         {/* 1. Account Details Card */}
         <InfoCard
-          title="Account Details"
-          badge={<StatusBadge status="active" label="PATIENT ACCOUNT" />}
+          title={t('accountDetails')}
+          badge={<StatusBadge status="active" label={t('patientAccount')} />}
         >
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Full Name</Text>
+            <Text style={styles.detailLabel}>{t('fullName')}</Text>
             <Text style={styles.detailValue}>{user?.fullName || 'N/A'}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Email Address</Text>
+            <Text style={styles.detailLabel}>{t('emailAddress')}</Text>
             <Text style={styles.detailValue}>{user?.email || 'N/A'}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Phone Number</Text>
+            <Text style={styles.detailLabel}>{t('phoneNumber')}</Text>
             <Text style={styles.detailValue}>{user?.phoneNumber || 'N/A'}</Text>
           </View>
         </InfoCard>
@@ -100,45 +98,47 @@ export default function PatientProfileScreen() {
         {profile?.caregiverLinkCode ? (
           <CaregiverLinkCodeCard
             code={profile.caregiverLinkCode}
-            title="MY PATIENT LINKING CODE"
+            title={t('myPatientLinkingCode')}
           />
         ) : null}
 
         {/* 3. Patient Health Details Card */}
         {profile && (
           <InfoCard
-            title="Health Details"
-            subtitle="Your medical background"
+            title={t('healthDetails')}
+            subtitle={t('medicalBackground')}
           >
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Date of Birth</Text>
+              <Text style={styles.detailLabel}>{t('dateOfBirth')}</Text>
               <Text style={styles.detailValue}>{profile.dateOfBirth}</Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Gender</Text>
-              <Text style={styles.detailValue}>{profile.gender.toUpperCase()}</Text>
+              <Text style={styles.detailLabel}>{t('gender')}</Text>
+              <Text style={styles.detailValue}>
+                {profile.gender === 'male' ? t('male') : profile.gender === 'female' ? t('female') : profile.gender.toUpperCase()}
+              </Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Blood Group</Text>
+              <Text style={styles.detailLabel}>{t('bloodGroup')}</Text>
               <Text style={styles.detailValueBold}>{profile.bloodGroup}</Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Home Address</Text>
+              <Text style={styles.detailLabel}>{t('homeAddress')}</Text>
               <Text style={styles.detailValue}>{profile.address}</Text>
             </View>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Emergency Contact</Text>
+              <Text style={styles.detailLabel}>{t('emergencyContact')}</Text>
               <Text style={styles.detailValue}>
                 {profile.emergencyContactName} ({profile.emergencyContactPhone})
               </Text>
             </View>
 
             {/* Medical Conditions */}
-            <Text style={styles.chipSectionTitle}>Medical Conditions</Text>
+            <Text style={styles.chipSectionTitle}>{t('medicalConditions')}</Text>
             <View style={styles.chipWrap}>
               {profile.medicalConditions && profile.medicalConditions.length > 0 ? (
                 profile.medicalConditions.map((cond, idx) => (
@@ -147,12 +147,12 @@ export default function PatientProfileScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noneText}>None recorded</Text>
+                <Text style={styles.noneText}>{t('noneRecorded')}</Text>
               )}
             </View>
 
             {/* Allergies */}
-            <Text style={styles.chipSectionTitle}>Allergies</Text>
+            <Text style={styles.chipSectionTitle}>{t('allergies')}</Text>
             <View style={styles.chipWrap}>
               {profile.allergies && profile.allergies.length > 0 ? (
                 profile.allergies.map((alg, idx) => (
@@ -161,12 +161,12 @@ export default function PatientProfileScreen() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.noneText}>None recorded</Text>
+                <Text style={styles.noneText}>{t('noneRecorded')}</Text>
               )}
             </View>
 
             <AppButton
-              title="Edit Profile"
+              title={t('editProfile')}
               onPress={() => router.push('/(patient)/edit-profile')}
               variant="outline"
               style={styles.editBtn}
@@ -182,8 +182,8 @@ export default function PatientProfileScreen() {
         >
           <Text style={styles.langSettingIcon}>🔔</Text>
           <View style={styles.langTextCol}>
-            <Text style={styles.langTitle}>Medication Reminders</Text>
-            <Text style={styles.langSub}>Manage local schedule dose notifications</Text>
+            <Text style={styles.langTitle}>{t('medicationReminders')}</Text>
+            <Text style={styles.langSub}>{t('manageDoseNotifications')}</Text>
           </View>
           <Text style={styles.arrow}>→</Text>
         </TouchableOpacity>
@@ -196,16 +196,15 @@ export default function PatientProfileScreen() {
         >
           <Text style={styles.langSettingIcon}>🌐</Text>
           <View style={styles.langTextCol}>
-            <Text style={styles.langTitle}>Language Selection</Text>
-
-            <Text style={styles.langSub}>Current: {currentLangName}</Text>
+            <Text style={styles.langTitle}>{t('languageSelection')}</Text>
+            <Text style={styles.langSub}>{t('currentLanguage')}: {currentLangName}</Text>
           </View>
           <Text style={styles.arrow}>→</Text>
         </TouchableOpacity>
 
-        {/* 5. Sign Out Button */}
+        {/* 6. Sign Out Button */}
         <AppButton
-          title="Sign Out"
+          title={t('signOut')}
           onPress={handleSignOut}
           variant="danger"
           style={styles.signOutBtn}

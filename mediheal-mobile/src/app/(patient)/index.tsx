@@ -19,17 +19,18 @@ import { PatientDashboardData } from '../../types/patient';
 import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function PatientHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
+  const { language, t } = useLanguage();
 
   const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const { isSpeaking, speak, stopSpeech } = useVoice({ language: userLang });
+  const { isSpeaking, speak, stopSpeech } = useVoice({ language });
 
   const fetchDashboard = useCallback(async (showLoading = false) => {
     if (showLoading) {
@@ -140,7 +141,7 @@ export default function PatientHomeScreen() {
     return <LoadingView message="Loading your MediHeal dashboard..." />;
   }
 
-  const patientName = user?.fullName ? user.fullName.split(' ')[0] : 'Saman';
+  const patientName = user?.fullName ? user.fullName.split(' ')[0] : 'Patient';
 
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
@@ -155,7 +156,7 @@ export default function PatientHomeScreen() {
           <Text style={styles.headerIcon}>☰</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>MediHeal</Text>
+        <Text style={styles.headerTitle}>{t('appTitle')}</Text>
 
         <TouchableOpacity
           style={styles.headerIconBtn}
@@ -178,27 +179,27 @@ export default function PatientHomeScreen() {
           activeOpacity={0.8}
           onPress={handleReadDashboard}
           accessibilityRole="button"
-          accessibilityLabel={isSpeaking ? 'Stop reading dashboard' : 'Read My Dashboard aloud'}
+          accessibilityLabel={isSpeaking ? t('tapToStopAudio') : t('readDashboardVoice')}
         >
           <Text style={styles.speakerIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
           <View style={styles.voiceTextCol}>
             <Text style={styles.voiceTitle}>
-              {isSpeaking ? 'Reading Dashboard Aloud...' : 'Voice Guidance — Read My Dashboard'}
+              {isSpeaking ? t('readDashboardSpeaking') : t('readDashboardVoice')}
             </Text>
             <Text style={styles.voiceSub}>
-              {isSpeaking ? 'Tap to Stop Audio' : 'Tap to hear your appointment & medication summary'}
+              {isSpeaking ? t('tapToStopAudio') : t('tapToReadDashboard')}
             </Text>
           </View>
           <View style={styles.audioBadge}>
-            <Text style={styles.audioBadgeText}>{isSpeaking ? 'STOP' : 'READ'}</Text>
+            <Text style={styles.audioBadgeText}>{isSpeaking ? t('stop') : t('read')}</Text>
           </View>
         </TouchableOpacity>
 
         {/* Greeting */}
         <View style={styles.greetingBox}>
-          <Text style={styles.greetingTitle}>Good Day, {patientName}</Text>
+          <Text style={styles.greetingTitle}>{t('goodDay')}, {patientName}</Text>
           <Text style={styles.greetingSub}>
-            Tap a large button below or use your voice to get help.
+            {t('howCanWeHelpDashboard')}
           </Text>
         </View>
 
@@ -215,10 +216,9 @@ export default function PatientHomeScreen() {
               });
             }}
           >
-            <StatusBadge status="emergency" label="ACTIVE EMERGENCY SOS" />
+            <StatusBadge status="emergency" label={t('emergencySos')} />
             <Text style={styles.sosAlertText}>
-              An emergency alert triggered on{' '}
-              {new Date(dashboardData.activeEmergencyAlert.createdAt).toLocaleTimeString()} is currently active. Tap to view or cancel.
+              {t('activeEmergencyBanner')}
             </Text>
           </TouchableOpacity>
         )}
@@ -234,7 +234,7 @@ export default function PatientHomeScreen() {
             <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
               <Text style={styles.actionIconText}>🛡️</Text>
             </View>
-            <Text style={styles.actionTitle}>Check Symptoms</Text>
+            <Text style={styles.actionTitle}>{t('checkSymptoms')}</Text>
           </TouchableOpacity>
 
           {/* Doctor */}
@@ -246,7 +246,7 @@ export default function PatientHomeScreen() {
             <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
               <Text style={styles.actionIconText}>🩺</Text>
             </View>
-            <Text style={styles.actionTitle}>Doctor</Text>
+            <Text style={styles.actionTitle}>{t('doctor')}</Text>
           </TouchableOpacity>
 
           {/* Medications */}
@@ -258,7 +258,7 @@ export default function PatientHomeScreen() {
             <View style={[styles.actionIconCircle, { backgroundColor: colors.success }]}>
               <Text style={styles.actionIconText}>💊</Text>
             </View>
-            <Text style={styles.actionTitle}>Medications</Text>
+            <Text style={styles.actionTitle}>{t('medications')}</Text>
           </TouchableOpacity>
 
           {/* EMERGENCY SOS */}
@@ -270,7 +270,7 @@ export default function PatientHomeScreen() {
             <View style={styles.sosIconCircle}>
               <Text style={styles.sosIconText}>🚨</Text>
             </View>
-            <Text style={styles.sosTitle}>EMERGENCY SOS</Text>
+            <Text style={styles.sosTitle}>{t('emergencySos')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -282,8 +282,8 @@ export default function PatientHomeScreen() {
         >
           <Text style={styles.appointmentsIcon}>📅</Text>
           <View style={styles.appointmentsTextCol}>
-            <Text style={styles.appointmentsTitle}>My Appointments & Bookings</Text>
-            <Text style={styles.appointmentsSub}>View upcoming consultations & booking status</Text>
+            <Text style={styles.appointmentsTitle}>{t('myAppointmentsBookings')}</Text>
+            <Text style={styles.appointmentsSub}>{t('viewUpcomingBookings')}</Text>
           </View>
           <Text style={styles.appointmentsArrow}>→</Text>
         </TouchableOpacity>
@@ -296,8 +296,8 @@ export default function PatientHomeScreen() {
         >
           <Text style={styles.appointmentsIcon}>📑</Text>
           <View style={styles.appointmentsTextCol}>
-            <Text style={styles.appointmentsTitle}>Consultation History</Text>
-            <Text style={styles.appointmentsSub}>View doctor notes, diagnoses & prescriptions</Text>
+            <Text style={styles.appointmentsTitle}>{t('consultationHistory')}</Text>
+            <Text style={styles.appointmentsSub}>{t('viewDoctorNotes')}</Text>
           </View>
           <Text style={styles.appointmentsArrow}>→</Text>
         </TouchableOpacity>
@@ -310,8 +310,8 @@ export default function PatientHomeScreen() {
         >
           <Text style={styles.appointmentsIcon}>💬</Text>
           <View style={styles.appointmentsTextCol}>
-            <Text style={styles.appointmentsTitle}>Community Health Forum</Text>
-            <Text style={styles.appointmentsSub}>Ask questions, discuss topics & share support</Text>
+            <Text style={styles.appointmentsTitle}>{t('communityHealthForum')}</Text>
+            <Text style={styles.appointmentsSub}>{t('communityForumSub')}</Text>
           </View>
           <Text style={styles.appointmentsArrow}>→</Text>
         </TouchableOpacity>
@@ -325,13 +325,13 @@ export default function PatientHomeScreen() {
           <View style={styles.previewHeaderRow}>
             <Text style={styles.previewIcon}>⏰</Text>
             <View style={styles.previewTextCol}>
-              <Text style={styles.previewTitle}>Next Scheduled Medication</Text>
+              <Text style={styles.previewTitle}>{t('nextScheduledMedication')}</Text>
               {dashboardData?.medications && dashboardData.medications.length > 0 ? (
                 <Text style={styles.previewSub}>
                   {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || 'Scheduled'})
                 </Text>
               ) : (
-                <Text style={styles.previewSub}>No active medications scheduled</Text>
+                <Text style={styles.previewSub}>{t('noActiveMedications')}</Text>
               )}
             </View>
           </View>

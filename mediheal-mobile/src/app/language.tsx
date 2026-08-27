@@ -108,7 +108,7 @@ export default function LanguageSelectionScreen() {
 
         <View style={styles.footer}>
           <AppButton
-            title="Done"
+            title={t('done')}
             onPress={() => router.back()}
             loading={saving}
             style={styles.doneBtn}

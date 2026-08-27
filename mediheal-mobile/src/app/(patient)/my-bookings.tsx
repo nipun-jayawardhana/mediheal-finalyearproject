@@ -13,8 +13,11 @@ import { getMyConsultations } from '../../services/consultationService';
 import { Appointment } from '../../types/appointment';
 import { Consultation } from '../../types/consultation';
 
+import { useLanguage } from '../../context/LanguageContext';
+
 export default function MyBookingsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [consultationMap, setConsultationMap] = useState<Record<string, string>>({});
@@ -71,12 +74,12 @@ export default function MyBookingsScreen() {
       : `Dr. ${doctorNameRaw}`;
 
     Alert.alert(
-      'Cancel Appointment',
+      t('cancelAppointmentConfirm'),
       `Are you sure you want to cancel your appointment with ${doctorName} on ${appointment.timeSlot}?`,
       [
-        { text: 'Keep Appointment', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Cancel Appointment',
+          text: t('yesCancel'),
           style: 'destructive',
           onPress: () => performCancellation(appointment._id),
         },
@@ -89,7 +92,7 @@ export default function MyBookingsScreen() {
     try {
       const res = await cancelAppointment(appointmentId, 'Cancelled by patient via mobile app');
       if (res && res.success) {
-        Alert.alert('Appointment Cancelled', 'Your appointment has been cancelled successfully.');
+        Alert.alert(t('cancelAppointment'), 'Your appointment has been cancelled successfully.');
         setAppointments((prev) =>
           prev.map((app) =>
             app._id === appointmentId
@@ -116,7 +119,7 @@ export default function MyBookingsScreen() {
       });
     } else {
       Alert.alert(
-        'Consultation Summary',
+        t('consultationSummary'),
         'No detailed consultation notes have been recorded for this appointment yet.'
       );
     }
@@ -138,8 +141,8 @@ export default function MyBookingsScreen() {
   return (
     <ScreenContainer backgroundColor={colors.background}>
       <AppHeader
-        title="My Bookings"
-        subtitle="Your Doctor Appointments"
+        title={t('myBookingsTitle')}
+        subtitle={t('manageAppointments')}
         onBackPress={() => router.back()}
       />
 
@@ -151,9 +154,9 @@ export default function MyBookingsScreen() {
         {!errorMsg && isEmpty && (
           <EmptyState
             icon="📅"
-            title="You Don't Have Any Appointments Yet"
-            description="Book consultations with registered doctors and specialists."
-            actionText="Find a Doctor"
+            title={t('noBookingsFound')}
+            description={t('noBookingsDesc')}
+            actionText={t('findDoctor')}
             onAction={() => router.push('/(patient)/specialists' as any)}
           />
         )}
@@ -169,7 +172,7 @@ export default function MyBookingsScreen() {
                 {upcomingAppointments.length > 0 && (
                   <View style={styles.sectionContainer}>
                     <Text style={styles.sectionTitle}>
-                      Upcoming Appointments ({upcomingAppointments.length})
+                      {t('upcoming')} ({upcomingAppointments.length})
                     </Text>
                     {upcomingAppointments.map((app) => (
                       <AppointmentCard
@@ -186,7 +189,7 @@ export default function MyBookingsScreen() {
                 {completedAppointments.length > 0 && (
                   <View style={styles.sectionContainer}>
                     <Text style={styles.sectionTitle}>
-                      Completed Consultations ({completedAppointments.length})
+                      {t('completed')} ({completedAppointments.length})
                     </Text>
                     {completedAppointments.map((app) => (
                       <AppointmentCard
@@ -202,7 +205,7 @@ export default function MyBookingsScreen() {
                 {cancelledAppointments.length > 0 && (
                   <View style={styles.sectionContainer}>
                     <Text style={styles.sectionTitle}>
-                      Cancelled Appointments ({cancelledAppointments.length})
+                      {t('cancelled')} ({cancelledAppointments.length})
                     </Text>
                     {cancelledAppointments.map((app) => (
                       <AppointmentCard key={app._id} appointment={app} />

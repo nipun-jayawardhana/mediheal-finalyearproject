@@ -8,9 +8,11 @@ import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getConsultationById } from '../../services/consultationService';
 import { Consultation } from '../../types/consultation';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function ConsultationSummaryScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
@@ -52,7 +54,7 @@ export default function ConsultationSummaryScreen() {
   if (errorMsg || !consultation) {
     return (
       <ScreenContainer backgroundColor={colors.background}>
-        <AppHeader title="Consultation Summary" onBackPress={() => router.back()} />
+        <AppHeader title={t('consultationSummary')} onBackPress={() => router.back()} />
         <ErrorView
           message={errorMsg || 'Consultation details unavailable.'}
           onRetry={fetchConsultation}
@@ -96,7 +98,7 @@ export default function ConsultationSummaryScreen() {
 
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
-      <AppHeader title="Consultation Summary" onBackPress={() => router.back()} />
+      <AppHeader title={t('consultationSummary')} onBackPress={() => router.back()} />
 
       <View style={styles.container}>
         {/* Doctor Identity Header Card */}

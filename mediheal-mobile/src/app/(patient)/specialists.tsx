@@ -10,9 +10,12 @@ import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
 import { getDoctors } from '../../services/doctorService';
 import { DoctorProfile } from '../../types/doctor';
+import { useLanguage } from '../../context/LanguageContext';
+import { getSpecializationTranslationKey } from '../../utils/displayMappers';
 
 export default function SpecialistListScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { specialization: initialSpecialization } = useLocalSearchParams<{
     specialization?: string;
   }>();
@@ -29,6 +32,7 @@ export default function SpecialistListScreen() {
     setErrorMsg('');
 
     try {
+      // CANONICAL BACKEND PARAMETER PRESERVED IN ENGLISH
       const queryParams = selectedSpecialization
         ? { specialization: selectedSpecialization }
         : undefined;
@@ -65,11 +69,21 @@ export default function SpecialistListScreen() {
     return <LoadingView message="Finding specialists..." />;
   }
 
+  const selectedSpecKey = selectedSpecialization ? getSpecializationTranslationKey(selectedSpecialization) : undefined;
+  const selectedSpecLocalized = selectedSpecKey && typeof selectedSpecKey === 'string' && selectedSpecKey in t
+    ? t(selectedSpecKey as any)
+    : selectedSpecialization;
+
+  const initialSpecKey = initialSpecialization ? getSpecializationTranslationKey(initialSpecialization) : undefined;
+  const initialSpecLocalized = initialSpecKey && typeof initialSpecKey === 'string' && initialSpecKey in t
+    ? t(initialSpecKey as any)
+    : initialSpecialization;
+
   return (
     <ScreenContainer backgroundColor={colors.background}>
       <AppHeader
-        title="Specialists"
-        subtitle="Medical Professionals & Doctors"
+        title={t('specialists')}
+        subtitle={t('medicalProfessionals')}
         onBackPress={() => router.back()}
       />
 
@@ -79,22 +93,22 @@ export default function SpecialistListScreen() {
           <View style={styles.recommendationBanner}>
             <Text style={styles.sparkleIcon}>✨</Text>
             <View style={styles.bannerTextCol}>
-              <Text style={styles.bannerTitle}>Recommended Specialization</Text>
+              <Text style={styles.bannerTitle}>{t('recommendedSpecialization')}</Text>
               <Text style={styles.bannerSub}>
-                Filtered for <Text style={styles.bannerHighlight}>{selectedSpecialization}</Text> based on AI analysis.
+                {t('filteredFor')} <Text style={styles.bannerHighlight}>{selectedSpecLocalized}</Text> {t('basedOnAiAnalysis')}
               </Text>
             </View>
             <TouchableOpacity
               style={styles.clearFilterBtn}
               onPress={handleViewAllDoctors}
             >
-              <Text style={styles.clearFilterText}>Show All</Text>
+              <Text style={styles.clearFilterText}>{t('showAll')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.contextBanner}>
             <Text style={styles.contextText}>
-              Showing all registered medical specialists on MediHeal.
+              {t('showingAllSpecialists')}
             </Text>
           </View>
         )}
@@ -115,7 +129,7 @@ export default function SpecialistListScreen() {
                   selectedSpecialization === initialSpecialization && styles.activeChipText,
                 ]}
               >
-                Recommended: {initialSpecialization}
+                {t('recommended')}: {initialSpecLocalized}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -133,7 +147,7 @@ export default function SpecialistListScreen() {
                 !selectedSpecialization && styles.activeChipText,
               ]}
             >
-              All Doctors
+              {t('allDoctors')}
             </Text>
           </TouchableOpacity>
 
@@ -146,7 +160,7 @@ export default function SpecialistListScreen() {
               })
             }
           >
-            <Text style={styles.mapChipText}>🗺️ View on Map</Text>
+            <Text style={styles.mapChipText}>🗺️ {t('viewOnMap')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -171,13 +185,13 @@ export default function SpecialistListScreen() {
             ListEmptyComponent={
               <EmptyState
                 icon="🩺"
-                title="No Matching Specialists Found"
+                title={t('noMatchingSpecialists')}
                 description={
                   selectedSpecialization
-                    ? `No doctors currently available for "${selectedSpecialization}".`
-                    : 'No registered doctors found in the system.'
+                    ? t('noDoctorsForSpec')
+                    : t('noRegisteredDoctors')
                 }
-                actionText={selectedSpecialization ? 'View All Doctors' : undefined}
+                actionText={selectedSpecialization ? t('allDoctors') : undefined}
                 onAction={selectedSpecialization ? handleViewAllDoctors : undefined}
               />
             }

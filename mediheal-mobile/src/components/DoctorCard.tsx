@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DoctorProfile } from '../types/doctor';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
 import { AppButton } from './AppButton';
+import { useLanguage } from '../context/LanguageContext';
+import { getSpecializationTranslationKey } from '../utils/displayMappers';
 
 interface DoctorCardProps {
   doctor: DoctorProfile;
@@ -10,6 +12,8 @@ interface DoctorCardProps {
 }
 
 export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
+  const { t } = useLanguage();
+
   const rawName = doctor.userId?.fullName || 'Medical Specialist';
   const doctorName = rawName.toLowerCase().startsWith('dr.')
     ? rawName
@@ -30,6 +34,9 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
   const availableSlotsCount = doctor.availableTimeSlots?.length || 0;
   const availableDaysText = doctor.availableDays?.join(', ') || '';
 
+  const specKey = getSpecializationTranslationKey(doctor.specialization);
+  const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : doctor.specialization;
+
   return (
     <View style={styles.card}>
       {/* Top Header Row with Avatar & Name Info */}
@@ -44,11 +51,11 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
           </Text>
           
           <Text style={styles.specialization} numberOfLines={1}>
-            {doctor.specialization}
+            {specLocalized}
           </Text>
 
           {doctor.slmcNumber ? (
-            <Text style={styles.slmcText}>SLMC: {doctor.slmcNumber}</Text>
+            <Text style={styles.slmcText}>{t('slmcNumber')}: {doctor.slmcNumber}</Text>
           ) : null}
         </View>
       </View>
@@ -72,7 +79,7 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
             <View style={styles.statBadge}>
               <Text style={styles.statIcon}>👨‍⚕️</Text>
               <Text style={styles.statText}>
-                {doctor.yearsOfExperience} Yrs Exp.
+                {doctor.yearsOfExperience} {t('yearsExp')}
               </Text>
             </View>
           ) : null}
@@ -92,14 +99,14 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
               <View style={styles.activeDot} />
               <Text style={styles.availTextActive}>
                 {availableSlotsCount > 0
-                  ? `Available (${availableSlotsCount} slots)`
-                  : 'Available'}
+                  ? `${t('available')} (${availableSlotsCount})`
+                  : t('available')}
               </Text>
             </View>
           ) : (
             <View style={[styles.availBadge, styles.availBadgeInactive]}>
               <View style={styles.inactiveDot} />
-              <Text style={styles.availTextInactive}>Currently Unavailable</Text>
+              <Text style={styles.availTextInactive}>{t('currentlyUnavailable')}</Text>
             </View>
           )}
 
@@ -114,7 +121,7 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
       {/* Action Button */}
       <View style={styles.actionRow}>
         <AppButton
-          title="View Details"
+          title={t('viewDetails')}
           onPress={onPress}
           variant="primary"
           style={styles.actionBtn}

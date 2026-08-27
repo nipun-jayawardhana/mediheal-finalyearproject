@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Consultation } from '../types/consultation';
 import { AppButton } from './AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
+import { getSpecializationTranslationKey } from '../utils/displayMappers';
 
 interface ConsultationCardProps {
   consultation: Consultation;
@@ -13,6 +15,8 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
   consultation,
   onPress,
 }) => {
+  const { t } = useLanguage();
+
   const doctorNameRaw = consultation.doctorId?.fullName || 'Medical Specialist';
   const doctorName = doctorNameRaw.toLowerCase().startsWith('dr.')
     ? doctorNameRaw
@@ -46,6 +50,9 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
   const completedDateStr = formatDate(consultation.completedAt || consultation.createdAt);
   const followUpDateStr = formatDate(consultation.followUpDate);
 
+  const specKey = getSpecializationTranslationKey(consultation.specialization);
+  const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : (consultation.specialization || t('medicalConsultation'));
+
   return (
     <View style={styles.card}>
       {/* Header Row: Doctor Avatar & Identity */}
@@ -58,13 +65,9 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
           <Text style={styles.doctorName} numberOfLines={1}>
             {doctorName}
           </Text>
-          {consultation.specialization ? (
-            <Text style={styles.specializationText} numberOfLines={1}>
-              {consultation.specialization}
-            </Text>
-          ) : (
-            <Text style={styles.specializationText}>Medical Consultation</Text>
-          )}
+          <Text style={styles.specializationText} numberOfLines={1}>
+            {specLocalized}
+          </Text>
         </View>
 
         {completedDateStr ? (
@@ -74,7 +77,7 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
 
       {/* Diagnosis Banner */}
       <View style={styles.diagnosisBox}>
-        <Text style={styles.diagnosisLabel}>DIAGNOSIS</Text>
+        <Text style={styles.diagnosisLabel}>{t('diagnosis').toUpperCase()}</Text>
         <Text style={styles.diagnosisTitle} numberOfLines={2}>
           {consultation.diagnosis}
         </Text>
@@ -85,7 +88,7 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
         {consultation.prescriptions && consultation.prescriptions.length > 0 ? (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              💊 {consultation.prescriptions.length} Prescribed Med(s)
+              💊 {consultation.prescriptions.length} {t('prescribedMeds')}
             </Text>
           </View>
         ) : null}
@@ -93,7 +96,7 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
         {followUpDateStr ? (
           <View style={[styles.badge, styles.followUpBadge]}>
             <Text style={styles.followUpBadgeText}>
-              📅 Follow-up: {followUpDateStr}
+              📅 {t('followUp')}: {followUpDateStr}
             </Text>
           </View>
         ) : null}
@@ -102,7 +105,7 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
       {/* Action Footer */}
       <View style={styles.actionFooter}>
         <AppButton
-          title="View Summary"
+          title={t('viewSummary')}
           onPress={onPress}
           variant="outline"
           style={styles.actionBtn}

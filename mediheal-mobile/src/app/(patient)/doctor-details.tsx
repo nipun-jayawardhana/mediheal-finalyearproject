@@ -19,6 +19,8 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../consta
 import { getDoctorById } from '../../services/doctorService';
 import { createAppointment } from '../../services/appointmentService';
 import { DoctorProfile } from '../../types/doctor';
+import { useLanguage } from '../../context/LanguageContext';
+import { getSpecializationTranslationKey } from '../../utils/displayMappers';
 
 interface DateItem {
   dateIso: string;
@@ -31,6 +33,7 @@ interface DateItem {
 
 export default function DoctorDetailsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id, initialReason } = useLocalSearchParams<{ id: string; initialReason?: string }>();
 
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
@@ -122,30 +125,30 @@ export default function DoctorDetailsScreen() {
     if (!doctor) return;
 
     if (!selectedDateIso) {
-      Alert.alert('Date Required', 'Please select an appointment date.');
+      Alert.alert(t('selectDate'), 'Please select an appointment date.');
       return;
     }
 
     if (!selectedSlot) {
-      Alert.alert('Time Slot Required', 'Please select an available time slot.');
+      Alert.alert(t('selectTimeSlot'), 'Please select an available time slot.');
       return;
     }
 
     if (!reason.trim()) {
-      Alert.alert('Reason Required', 'Please enter a brief reason for your visit.');
+      Alert.alert(t('reasonForVisit'), 'Please enter a brief reason for your visit.');
       return;
     }
 
     // Verify doctor availability day check
     if (selectedDateObject && !selectedDateObject.isDoctorAvailableDay) {
       Alert.alert(
-        'Doctor Unavailable On Selected Day',
+        t('doctorUnavailableOnDay'),
         `${doctor.userId?.fullName || 'Doctor'} is listed as available on: ${
           doctor.availableDays.join(', ') || 'N/A'
         }.\n\nWould you like to proceed anyway?`,
         [
-          { text: 'Choose Another Date', style: 'cancel' },
-          { text: 'Proceed', onPress: () => submitBooking() },
+          { text: t('selectDate'), style: 'cancel' },
+          { text: t('done'), onPress: () => submitBooking() },
         ]
       );
       return;
@@ -211,7 +214,7 @@ export default function DoctorDetailsScreen() {
   if (errorMsg || !doctor) {
     return (
       <ScreenContainer backgroundColor={colors.background}>
-        <AppHeader title="Doctor Details" onBackPress={() => router.back()} />
+        <AppHeader title={t('doctorDetails')} onBackPress={() => router.back()} />
         <ErrorView
           message={errorMsg || 'Doctor profile unavailable.'}
           onRetry={fetchDoctorDetails}
@@ -239,9 +242,12 @@ export default function DoctorDetailsScreen() {
     ? `LKR ${doctor.consultationFee.toLocaleString()}`
     : 'LKR 0';
 
+  const specKey = getSpecializationTranslationKey(doctor.specialization);
+  const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : doctor.specialization;
+
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
-      <AppHeader title="Doctor Details" onBackPress={() => router.back()} />
+      <AppHeader title={t('doctorDetails')} onBackPress={() => router.back()} />
 
       <View style={styles.container}>
         {/* Main Identity & Profile Card */}
@@ -253,11 +259,11 @@ export default function DoctorDetailsScreen() {
           <Text style={styles.doctorName}>{doctorName}</Text>
           
           <Text style={styles.specializationBadge}>
-            {doctor.specialization.toUpperCase()}
+            {specLocalized.toUpperCase()}
           </Text>
 
           {doctor.slmcNumber ? (
-            <Text style={styles.slmcText}>SLMC Reg No: {doctor.slmcNumber}</Text>
+            <Text style={styles.slmcText}>{t('slmcNumber')}: {doctor.slmcNumber}</Text>
           ) : null}
 
           <View style={styles.hospitalRow}>
@@ -280,7 +286,7 @@ export default function DoctorDetailsScreen() {
                   })
                 }
               >
-                <Text style={styles.mapBtnOutlineText}>🗺️ View on Map</Text>
+                <Text style={styles.mapBtnOutlineText}>🗺️ {t('viewOnMap')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -292,7 +298,7 @@ export default function DoctorDetailsScreen() {
                   );
                 }}
               >
-                <Text style={styles.mapBtnFilledText}>🧭 Get Directions</Text>
+                <Text style={styles.mapBtnFilledText}>🧭 {t('getDirections')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -301,28 +307,28 @@ export default function DoctorDetailsScreen() {
           <View style={styles.statsBar}>
             <View style={styles.statItem}>
               <Text style={styles.statVal}>
-                {doctor.yearsOfExperience > 0 ? `${doctor.yearsOfExperience}+ Yrs` : 'N/A'}
+                {doctor.yearsOfExperience > 0 ? `${doctor.yearsOfExperience}+` : 'N/A'}
               </Text>
-              <Text style={styles.statLbl}>Experience</Text>
+              <Text style={styles.statLbl}>{t('yearsExp')}</Text>
             </View>
 
             <View style={styles.statDivider} />
 
             <View style={styles.statItem}>
               <Text style={styles.statVal}>{feeFormatted}</Text>
-              <Text style={styles.statLbl}>Consultation Fee</Text>
+              <Text style={styles.statLbl}>{t('consultationFee')}</Text>
             </View>
           </View>
         </View>
 
         {/* Biography & Languages Section */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Biography & Background</Text>
+          <Text style={styles.sectionTitle}>{t('biography')}</Text>
           <Text style={styles.bodyText}>
-            {doctor.biography || 'No biography provided for this doctor.'}
+            {doctor.biography || 'No biography provided.'}
           </Text>
 
-          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Spoken Languages</Text>
+          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>{t('currentLanguage')}</Text>
           <View style={styles.langChipContainer}>
             {doctor.languages && doctor.languages.length > 0 ? (
               doctor.languages.map((lang, idx) => (
@@ -338,8 +344,7 @@ export default function DoctorDetailsScreen() {
 
         {/* Date & Time Slot Picker Section */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Select Appointment Date</Text>
-          <Text style={styles.sectionSub}>Choose a convenient date for your visit</Text>
+          <Text style={styles.sectionTitle}>{t('selectDate')}</Text>
 
           {/* Date Horizontal Scroll Selector */}
           <ScrollView
@@ -380,13 +385,12 @@ export default function DoctorDetailsScreen() {
 
           {doctor.availableDays && doctor.availableDays.length > 0 ? (
             <Text style={styles.availableDaysHint}>
-              📅 Regular Available Days: {doctor.availableDays.join(', ')}
+              📅 {t('availableDays')}: {doctor.availableDays.join(', ')}
             </Text>
           ) : null}
 
           {/* Time Slot Picker Grid */}
-          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>Select a Time Slot</Text>
-          <Text style={styles.sectionSub}>Choose your preferred time slot</Text>
+          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>{t('selectTimeSlot')}</Text>
 
           {doctor.availableTimeSlots && doctor.availableTimeSlots.length > 0 ? (
             <View style={styles.slotsGrid}>
@@ -410,18 +414,18 @@ export default function DoctorDetailsScreen() {
           ) : (
             <View style={styles.emptySlotBox}>
               <Text style={styles.emptyScheduleText}>
-                No schedule time slots currently listed for this doctor.
+                {t('noDoctorsForSpec')}
               </Text>
             </View>
           )}
 
           {/* Reason for Appointment Field */}
           <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>
-            Reason for Visit *
+            {t('reasonForVisit')} *
           </Text>
           <TextInput
             style={styles.reasonInput}
-            placeholder="Describe your symptoms or reason for consultation..."
+            placeholder={t('reasonPlaceholder')}
             placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={3}
@@ -433,15 +437,12 @@ export default function DoctorDetailsScreen() {
         {/* Book Appointment CTA Section */}
         <View style={styles.ctaBox}>
           <AppButton
-            title={submitting ? 'Securing Appointment...' : 'Confirm & Book Appointment'}
+            title={submitting ? '...' : t('bookAppointment')}
             onPress={handleBookAppointment}
             variant="primary"
             disabled={submitting}
             style={styles.bookBtn}
           />
-          <Text style={styles.ctaSubtext}>
-            Consultation fee of {feeFormatted} will be charged per session.
-          </Text>
         </View>
       </View>
     </ScreenContainer>

@@ -5,9 +5,12 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useLanguage } from '../../context/LanguageContext';
+import { getSpecializationTranslationKey } from '../../utils/displayMappers';
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const params = useLocalSearchParams<{
     appointmentId?: string;
     doctorName?: string;
@@ -44,11 +47,14 @@ export default function BookingConfirmationScreen() {
     router.replace('/(patient)/my-bookings' as any);
   };
 
+  const specKey = getSpecializationTranslationKey(params.specialization);
+  const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : params.specialization;
+
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
       <AppHeader
-        title="MediHeal"
-        subtitle="Booking Confirmation"
+        title={t('appTitle')}
+        subtitle={t('bookingConfirmation')}
         onBackPress={handleBackHome}
       />
 
@@ -61,10 +67,7 @@ export default function BookingConfirmationScreen() {
           </View>
 
           {/* Heading */}
-          <Text style={styles.title}>Appointment Confirmed!</Text>
-          <Text style={styles.subtitle}>
-            Your health booking has been successfully secured in the system.
-          </Text>
+          <Text style={styles.title}>{t('appointmentBookedSuccess')}</Text>
 
           {/* Details Box */}
           <View style={styles.detailsBox}>
@@ -74,12 +77,12 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.detailIcon}>👤</Text>
               </View>
               <View style={styles.detailTextCol}>
-                <Text style={styles.detailLabel}>DOCTOR</Text>
+                <Text style={styles.detailLabel}>{t('doctor').toUpperCase()}</Text>
                 <Text style={styles.detailVal}>
                   {params.doctorName || 'Medical Specialist'}
                 </Text>
-                {params.specialization ? (
-                  <Text style={styles.detailSubVal}>{params.specialization}</Text>
+                {specLocalized ? (
+                  <Text style={styles.detailSubVal}>{specLocalized}</Text>
                 ) : null}
               </View>
             </View>
@@ -90,7 +93,7 @@ export default function BookingConfirmationScreen() {
                 <Text style={styles.detailIcon}>🏥</Text>
               </View>
               <View style={styles.detailTextCol}>
-                <Text style={styles.detailLabel}>HOSPITAL / LOCATION</Text>
+                <Text style={styles.detailLabel}>{t('hospital').toUpperCase()}</Text>
                 <Text style={styles.detailVal}>
                   {params.hospital || 'MediHeal Partner Hospital'}
                 </Text>
@@ -98,36 +101,34 @@ export default function BookingConfirmationScreen() {
             </View>
 
             {/* Date & Time */}
-            <View style={[styles.detailRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.detailRow}>
               <View style={styles.detailIconCircle}>
                 <Text style={styles.detailIcon}>📅</Text>
               </View>
               <View style={styles.detailTextCol}>
-                <Text style={styles.detailLabel}>DATE & TIME</Text>
-                <Text style={styles.detailVal}>
-                  {formattedDate}
-                  {params.timeSlot ? ` at ${params.timeSlot}` : ''}
-                </Text>
+                <Text style={styles.detailLabel}>{t('date').toUpperCase()} & {t('time').toUpperCase()}</Text>
+                <Text style={styles.detailVal}>{formattedDate}</Text>
+                {params.timeSlot ? (
+                  <Text style={styles.detailSubVal}>⏰ {params.timeSlot}</Text>
+                ) : null}
               </View>
             </View>
           </View>
 
           {/* Action Buttons */}
-          <View style={styles.actionCol}>
-            <AppButton
-              title="View My Bookings"
-              onPress={handleViewBookings}
-              variant="primary"
-              style={styles.actionBtn}
-            />
+          <AppButton
+            title={t('viewMyBookings')}
+            onPress={handleViewBookings}
+            variant="primary"
+            style={styles.actionBtn}
+          />
 
-            <AppButton
-              title="Back to Home"
-              onPress={handleBackHome}
-              variant="outline"
-              style={styles.actionBtn}
-            />
-          </View>
+          <AppButton
+            title={t('backToHome')}
+            onPress={handleBackHome}
+            variant="outline"
+            style={styles.actionBtn}
+          />
         </View>
       </View>
     </ScreenContainer>

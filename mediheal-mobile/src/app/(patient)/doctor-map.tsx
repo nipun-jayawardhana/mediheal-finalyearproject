@@ -19,6 +19,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getDoctors } from '../../services/doctorService';
 import { DoctorProfile } from '../../types/doctor';
+import { useLanguage } from '../../context/LanguageContext';
 
 // Conditionally import MapView to prevent web bundling crashes
 let MapView: any = null;
@@ -65,6 +66,7 @@ function calculateHaversineDistance(
 
 export default function DoctorMapScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { specialization: initialSpecialization } = useLocalSearchParams<{
     specialization?: string;
   }>();
@@ -238,7 +240,7 @@ export default function DoctorMapScreen() {
   if (errorMsg) {
     return (
       <ScreenContainer backgroundColor={colors.background}>
-        <AppHeader title="Doctor Map" onBackPress={() => router.back()} />
+        <AppHeader title={t('viewOnMap')} onBackPress={() => router.back()} />
         <ErrorView message={errorMsg} onRetry={fetchDoctors} />
       </ScreenContainer>
     );
@@ -249,8 +251,8 @@ export default function DoctorMapScreen() {
     return (
       <ScreenContainer backgroundColor={colors.background}>
         <AppHeader
-          title="Doctor Locations"
-          subtitle="Hospital & Specialist Map View"
+          title={t('viewOnMap')}
+          subtitle={t('medicalProfessionals')}
           onBackPress={() => router.back()}
         />
 

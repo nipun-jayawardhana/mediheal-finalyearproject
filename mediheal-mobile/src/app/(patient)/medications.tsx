@@ -20,8 +20,11 @@ import {
   setupNotificationResponseListener,
 } from '../../services/notificationService';
 
+import { useLanguage } from '../../context/LanguageContext';
+
 export default function PatientMedicationsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   const [medications, setMedications] = useState<Medication[]>([]);
   const [logs, setLogs] = useState<MedicationLog[]>([]);
@@ -203,8 +206,8 @@ export default function PatientMedicationsScreen() {
   return (
     <ScreenContainer backgroundColor={colors.background}>
       <AppHeader
-        title="My Medications"
-        subtitle="Daily Schedule & Dose Tracker"
+        title={t('medications')}
+        subtitle={t('medicationReminders')}
         onBackPress={() => router.back()}
       />
 
@@ -216,8 +219,8 @@ export default function PatientMedicationsScreen() {
         {!errorMsg && isEmpty && (
           <EmptyState
             icon="💊"
-            title="No Active Medications"
-            description="Medications added to your care plan by your linked caregiver will appear here."
+            title={t('noActiveMedications')}
+            description={t('manageDoseNotifications')}
           />
         )}
 

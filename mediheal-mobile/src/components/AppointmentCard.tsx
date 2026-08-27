@@ -4,6 +4,8 @@ import { Appointment } from '../types/appointment';
 import { StatusBadge } from './StatusBadge';
 import { AppButton } from './AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
+import { getAppointmentStatusTranslationKey, getSpecializationTranslationKey } from '../utils/displayMappers';
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -18,6 +20,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   onViewSummary,
   cancellingId,
 }) => {
+  const { t } = useLanguage();
+
   const doctorNameRaw = appointment.doctorId?.fullName || 'Medical Specialist';
   const doctorName = doctorNameRaw.toLowerCase().startsWith('dr.')
     ? doctorNameRaw
@@ -57,6 +61,12 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
   const isCurrentlyCancelling = cancellingId === appointment._id;
 
+  const statusKey = getAppointmentStatusTranslationKey(appointment.status);
+  const statusLocalized = t(statusKey).toUpperCase();
+
+  const specKey = getSpecializationTranslationKey(appointment.specialization);
+  const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : (appointment.specialization || 'Medical Specialist');
+
   return (
     <View style={styles.card}>
       {/* Top Doctor Header Row & Status Badge */}
@@ -69,18 +79,14 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           <Text style={styles.doctorName} numberOfLines={1}>
             {doctorName}
           </Text>
-          {appointment.specialization ? (
-            <Text style={styles.specializationText} numberOfLines={1}>
-              {appointment.specialization}
-            </Text>
-          ) : (
-            <Text style={styles.specializationText}>Medical Specialist</Text>
-          )}
+          <Text style={styles.specializationText} numberOfLines={1}>
+            {specLocalized}
+          </Text>
         </View>
 
         <StatusBadge
           status={appointment.status}
-          label={appointment.status.toUpperCase()}
+          label={statusLocalized}
         />
       </View>
 
@@ -112,7 +118,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         {/* Reason for Visit */}
         {appointment.reason ? (
           <View style={styles.reasonBox}>
-            <Text style={styles.reasonLabel}>Reason:</Text>
+            <Text style={styles.reasonLabel}>{t('reasonForVisit')}:</Text>
             <Text style={styles.reasonText} numberOfLines={2}>
               {appointment.reason}
             </Text>
@@ -123,7 +129,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
         {appointment.status === 'cancelled' && appointment.cancellationReason ? (
           <View style={styles.cancelledBox}>
             <Text style={styles.cancelledText}>
-              Cancellation Reason: {appointment.cancellationReason}
+              {t('cancelAppointment')}: {appointment.cancellationReason}
             </Text>
           </View>
         ) : null}
@@ -133,7 +139,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
       {isCancellable && (
         <View style={styles.actionFooter}>
           <AppButton
-            title={isCurrentlyCancelling ? 'Cancelling...' : 'Cancel Appointment'}
+            title={isCurrentlyCancelling ? '...' : t('cancelAppointmentBtn')}
             onPress={() => onCancel && onCancel(appointment)}
             variant="danger"
             disabled={isCurrentlyCancelling}
@@ -145,10 +151,10 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
       {isCompletedWithSummary && (
         <View style={styles.actionFooter}>
           <AppButton
-            title="View Summary"
+            title={t('consultationSummary')}
             onPress={() => onViewSummary && onViewSummary(appointment)}
-            variant="outline"
-            style={styles.summaryBtn}
+            variant="secondary"
+            style={styles.cancelBtn}
           />
         </View>
       )}

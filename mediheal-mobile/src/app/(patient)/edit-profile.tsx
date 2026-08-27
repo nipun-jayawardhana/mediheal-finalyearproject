@@ -13,12 +13,7 @@ import {
   updatePatientProfileApi,
 } from '../../services/patientService';
 import { BloodGroupType, GenderType } from '../../types/patient';
-
-const GENDER_OPTIONS: { label: string; value: GenderType }[] = [
-  { label: 'Male', value: 'male' },
-  { label: 'Female', value: 'female' },
-  { label: 'Other', value: 'other' },
-];
+import { useLanguage } from '../../context/LanguageContext';
 
 const BLOOD_GROUPS: BloodGroupType[] = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
@@ -26,6 +21,13 @@ const BLOOD_GROUPS: BloodGroupType[] = [
 
 export default function EditPatientProfileScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
+
+  const GENDER_OPTIONS: { label: string; value: GenderType }[] = [
+    { label: t('male'), value: 'male' },
+    { label: t('female'), value: 'female' },
+    { label: t('other'), value: 'other' },
+  ];
 
   // Form State
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -109,8 +111,8 @@ export default function EditPatientProfileScreen() {
   return (
     <ScreenContainer scrollable backgroundColor={colors.background}>
       <AppHeader
-        title="Edit Profile"
-        subtitle="Update your health information"
+        title={t('editProfile')}
+        subtitle={t('manageAccountPreferences')}
         onBackPress={() => router.back()}
       />
 
@@ -119,12 +121,12 @@ export default function EditPatientProfileScreen() {
           <ErrorView
             message={errorMsg}
             onRetry={() => setErrorMsg('')}
-            retryText="Dismiss"
+            retryText={t('dismiss')}
           />
         ) : null}
 
         <View style={styles.formCard}>
-          <Text style={styles.sectionHeader}>Personal Info</Text>
+          <Text style={styles.sectionHeader}>{t('personalInformation')}</Text>
 
           <AppInput
             label="Date of Birth (YYYY-MM-DD)"
