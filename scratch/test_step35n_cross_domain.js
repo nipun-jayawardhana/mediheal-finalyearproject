@@ -25,7 +25,7 @@ function testCrossDomains() {
   console.log(`Question: "${qA_fev}" -> accepted=${valA_fev.accepted}, reason=${valA_fev.reason}`);
 
   // Check 3: Useful missing neuro/headache question MUST be accepted
-  const qA_val = "Have you noticed any neck stiffness or confusion?";
+  const qA_val = "Have you noticed any stiffness in your neck?";
   const valA_val = geminiConversationService.validateFollowUpQuestion({ question: qA_val, canonicalCase: caseA });
   console.log(`Question: "${qA_val}" -> accepted=${valA_val.accepted}, reason=${valA_val.reason}`);
 

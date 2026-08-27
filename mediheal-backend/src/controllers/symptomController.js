@@ -167,8 +167,8 @@ const analyzeSymptoms = async (req, res, next) => {
     // Secondary duration check on raw inputs if inputDuration was not provided
     const parsedTextDuration = inputDuration || translatedDuration || clinicalCaseService.extractDurationFromText(symptoms.join(' ')) || clinicalCaseService.extractDurationFromText(sanitizedSymptoms.join(' '));
 
-    // ASSEMBLE ONE CANONICAL CLINICAL CASE BEFORE OPENBIOLLM
-    const clinicalCase = clinicalCaseService.buildCanonicalClinicalCase({
+    // ASSEMBLE & RECONCILE ONE CANONICAL CLINICAL CASE BEFORE OPENBIOLLM
+    let clinicalCase = clinicalCaseService.buildCanonicalClinicalCase({
       symptoms: canonicalConcepts,
       conversation: Array.isArray(conversation) ? conversation : [],
       duration: parsedTextDuration,
@@ -178,19 +178,37 @@ const analyzeSymptoms = async (req, res, next) => {
       context: bodyCtx,
     });
 
+    clinicalCase = clinicalCaseService.reconcilePositiveAndNegativeEvidence(clinicalCase);
+    clinicalCaseService.assertCanonicalCaseIntegrity(clinicalCase);
+
+    // DEVELOPMENT INTEGRITY ASSERTION (SECTION 15)
+    const conflicts = [];
+    for (const pos of clinicalCase.positiveSymptoms) {
+      const posClean = clinicalCaseService.cleanConceptKey(pos).toLowerCase();
+      for (const neg of clinicalCase.negativeFindings) {
+        const negClean = String(neg || '').toLowerCase().trim();
+        const coreNeg = negClean.replace(/^(?:no|not|denies|without)\s+/, '').trim();
+        if (posClean === coreNeg || negClean.includes(posClean)) {
+          conflicts.push({ positive: pos, negative: neg });
+        }
+      }
+    }
+
+    console.log(`[EVIDENCE CHECK][${reqId}]\nPositive:\n${JSON.stringify(clinicalCase.positiveSymptoms, null, 2)}\nNegative:\n${JSON.stringify(clinicalCase.negativeFindings, null, 2)}\nConflicts:\n${JSON.stringify(conflicts, null, 2)}`);
+
+    if (conflicts.length > 0) {
+      console.error(`[CLINICAL SAFETY] Positive/negative contradiction detected`);
+      clinicalCase = clinicalCaseService.reconcilePositiveAndNegativeEvidence(clinicalCase);
+      clinicalCaseService.assertCanonicalCaseIntegrity(clinicalCase);
+    }
+
     const normalizedInputSymptoms = symptomService.normalizeSymptoms([
       ...clinicalCase.positiveSymptoms,
       ...clinicalCase.context,
     ]);
 
-    // Emergency Safety Layer Check
-    const isEmergency = symptomService.isEmergencySymptom([
-      ...symptoms,
-      ...sanitizedSymptoms,
-      ...canonicalConcepts,
-      ...clinicalCase.positiveSymptoms,
-      ...clinicalCase.context,
-    ]);
+    // Emergency Safety Layer Check on Reconciled Clinical Case ONLY
+    const isEmergency = symptomService.isEmergencySymptom(clinicalCase);
 
     console.log(`[SYMPTOM PIPELINE][${reqId}] Initial input received`);
 
@@ -505,7 +523,7 @@ const handleFollowUp = async (req, res, next) => {
       }
     }
 
-    // 1. Build active canonical case for context logging & turn merging
+    // 1. Build & Reconcile active canonical case for context logging & turn merging
     const activeCase = clinicalCaseService.buildCanonicalClinicalCase({
       symptoms: canonicalSymptoms,
       conversation,
@@ -513,19 +531,8 @@ const handleFollowUp = async (req, res, next) => {
 
     console.log(`[FOLLOWUP CONTEXT][${reqId}]\nCurrent canonical case:\n${JSON.stringify(activeCase, null, 2)}`);
 
-    // 2. Gather all text from initial symptoms and conversation Q&As for emergency evaluation
-    const allInputStrings = [...symptoms, ...canonicalSymptoms];
-    if (Array.isArray(conversation)) {
-      conversation.forEach((c) => {
-        if (c.question) allInputStrings.push(c.question);
-        if (c.answer) allInputStrings.push(c.answer);
-      });
-    }
-
-    const normalizedAll = symptomService.normalizeSymptoms(allInputStrings);
-
-    // 3. Deterministic Emergency Safety Check on ALL cumulative conversation context
-    const isEmergency = symptomService.isEmergencySymptom(normalizedAll);
+    // 2. Deterministic Emergency Safety Check on Reconciled Canonical Case ONLY
+    const isEmergency = symptomService.isEmergencySymptom(activeCase);
 
     // 4. Generate next follow-up question or structured summary via Gemini
     console.log(`[FOLLOWUP FLOW][${reqId}] Initial case extracted`);

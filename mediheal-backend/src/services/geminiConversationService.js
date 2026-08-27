@@ -374,14 +374,26 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
     return { accepted: false, reason: 'duplicate' };
   }
 
-  // 3. Known Information Guard
-  // A. Duration already known
+  // 3. Known Information & Negation Contradiction Guard
+  // A. CONTRADICTS NEGATIVE FINDING GUARD (CRITICAL CLINICAL SAFETY)
+  const contradictsNegative = (canonicalCase.negativeFindings || []).some((neg) => {
+    const nLower = String(neg || '').toLowerCase().trim();
+    if (!nLower) return false;
+    const coreNeg = nLower.replace(/^(?:no|not|denies|without)\s+/, '').trim();
+    if (!coreNeg || coreNeg.length < 3) return false;
+    return lowerQ.includes(coreNeg);
+  });
+  if (contradictsNegative) {
+    return { accepted: false, reason: 'CONTRADICTS_NEGATIVE_FINDING' };
+  }
+
+  // B. Duration already known
   const hasKnownDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified' && canonicalCase.duration !== '';
   if (hasKnownDuration && (/\bhow\s+long\b|\bwhen\s+did\b|\bhow\s+many\s+days\b|\bduration\b|\bhow\s+long\s+has\b|\bsince\s+when\b/i.test(lowerQ))) {
     return { accepted: false, reason: 'already_answered' };
   }
 
-  // B. Symptoms/mechanisms/aggravations already answered
+  // C. Symptoms/mechanisms/aggravations already answered
   const allKnownFindings = [
     ...(canonicalCase.positiveSymptoms || []),
     ...(canonicalCase.negativeFindings || []),
@@ -408,6 +420,33 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
 
   if (lowerQ.includes('abdominal pain') && allKnownFindings.some((s) => s.includes('abdominal') || s.includes('stomach'))) {
     return { accepted: false, reason: 'already_answered' };
+  }
+
+  // D. Systemic Complaint Body-Location Question Guard
+  const isSystemicOnly = (canonicalCase.positiveSymptoms || []).length > 0 && (canonicalCase.positiveSymptoms || []).every((sym) => {
+    const s = String(sym).toLowerCase();
+    return (
+      s.includes('dizzy') || s.includes('light-headed') || s.includes('weakness') ||
+      s.includes('fatigue') || s.includes('palpitation') || s.includes('nausea') ||
+      s.includes('fever') || s.includes('chills') || s.includes('sweating')
+    );
+  });
+  if (isSystemicOnly && (lowerQ.includes('which body part') || lowerQ.includes('where does it hurt') || lowerQ.includes('part of your body') || lowerQ.includes('location of your pain'))) {
+    return { accepted: false, reason: 'location_question_unneeded_for_systemic' };
+  }
+
+  // E. Unsupported Symptom Assumption Guard
+  if ((lowerQ.includes('head pain') || lowerQ.includes('headache')) && !(canonicalCase.positiveSymptoms || []).some((s) => s.toLowerCase().includes('head'))) {
+    return { accepted: false, reason: 'unsupported_symptom_assumption' };
+  }
+
+  // F. Ambiguous Multi-Concept Binary Question Guard (Section D & G)
+  const isMultiConceptBinary =
+    (/\bor\b/i.test(lowerQ) && (lowerQ.includes('dizziness') || lowerQ.includes('numbness') || lowerQ.includes('weakness') || lowerQ.includes('confusion') || lowerQ.includes('vision') || lowerQ.includes('tingling'))) ||
+    /\b(?:dizziness|numbness|weakness|confusion|vision|tingling)\s+or\s+(?:dizziness|numbness|weakness|confusion|vision|tingling)\b/i.test(lowerQ);
+
+  if (isMultiConceptBinary) {
+    return { accepted: false, reason: 'ambiguous_multi_concept_question' };
   }
 
   // 4. Complaint Domain Relevance Guard (Generic across medical domains)

@@ -260,43 +260,56 @@ const normalizeSymptoms = (inputSymptoms) => {
  * @param {Array<string>} rawSymptoms
  * @returns {boolean}
  */
-const isEmergencySymptom = (rawSymptoms) => {
-  const normalizedInput = normalizeSymptoms(rawSymptoms);
-  const normalizedMatched = normalizedInput.some((userSym) =>
-    EMERGENCY_SYMPTOMS.some(
-      (emergSym) => userSym === emergSym || userSym.includes(emergSym)
-    )
-  );
-  if (normalizedMatched) return true;
+const isEmergencySymptom = (input) => {
+  let canonicalCase;
+  try {
+    const clinicalCaseService = require('./clinicalCaseService');
+    if (input && typeof input === 'object' && !Array.isArray(input)) {
+      canonicalCase = input;
+    } else {
+      const rawArr = Array.isArray(input) ? input : [String(input || '')];
+      canonicalCase = clinicalCaseService.buildCanonicalClinicalCase({ symptoms: rawArr });
+    }
+    canonicalCase = clinicalCaseService.reconcilePositiveAndNegativeEvidence(canonicalCase);
+  } catch (e) {
+    canonicalCase = { positiveSymptoms: Array.isArray(input) ? input : [], negativeFindings: [], context: [] };
+  }
 
-  // Additional raw text check for complex descriptions (e.g. chest heaviness/tightness radiating to shoulder/arm, shortness of breath)
-  const combinedRawText = (Array.isArray(rawSymptoms) ? rawSymptoms.join(' ') : String(rawSymptoms || '')).toLowerCase();
-  
+  const posSymptoms = canonicalCase.positiveSymptoms || [];
+  const context = canonicalCase.context || [];
+
+  const activePositives = posSymptoms.filter((s) => s !== 'unspecified symptom').map((s) => String(s).toLowerCase().trim());
+  const activeContext = context.map((c) => String(c).toLowerCase().trim());
+
+  const allPositiveText = [...activePositives, ...activeContext].join(' ');
+
+  // 1. Direct match on active positive symptoms
+  const matchesEmergencyList = activePositives.some((userSym) =>
+    EMERGENCY_SYMPTOMS.some((emergSym) => userSym === emergSym || userSym.includes(emergSym))
+  );
+  if (matchesEmergencyList) return true;
+
+  // 2. Red-flag combinations on POSITIVE evidence only
   const hasChestRedFlags =
-    (combinedRawText.includes('chest') || combinedRawText.includes('පපුවේ') || combinedRawText.includes('நெஞ்சு')) &&
-    (combinedRawText.includes('tight') ||
-      combinedRawText.includes('heavy') ||
-      combinedRawText.includes('pain') ||
-      combinedRawText.includes('discomfort') ||
-      combinedRawText.includes('pressure') ||
-      combinedRawText.includes('spread') ||
-      combinedRawText.includes('shoulder') ||
-      combinedRawText.includes('arm'));
+    (allPositiveText.includes('chest pain') || allPositiveText.includes('chest tightness') || allPositiveText.includes('chest heaviness') || allPositiveText.includes('පපුවේ කැක්කුම') || allPositiveText.includes('நெஞ்சு வலி')) &&
+    (allPositiveText.includes('tight') || allPositiveText.includes('heavy') || allPositiveText.includes('pain') || allPositiveText.includes('pressure') || allPositiveText.includes('shoulder') || allPositiveText.includes('arm'));
 
   const hasRespiratoryRedFlags =
-    combinedRawText.includes('short of breath') ||
-    combinedRawText.includes('shortness of breath') ||
-    combinedRawText.includes('difficulty breathing') ||
-    combinedRawText.includes('trouble breathing') ||
-    combinedRawText.includes('can\'t breathe') ||
-    combinedRawText.includes('හුස්ම');
+    allPositiveText.includes('short of breath') ||
+    allPositiveText.includes('shortness of breath') ||
+    allPositiveText.includes('difficulty breathing') ||
+    allPositiveText.includes('trouble breathing') ||
+    allPositiveText.includes('can\'t breathe') ||
+    allPositiveText.includes('හුස්ම ගැනීමේ අමාරුව') ||
+    allPositiveText.includes('மூச்சுத் திணறல்');
 
   const hasUnconsciousnessOrStroke =
-    combinedRawText.includes('unconscious') ||
-    combinedRawText.includes('fainted') ||
-    combinedRawText.includes('seizure') ||
-    combinedRawText.includes('weakness on one side') ||
-    combinedRawText.includes('severe bleeding');
+    allPositiveText.includes('unconscious') ||
+    allPositiveText.includes('sudden weakness on one side') ||
+    allPositiveText.includes('seizure') ||
+    allPositiveText.includes('severe bleeding') ||
+    allPositiveText.includes('සිහිය නැතිවීම') ||
+    allPositiveText.includes('மயக்கம்');
 
   return hasChestRedFlags || hasRespiratoryRedFlags || hasUnconsciousnessOrStroke;
 };

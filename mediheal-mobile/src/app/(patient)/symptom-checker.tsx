@@ -757,15 +757,45 @@ export default function SymptomCheckerScreen() {
             </View>
 
             <View style={styles.summarySection}>
-              <Text style={styles.summaryLabel}>{t('initialSymptoms')}:</Text>
+              <Text style={styles.summaryLabel}>POSITIVE SYMPTOMS:</Text>
               <View style={styles.chipsContainer}>
-                {(summaryData.symptoms || []).map((s, idx) => (
+                {(summaryData.positiveSymptoms && summaryData.positiveSymptoms.length > 0 ? summaryData.positiveSymptoms : (summaryData.symptoms || [])).map((s, idx) => (
                   <View key={idx} style={styles.summaryChip}>
                     <Text style={styles.summaryChipText}>{s}</Text>
                   </View>
                 ))}
               </View>
             </View>
+
+            {summaryData.negativeFindings && summaryData.negativeFindings.length > 0 && (
+              <View style={styles.summarySection}>
+                <Text style={[styles.summaryLabel, { color: '#C62828' }]}>
+                  NEGATIVE FINDINGS (DENIED):
+                </Text>
+                <View style={styles.chipsContainer}>
+                  {summaryData.negativeFindings.map((neg, idx) => (
+                    <View key={idx} style={styles.negChip}>
+                      <Text style={styles.negChipText}>✓ {neg}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {summaryData.context && summaryData.context.length > 0 && (
+              <View style={styles.summarySection}>
+                <Text style={styles.summaryLabel}>
+                  CONTEXT / TRIGGERS:
+                </Text>
+                <View style={styles.chipsContainer}>
+                  {summaryData.context.map((ctx, idx) => (
+                    <View key={idx} style={styles.ctxChip}>
+                      <Text style={styles.ctxChipText}>• {ctx}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
             <View style={styles.summaryRow}>
               <View style={styles.summaryCol}>
@@ -1397,6 +1427,36 @@ const styles = StyleSheet.create({
   summaryChipText: {
     ...typography.bodyBold,
     color: colors.primary,
+    fontSize: 14,
+  },
+  negChip: {
+    backgroundColor: '#FFF0F0',
+    borderColor: '#FFCDD2',
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  negChipText: {
+    ...typography.bodyBold,
+    color: '#C62828',
+    fontSize: 14,
+  },
+  ctxChip: {
+    backgroundColor: '#F5F5F5',
+    borderColor: '#E0E0E0',
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    marginRight: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  ctxChipText: {
+    ...typography.bodyBold,
+    color: '#424242',
     fontSize: 14,
   },
   summaryRow: {

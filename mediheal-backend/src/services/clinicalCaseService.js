@@ -73,7 +73,7 @@ const cleanConceptKey = (str) => {
 const extractNegationsFromText = (text) => {
   const negations = [];
   if (!text || typeof text !== 'string') return negations;
-  const lower = text.toLowerCase().trim();
+  const lower = text.replace(/[\u2018\u2019\u201B\u2032']/g, "'").replace(/[\u201C\u201D\u201F"]/g, '"').toLowerCase().trim();
 
   const addNeg = (val) => {
     if (val && !negations.includes(val)) negations.push(val);
@@ -81,7 +81,7 @@ const extractNegationsFromText = (text) => {
 
   // Fever Negation (English + Sinhala + Tamil)
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+(?:had\s+|have\s+)?(?:a\s+)?fever\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:a\s+)?fever\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bfever\b/i.test(lower) ||
     lower.includes('no fever') || lower.includes('have no fever') || lower.includes('not have fever') || lower.includes('don\'t have fever') || lower.includes('do not have fever') || lower.includes('not had a fever') ||
     lower.includes('උණ නැත') || lower.includes('උණ නෑ') || (lower.includes('උණ') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
@@ -92,7 +92,7 @@ const extractNegationsFromText = (text) => {
 
   // Abdominal / Stomach Pain Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+(?:had\s+|have\s+)?(?:severe\s+|sharp\s+|burning\s+|upper\s+|lower\s+)?(?:abdominal\s+pain|stomach\s+pain|belly\s+pain|abdomen\s+pain)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:severe\s+|sharp\s+|burning\s+|upper\s+|lower\s+)?(?:abdominal\s+pain|stomach\s+pain|belly\s+pain|abdomen\s+pain)\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\b(?:abdominal|stomach)\s+pain\b/i.test(lower) ||
     lower.includes('no severe abdominal pain') || lower.includes('no abdominal pain') || lower.includes('no stomach pain') ||
     lower.includes('not have severe abdominal pain') || lower.includes('do not have fever or severe abdominal pain') ||
@@ -107,7 +107,7 @@ const extractNegationsFromText = (text) => {
 
   // Vomiting Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?(?:vomit|vomited|vomiting|throwing\s+up)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:vomit|vomited|vomiting|throwing\s+up)\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bvomit/i.test(lower) ||
     lower.includes('not vomited') || lower.includes('have not vomited') || lower.includes('no vomiting') || lower.includes('do not vomit') ||
     lower.includes('වමනය නැත') || lower.includes('වමනය නෑ') || (lower.includes('වමනය') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
@@ -118,24 +118,33 @@ const extractNegationsFromText = (text) => {
 
   // Diarrhea Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?diarrhea\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*diarrhea\b/i.test(lower) ||
     /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bdiarrh/i.test(lower) ||
     lower.includes('no diarrhea') || lower.includes('do not have diarrhea') || lower.includes('don\'t have diarrhea') || lower.includes('not have diarrhea')
   ) {
     addNeg('no diarrhea');
   }
 
-  // Chest Pain Negation
+  // Chest Pain / Tightness Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?chest\s+pain\b/i.test(lower) ||
-    lower.includes('no chest pain') || lower.includes('don\'t have chest pain')
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:chest\s+pain|chest\s+tightness|chest\s+heaviness|chest\s+discomfort|pain\s+in\s+chest)\b/i.test(lower) ||
+    /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bchest\s+pain\b/i.test(lower) ||
+    lower.includes('no chest pain') || lower.includes('don\'t have chest pain') || lower.includes('don\'t have any chest pain') || lower.includes('do not have any chest pain')
   ) {
     addNeg('no chest pain');
   }
 
+  // Fainting / Syncope Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:faint|fainted|fainting|passed\s+out|passing\s+out|syncope)\b/i.test(lower) ||
+    lower.includes('no fainting') || lower.includes('haven\'t actually fainted') || lower.includes('haven\'t fainted') || lower.includes('have not fainted') || lower.includes('didn\'t faint')
+  ) {
+    addNeg('no fainting');
+  }
+
   // Shortness of Breath / Breathing Difficulty Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:shortness\s+of\s+breath|difficulty\s+breathing|breathing\s+difficulty)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:shortness\s+of\s+breath|difficulty\s+breathing|breathing\s+difficulty)\b/i.test(lower) ||
     lower.includes('no shortness of breath') || lower.includes('no difficulty breathing') ||
     (lower.includes('no chest pain') && (lower.includes('shortness of breath') || lower.includes('breathing')))
   ) {
@@ -144,7 +153,7 @@ const extractNegationsFromText = (text) => {
 
   // Sweating Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:excessive\s+)?sweating\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:excessive\s+)?sweating\b/i.test(lower) ||
     lower.includes('no sweating') || lower.includes('no excessive sweating')
   ) {
     addNeg('no sweating');
@@ -152,7 +161,7 @@ const extractNegationsFromText = (text) => {
 
   // Cough Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+a\s+)?cough\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:a\s+)?cough\b/i.test(lower) ||
     lower.includes('no cough') || lower.includes('do not have a cough') || lower.includes('don\'t have a cough') ||
     lower.includes('කැස්ස නැත') || lower.includes('කැස්ස නෑ') || (lower.includes('කැස්ස') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('இருமல் இல்லை') || (lower.includes('இருமல்') && lower.includes('இல்லை'))
@@ -168,13 +177,31 @@ const extractNegationsFromText = (text) => {
     addNeg('no recent head injury');
   }
 
-  // Numbness Negation
+  // Dizziness / Light-headedness Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+)?numbness\b/i.test(lower) ||
-    lower.includes('no numbness')
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:dizzy|dizziness|light-?headedness|light-?headed)\b/i.test(lower) ||
+    lower.includes('no dizziness') || lower.includes('no light-headedness') || lower.includes('not dizzy') || lower.includes('no lightheadedness')
   ) {
-    addNeg('no numbness');
+    addNeg('no dizziness');
   }
+
+  // Headache Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:a\s+)?(?:headache|head\s+pain)\b/i.test(lower) ||
+    lower.includes('no headache') || lower.includes('no head pain') || lower.includes('don\'t have a headache')
+  ) {
+    addNeg('no headache');
+  }
+
+  // Nausea Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|denies|denied)\s+(?:had\s+|have\s+|experienced\s+|actually\s+|any\s+|really\s+|ever\s+)*(?:nausea|nauseous|feeling\s+nauseous)\b/i.test(lower) ||
+    lower.includes('no nausea') || lower.includes('not nauseous')
+  ) {
+    addNeg('no nausea');
+  }
+
+  // Numbness Negation
 
   // Coordinated Negation Scope Engine (Handles "no X or Y", "do not have X or Y", "without X or Y", "no X, Y or Z")
   const negScopeMatches = lower.matchAll(/\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of|denies|denied)\s+([\w\s,]+?)(?=\.|$|;|\bbut\b|\bhowever\b|\bexcept\b)/gi);
@@ -184,13 +211,14 @@ const extractNegationsFromText = (text) => {
 
     const items = scopeBody.split(/\s+(?:or|and)\s+|,/).map((s) => s.trim()).filter(Boolean);
     for (const item of items) {
-      const cleanItem = item.replace(/^(?:a|an|the|my|any|severe)\s+/i, '').trim();
+      const cleanItem = item.replace(/^(?:a|an|the|my|any|actually|ever|really|severe)\s+/i, '').trim();
       if (!cleanItem || cleanItem.length < 3) continue;
 
       if (cleanItem.includes('fever')) addNeg('no fever');
       else if (cleanItem.includes('vomit')) addNeg('no vomiting');
       else if (cleanItem.includes('diarrh')) addNeg('no diarrhea');
-      else if (cleanItem.includes('chest pain')) addNeg('no chest pain');
+      else if (cleanItem.includes('chest pain') || cleanItem.includes('chest tightness')) addNeg('no chest pain');
+      else if (cleanItem.includes('faint') || cleanItem.includes('syncope')) addNeg('no fainting');
       else if (cleanItem.includes('shortness of breath') || cleanItem.includes('breathing')) addNeg('no breathing difficulty');
       else if (cleanItem.includes('sweating')) addNeg('no sweating');
       else if (cleanItem.includes('cough')) addNeg('no cough');
@@ -289,6 +317,15 @@ const extractContextFromText = (text) => {
     if (!contexts.includes('pain worse when lying down')) contexts.push('pain worse when lying down');
   }
 
+  // Trigger Factors: Standing Up (Orthostatic Light-headedness)
+  if (lower.includes('stand up') || lower.includes('standing') || lower.includes('when i stand')) {
+    if (lower.includes('light-headed') || lower.includes('lightheaded') || lower.includes('dizzy') || lower.includes('dizziness')) {
+      if (!contexts.includes('light-headedness triggered by standing')) {
+        contexts.push('light-headedness triggered by standing');
+      }
+    }
+  }
+
   // Relief Factors: Food improves pain
   if ((lower.includes('food') || lower.includes('eating')) && (lower.includes('better') || lower.includes('relieves') || lower.includes('improves'))) {
     if (!contexts.includes('pain improves with eating')) contexts.push('pain improves with eating');
@@ -325,9 +362,16 @@ const extractContextFromText = (text) => {
     if (!contexts.includes('pain worse climbing stairs')) contexts.push('pain worse climbing stairs');
   }
 
-  // Aggravating Factors: Bright Light / Computer Screens
+  // Aggravating Factors: Bright Light / Computer Screens / Loud Sounds
   if (lower.includes('bright light') || lower.includes('bright lights') || (isAggravatingSentence && /\blight(?:s)?\b/i.test(lower))) {
-    if (!contexts.includes('worse with bright light')) contexts.push('worse with bright light');
+    if (!contexts.includes('headache worse with bright light') && !contexts.includes('worse with bright light')) {
+      contexts.push('headache worse with bright light');
+    }
+  }
+  if (lower.includes('loud sound') || lower.includes('loud sounds') || lower.includes('loud noise') || lower.includes('loud noises') || lower.includes('noise sensitivity') || lower.includes('sensitive to sound') || (isAggravatingSentence && lower.includes('sound'))) {
+    if (!contexts.includes('headache worse with loud sounds')) {
+      contexts.push('headache worse with loud sounds');
+    }
   }
   if (lower.includes('computer screen') || lower.includes('computer screens') || (isAggravatingSentence && lower.includes('screen'))) {
     if (!contexts.includes('worse with computer screens')) contexts.push('worse with computer screens');
@@ -495,6 +539,9 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
   if (!matchedSymptom && (/\bbright\s+light(?:s)?\b|\bphotophobia\b|\blight\s+sensitivity\b/i.test(lower))) {
     matchedSymptom = 'sensitivity to bright light';
   }
+  if (!matchedSymptom && (/\bloud\s+sound(?:s)?\b|\bloud\s+noise(?:s)?\b|\bphonophobia\b|\bnoise\s+sensitivity\b|\bsensitiv(?:e|ity)\s+to\s+(?:loud\s+)?sound(?:s)?\b/i.test(lower))) {
+    matchedSymptom = 'sensitivity to loud sounds';
+  }
   if (!matchedSymptom && (/\bcan(?:not|'t)\s+put\s+(?:much\s+)?weight\b|\bdifficulty\s+(?:putting|bearing)\s+weight\b|\bcannot\s+bear\s+weight\b/i.test(lower))) {
     matchedSymptom = 'difficulty bearing weight';
   }
@@ -520,8 +567,25 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
       matchedSymptom = 'headache';
     }
   }
-  if (!matchedSymptom && (/\bdizz(?:y|iness)\b|\bfeeling\s+dizzy\b/i.test(lower))) {
-    matchedSymptom = 'dizziness';
+  if (!matchedSymptom && (/\blight-?headed(?:ness)?\b|\bdizz(?:y|iness)\b|\bfeeling\s+dizzy\b|\bfeeling\s+light-?headed\b/i.test(lower))) {
+    if (lower.includes('light-headed') || lower.includes('lightheaded')) {
+      if (lower.includes('stand') || lower.includes('standing') || fullRawText.toLowerCase().includes('stand')) {
+        matchedSymptom = 'light-headedness on standing';
+      } else {
+        matchedSymptom = 'light-headedness';
+      }
+    } else {
+      matchedSymptom = 'dizziness';
+    }
+  }
+  if (!matchedSymptom && (/\bpalpitations?\b|\bheart\s+(?:sometimes\s+)?feels?\s+like\s+(?:it\s+is\s+)?beating\s+fast(?:er)?\b|\bheart\s+beating\s+fast(?:er)?\b|\bheart\s+racing\b|\bracing\b|\bbeating\s+faster\b/i.test(lower))) {
+    matchedSymptom = 'palpitations';
+  }
+  if (!matchedSymptom && (/\bweakness\b|\bfeel\s+weak\b|\bfeeling\s+weak\b|\bweak\b/i.test(lower))) {
+    matchedSymptom = 'weakness';
+  }
+  if (!matchedSymptom && (/\bfatigue\b|\btiredness\b|\bfeel\s+tired\b|\bfeeling\s+tired\b|\btired\b/i.test(lower))) {
+    matchedSymptom = 'fatigue';
   }
 
   // GI / Systemic
@@ -810,18 +874,60 @@ const extractInitialSymptomsAndContext = (initialInput) => {
   return { positiveSymptoms, negativeFindings, context, duration, additionalDetails };
 };
 
+const CLINICAL_CONCEPT_FAMILIES = {
+  headache: ['headache', 'throbbing headache', 'left-sided throbbing headache', 'left-sided headache', 'head pain', 'sharp head pain'],
+  chest_pain: ['chest pain', 'severe chest pain', 'chest tightness', 'chest heaviness', 'chest discomfort'],
+  abdominal_pain: ['abdominal pain', 'stomach pain', 'belly pain', 'burning upper abdominal pain', 'sharp lower right abdominal pain', 'lower right abdominal pain', 'upper central abdominal pain'],
+  breathing: ['difficulty breathing', 'shortness of breath', 'short of breath', 'trouble breathing'],
+  fever: ['fever', 'mild fever', 'high fever'],
+  vomiting: ['vomiting', 'vomit', 'throwing up'],
+  fainting: ['fainting', 'fainted', 'syncope', 'passing out'],
+  dizziness: ['dizziness', 'light-headedness', 'light-headedness on standing'],
+  cough: ['cough'],
+  sweating: ['sweating', 'excessive sweating'],
+  neck_stiffness: ['neck stiffness', 'stiffness in neck', 'stiff neck'],
+};
+
+const getConceptFamily = (term) => {
+  if (!term || typeof term !== 'string') return '';
+  const clean = term.toLowerCase().trim().replace(/^(?:no|not|denies|without)\s+/, '').trim();
+  for (const [family, members] of Object.entries(CLINICAL_CONCEPT_FAMILIES)) {
+    if (members.some((m) => clean === m || clean.includes(m) || m.includes(clean))) {
+      return family;
+    }
+  }
+  return clean;
+};
+
 /**
  * Helper to extract symptom candidate objects from a question string
  */
-const extractQuestionSymptomCandidates = (q, primaryLocation = '') => {
+const extractQuestionSymptomCandidates = (q, primaryLocation = '', activeCase = {}) => {
   const lowerQ = q.toLowerCase();
   const candidates = [];
 
+  const positiveSet = new Set(
+    (activeCase.positiveSymptoms || []).map((s) => cleanConceptKey(s).toLowerCase())
+  );
+
   const addCand = (sym, negForm) => {
+    const cleanSym = cleanConceptKey(sym).toLowerCase();
+    const candFamily = getConceptFamily(cleanSym);
+    // SCREEN OUT: If candidate or its concept family is ALREADY in positiveSymptoms, DO NOT extract as target candidate to negate!
+    for (const pos of positiveSet) {
+      const posFamily = getConceptFamily(pos);
+      if (pos === cleanSym || (candFamily && posFamily && candFamily === posFamily)) {
+        return;
+      }
+    }
+
     if (sym && !candidates.some((c) => c.sym === sym)) {
       candidates.push({ sym, negForm: negForm || `no ${sym}` });
     }
   };
+
+  // Screen out background context phrases like "with your headache", "along with your headache"
+  const isContextHeadache = /with\s+(?:your\s+|the\s+)?headache/i.test(lowerQ);
 
   if (lowerQ.includes('swallowing') || lowerQ.includes('swallow')) {
     addCand('swallowing difficulty/pain', 'no difficulty swallowing');
@@ -864,15 +970,16 @@ const extractQuestionSymptomCandidates = (q, primaryLocation = '') => {
     addCand(sym, `no ${sym}`);
   }
   if (lowerQ.includes('stiffness') || lowerQ.includes('stiff')) {
-    const sym = primaryLocation ? `${primaryLocation} stiffness` : 'stiffness';
-    addCand(sym, `no ${sym}`);
+    const sym = lowerQ.includes('neck') ? 'neck stiffness' : (primaryLocation ? `${primaryLocation} stiffness` : 'stiffness');
+    const negForm = lowerQ.includes('neck') ? 'no neck stiffness' : (primaryLocation ? `no ${primaryLocation} stiffness` : 'no stiffness');
+    addCand(sym, negForm);
   }
 
   if (lowerQ.includes('chill')) {
     addCand('chills', 'no chills');
   }
 
-  if (lowerQ.includes('headache')) {
+  if (lowerQ.includes('headache') && !isContextHeadache) {
     addCand('headache', 'no headache');
   }
 
@@ -1056,7 +1163,10 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
     }
 
     const loc = getPrimaryLocation();
-    const qCandidates = extractQuestionSymptomCandidates(q, loc);
+    const qCandidates = extractQuestionSymptomCandidates(q, loc, result);
+
+    // Track derived items for evidence provenance logging
+    const derivedItems = [];
 
     // 4. Negative Answers
     const isNegative =
@@ -1079,20 +1189,36 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
         qCandidates.forEach((cand) => {
           if (!result.negativeFindings.includes(cand.negForm)) {
             result.negativeFindings.push(cand.negForm);
+            derivedItems.push({ concept: cand.sym, negForm: cand.negForm, polarity: 'negative' });
           }
         });
       } else {
         if (q.includes('swelling')) {
           const neg = loc ? `no ${loc} swelling` : 'no swelling';
-          if (!result.negativeFindings.includes(neg)) result.negativeFindings.push(neg);
+          if (!result.negativeFindings.includes(neg)) {
+            result.negativeFindings.push(neg);
+            derivedItems.push({ concept: 'swelling', negForm: neg, polarity: 'negative' });
+          }
         } else if (q.includes('vomit')) {
-          if (!result.negativeFindings.includes('no vomiting')) result.negativeFindings.push('no vomiting');
+          if (!result.negativeFindings.includes('no vomiting')) {
+            result.negativeFindings.push('no vomiting');
+            derivedItems.push({ concept: 'vomiting', negForm: 'no vomiting', polarity: 'negative' });
+          }
         } else if (q.includes('nausea')) {
-          if (!result.negativeFindings.includes('no nausea')) result.negativeFindings.push('no nausea');
+          if (!result.negativeFindings.includes('no nausea')) {
+            result.negativeFindings.push('no nausea');
+            derivedItems.push({ concept: 'nausea', negForm: 'no nausea', polarity: 'negative' });
+          }
         } else if (q.includes('fever')) {
-          if (!result.negativeFindings.includes('no fever')) result.negativeFindings.push('no fever');
+          if (!result.negativeFindings.includes('no fever')) {
+            result.negativeFindings.push('no fever');
+            derivedItems.push({ concept: 'fever', negForm: 'no fever', polarity: 'negative' });
+          }
         }
       }
+
+      console.log(`[FOLLOWUP ANSWER SOURCE]\nQuestion: "${q}"\nAnswer: "${a}"\nExtracted positive: []\nExtracted negative: ${JSON.stringify(derivedItems.map(d => d.negForm))}\nCanonical concepts: ${JSON.stringify(derivedItems.map(d => d.negForm))}`);
+      console.log(`[FOLLOWUP EVIDENCE][req-X]\nQ: "${q}"\nA: "${a}"\nDerived: ${JSON.stringify(derivedItems)}`);
       continue;
     }
 
@@ -1116,11 +1242,17 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       if (['redness', 'red', 'warmth', 'warm', 'heat'].includes(term)) {
         if (term.includes('red')) {
           const sym = loc ? `${loc} redness` : 'redness';
-          if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
+          if (!result.positiveSymptoms.includes(sym)) {
+            result.positiveSymptoms.push(sym);
+            derivedItems.push({ concept: sym, polarity: 'positive' });
+          }
         }
         if (term.includes('warm') || term.includes('heat')) {
           const sym = loc ? `${loc} warmth` : 'warmth';
-          if (!result.positiveSymptoms.includes(sym)) result.positiveSymptoms.push(sym);
+          if (!result.positiveSymptoms.includes(sym)) {
+            result.positiveSymptoms.push(sym);
+            derivedItems.push({ concept: sym, polarity: 'positive' });
+          }
         }
         continue;
       }
@@ -1130,35 +1262,63 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
       qCandidates.forEach((cand) => {
         if (!result.positiveSymptoms.includes(cand.sym)) {
           result.positiveSymptoms.push(cand.sym);
+          derivedItems.push({ concept: cand.sym, polarity: 'positive' });
         }
       });
     } else if (isOnlyCough) {
       if (!result.positiveSymptoms.includes('cough')) {
         result.positiveSymptoms.push('cough');
+        derivedItems.push({ concept: 'cough', polarity: 'positive' });
       }
       qCandidates.forEach((cand) => {
         if (cand.sym !== 'cough' && !result.negativeFindings.includes(cand.negForm)) {
           result.negativeFindings.push(cand.negForm);
+          derivedItems.push({ concept: cand.sym, negForm: cand.negForm, polarity: 'negative' });
         }
       });
     } else if (isOnlyNausea) {
       if (!result.positiveSymptoms.includes('nausea')) {
         result.positiveSymptoms.push('nausea');
+        derivedItems.push({ concept: 'nausea', polarity: 'positive' });
       }
       qCandidates.forEach((cand) => {
         if (cand.sym !== 'nausea' && !result.negativeFindings.includes(cand.negForm)) {
           result.negativeFindings.push(cand.negForm);
+          derivedItems.push({ concept: cand.sym, negForm: cand.negForm, polarity: 'negative' });
         }
       });
     } else if (isAffirmative) {
-      if (qCandidates.length > 0) {
+      if (qCandidates.length === 1) {
+        const cand = qCandidates[0];
+        if (!result.positiveSymptoms.includes(cand.sym)) {
+          result.positiveSymptoms.push(cand.sym);
+          derivedItems.push({ concept: cand.sym, polarity: 'positive' });
+        }
+      } else if (qCandidates.length > 1) {
+        // Multi-concept Yes Safety (Section D & G):
+        // Only affirm candidates explicitly named in the answer string
+        let anyAffirmed = false;
         qCandidates.forEach((cand) => {
-          if (!result.positiveSymptoms.includes(cand.sym)) {
-            result.positiveSymptoms.push(cand.sym);
+          if (a.toLowerCase().includes(cand.sym.toLowerCase())) {
+            if (!result.positiveSymptoms.includes(cand.sym)) {
+              result.positiveSymptoms.push(cand.sym);
+              derivedItems.push({ concept: cand.sym, polarity: 'positive' });
+              anyAffirmed = true;
+            }
           }
         });
+        if (!anyAffirmed) {
+          const detail = `ambiguous yes response to multi-concept question: "${q}"`;
+          if (!result.additionalDetails.includes(detail)) {
+            result.additionalDetails.push(detail);
+            derivedItems.push({ concept: 'ambiguous_response', detail, polarity: 'ambiguous' });
+          }
+        }
       }
     }
+
+    console.log(`[FOLLOWUP ANSWER SOURCE]\nQuestion: "${q}"\nAnswer: "${a}"\nExtracted positive: ${JSON.stringify(derivedItems.filter(d => d.polarity === 'positive').map(d => d.concept))}\nExtracted negative: ${JSON.stringify(derivedItems.filter(d => d.polarity === 'negative').map(d => d.negForm))}\nCanonical concepts: ${JSON.stringify(derivedItems.map(d => d.concept || d.negForm))}`);
+    console.log(`[FOLLOWUP EVIDENCE][req-X]\nQ: "${q}"\nA: "${a}"\nDerived: ${JSON.stringify(derivedItems)}`);
 
     // Question-aware symptom additions
     if (a.includes('cough') && q.includes('cough') && !q.includes('worse when') && !result.positiveSymptoms.includes('cough')) {
@@ -1191,6 +1351,139 @@ const processFollowUpTurns = (conversation = [], activeCase) => {
   // Final deduplication & specificity refinement pass with negation safety
   result.positiveSymptoms = deduplicateAndRefineSymptoms(result.positiveSymptoms, result.context, result.negativeFindings);
   return result;
+};
+
+/**
+ * Reconciles positive symptoms and negative findings using Provenance Priority.
+ * DIRECT_INITIAL_EXPLICIT > DIRECT_FOLLOWUP_EXPLICIT > QUESTION_INFERRED > MODEL_INFERRED.
+ * Explicit initial positive statements override parser-derived negative findings in the same concept family.
+ */
+const reconcilePositiveAndNegativeEvidence = (canonicalCase = {}) => {
+  if (!canonicalCase || typeof canonicalCase !== 'object') return canonicalCase;
+
+  const positiveSymptoms = Array.isArray(canonicalCase.positiveSymptoms) ? [...canonicalCase.positiveSymptoms] : [];
+  let negativeFindings = Array.isArray(canonicalCase.negativeFindings) ? [...canonicalCase.negativeFindings] : [];
+  const context = Array.isArray(canonicalCase.context) ? [...canonicalCase.context] : [];
+  const additionalDetails = Array.isArray(canonicalCase.additionalDetails) ? [...canonicalCase.additionalDetails] : [];
+
+  // Provenance Priority: Specific initial positive headache (e.g., "left-sided throbbing headache")
+  // overrides parser-manufactured generic "no headache" in negativeFindings.
+  const hasSpecificHeadache = positiveSymptoms.some((s) => String(s).toLowerCase().includes('headache') || String(s).toLowerCase().includes('head pain'));
+
+  if (hasSpecificHeadache) {
+    negativeFindings = negativeFindings.filter((neg) => {
+      const negLower = String(neg || '').toLowerCase().trim();
+      return negLower !== 'no headache' && negLower !== 'no head pain';
+    });
+  }
+
+  const cleanedPositives = positiveSymptoms.filter((pos) => {
+    if (!pos || typeof pos !== 'string') return false;
+    const posLower = cleanConceptKey(pos).toLowerCase();
+    if (!posLower || isBareBodyPart(posLower)) return false;
+
+    // Check if pos is negated by negativeFindings
+    const isNegated = negativeFindings.some((neg) => {
+      const negLower = String(neg || '').toLowerCase().trim();
+      if (!negLower) return false;
+
+      if (posLower === 'chest pain' || posLower === 'chest tightness' || posLower === 'chest heaviness') {
+        return negLower.includes('no chest pain') || negLower.includes('no chest tightness');
+      }
+      if (posLower === 'fever' || posLower === 'mild fever') {
+        return negLower.includes('no fever');
+      }
+      if (posLower === 'vomiting' || posLower === 'vomit') {
+        return negLower.includes('no vomiting');
+      }
+      if (posLower === 'diarrhea') {
+        return negLower.includes('no diarrhea');
+      }
+      if (posLower === 'fainting' || posLower === 'fainted' || posLower === 'syncope') {
+        return negLower.includes('no fainting');
+      }
+      if (posLower === 'cough') {
+        return negLower.includes('no cough');
+      }
+      if (posLower === 'difficulty breathing' || posLower === 'shortness of breath') {
+        return negLower.includes('no breathing difficulty') || negLower.includes('no shortness of breath');
+      }
+      if (posLower === 'sweating' || posLower === 'excessive sweating') {
+        return negLower.includes('no sweating');
+      }
+      if (posLower === 'dizziness' || posLower === 'light-headedness' || posLower === 'light-headedness on standing') {
+        return negLower.includes('no dizziness') || negLower.includes('no light-headedness');
+      }
+      if (posLower === 'headache' || posLower === 'head pain') {
+        return negLower.includes('no headache') || negLower.includes('no head pain');
+      }
+      if (posLower.includes('abdominal') || posLower.includes('stomach') || posLower.includes('belly')) {
+        return negLower.includes('no severe abdominal pain') || negLower.includes('no abdominal pain') || negLower.includes('no stomach pain');
+      }
+
+      const coreNeg = negLower.replace(/^(?:no|not|denies|without)\s+/, '').trim();
+      return posLower === coreNeg || negLower === `no ${posLower}` || negLower.includes(posLower);
+    });
+
+    return !isNegated;
+  });
+
+  return {
+    ...canonicalCase,
+    positiveSymptoms: cleanedPositives,
+    negativeFindings,
+    context,
+    additionalDetails,
+  };
+};
+
+/**
+ * Asserts structural and semantic integrity of a canonical clinical case before UI or AI analysis.
+ */
+const assertCanonicalCaseIntegrity = (canonicalCase = {}) => {
+  const issues = [];
+  const positiveSymptoms = Array.isArray(canonicalCase.positiveSymptoms) ? canonicalCase.positiveSymptoms : [];
+  const negativeFindings = Array.isArray(canonicalCase.negativeFindings) ? canonicalCase.negativeFindings : [];
+
+  // 1. Concept Family Contradictions
+  for (const pos of positiveSymptoms) {
+    const posFamily = getConceptFamily(pos);
+    for (const neg of negativeFindings) {
+      const negFamily = getConceptFamily(neg);
+      if (posFamily && negFamily && posFamily === negFamily) {
+        issues.push(`Concept family contradiction: positive "${pos}" conflicts with negative "${neg}" (family: ${posFamily})`);
+      }
+    }
+  }
+
+  // 2. Bare body locations
+  for (const pos of positiveSymptoms) {
+    if (isBareBodyPart(pos)) {
+      issues.push(`Bare body location stored as positive symptom: "${pos}"`);
+    }
+  }
+
+  // 3. Question text or literal Yes/No stored as symptoms
+  for (const pos of positiveSymptoms) {
+    const pLower = pos.toLowerCase().trim();
+    if (['yes', 'no', 'yeah', 'yep', 'nope', 'none', 'nothing'].includes(pLower)) {
+      issues.push(`Literal answer stored as positive symptom: "${pos}"`);
+    }
+  }
+
+  // 4. Context items stored as positive symptoms
+  for (const pos of positiveSymptoms) {
+    if (pos.startsWith('pain worse') || pos.startsWith('worse when') || pos.includes('progressively worsening')) {
+      issues.push(`Context item stored as positive symptom: "${pos}"`);
+    }
+  }
+
+  if (issues.length > 0) {
+    console.warn(`[CANONICAL INTEGRITY ASSERTION] Found ${issues.length} issue(s):\n${issues.join('\n')}`);
+    return { valid: false, issues };
+  }
+
+  return { valid: true, issues: [] };
 };
 
 /**
@@ -1256,7 +1549,13 @@ const buildCanonicalClinicalCase = (params = {}) => {
   };
 
   // 2. Question-aware turn processing across conversation history
-  const finalCase = processFollowUpTurns(conversation, baseCase);
+  const mergedCase = processFollowUpTurns(conversation, baseCase);
+
+  // 3. Final Mandatory Evidence Reconciliation Pass
+  const finalCase = reconcilePositiveAndNegativeEvidence(mergedCase);
+
+  // Assert integrity
+  assertCanonicalCaseIntegrity(finalCase);
 
   // Ensure default values and sanity
   if (!finalCase.duration) finalCase.duration = 'unspecified';
@@ -1279,5 +1578,8 @@ module.exports = {
   classifyClauseRole,
   deduplicateAndRefineSymptoms,
   getComplaintDomains,
+  reconcilePositiveAndNegativeEvidence,
+  assertCanonicalCaseIntegrity,
+  cleanConceptKey,
   REDUNDANT_PHRASES,
 };
