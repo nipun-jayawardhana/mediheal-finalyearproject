@@ -192,20 +192,22 @@ const analyzeSymptoms = async (req, res, next) => {
       ...clinicalCase.context,
     ]);
 
+    console.log(`[SYMPTOM PIPELINE][${reqId}] Initial input received`);
+
     // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
-    console.log(`[CLINICAL CASE][${reqId}]`);
-    console.log('\nPositive symptoms:');
-    console.log(clinicalCase.positiveSymptoms.join(' |\n') || 'none');
+    console.log(`[CLINICAL CASE][${reqId}]\nFinal canonical case assembled\n`);
+    console.log('Positive symptoms:');
+    console.log(clinicalCase.positiveSymptoms.map((s) => `- ${s}`).join('\n') || '- none reported');
     console.log('\nNegative findings:');
-    console.log(clinicalCase.negativeFindings.join(' |\n') || 'none');
+    console.log(clinicalCase.negativeFindings.map((s) => `- ${s}`).join('\n') || '- none reported');
     console.log('\nContext:');
-    console.log(clinicalCase.context.join(' |\n') || 'none');
+    console.log(clinicalCase.context.map((s) => `- ${s}`).join('\n') || '- none');
     console.log('\nDuration:');
-    console.log(clinicalCase.duration || 'unspecified');
+    console.log(`- ${clinicalCase.duration || 'unspecified'}`);
     console.log('\nSeverity:');
-    console.log(clinicalCase.severity || 'not explicitly rated');
+    console.log(`- ${clinicalCase.severity || 'not explicitly rated'}`);
     console.log('\nAdditional details:');
-    console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.join(' |\n') : 'none');
+    console.log((clinicalCase.additionalDetails && clinicalCase.additionalDetails.length > 0) ? clinicalCase.additionalDetails.map((s) => `- ${s}`).join('\n') : '- none');
 
     const GLOBAL_ANALYSIS_DEADLINE_MS = 32000;
     const deadlineAt = startTime + GLOBAL_ANALYSIS_DEADLINE_MS;
@@ -244,6 +246,9 @@ const analyzeSymptoms = async (req, res, next) => {
         analysisSource: 'openbiollm',
         modelName: aiResult.modelName,
       };
+
+      console.log(`[AI FAILOVER][${reqId}] Secondary skipped (primary OpenBioLLM succeeded)`);
+      console.log(`[SYMPTOM API][${reqId}] Final analysis source: openbiollm`);
     } catch (aiError) {
       console.warn(`${tag} OpenBioLLM primary inference failed (${aiError.message})`);
 
@@ -254,6 +259,7 @@ const analyzeSymptoms = async (req, res, next) => {
       if (remainingBudgetMs >= MINIMUM_GEMINI_BUDGET_MS) {
         try {
           const geminiBudgetMs = Math.min(remainingBudgetMs - 3000, 8000);
+          console.log(`[AI FAILOVER][${reqId}] Secondary invoked (reason: primary OpenBioLLM failed: ${aiError.message})`);
           console.log(`${tag} Attempting secondary Gemini failover (Remaining budget: ${remainingBudgetMs}ms, Secondary ceiling: ${geminiBudgetMs}ms)`);
 
           const secondaryResult = await geminiMedicalFallbackService.analyzeSymptomsWithGeminiSecondary(
@@ -285,11 +291,14 @@ const analyzeSymptoms = async (req, res, next) => {
             modelName: secondaryResult.modelName,
           };
           secondarySuccess = true;
+          console.log(`[SYMPTOM API][${reqId}] Final analysis source: gemini-secondary`);
         } catch (secondaryError) {
           console.warn(`${tag} Secondary Gemini failover unavailable (${secondaryError.message})`);
+          console.log(`[AI FAILOVER][${reqId}] Secondary skipped (reason: secondary Gemini failed: ${secondaryError.message})`);
         }
       } else {
         console.warn(`${tag} Insufficient budget for secondary AI failover (${remainingBudgetMs}ms remaining < ${MINIMUM_GEMINI_BUDGET_MS}ms minimum)`);
+        console.log(`[AI FAILOVER][${reqId}] Secondary skipped (reason: insufficient time budget: ${remainingBudgetMs}ms)`);
       }
 
       // Final Rule-Based Fallback if both primary and secondary AI fail or budget was insufficient
@@ -301,6 +310,7 @@ const analyzeSymptoms = async (req, res, next) => {
           analysisSource: isEmergency ? 'rule-based-emergency' : 'rule-based-fallback',
           modelName: '',
         };
+        console.log(`[SYMPTOM API][${reqId}] Final analysis source: ${finalAnalysis.analysisSource}`);
       }
     }
 
@@ -469,6 +479,13 @@ const handleFollowUp = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'Symptoms must be provided as a non-empty array of strings',
+      });
+    }
+
+    const reqId = `req-followup-${Math.random().toString(36).substring(2, 6)}`;
+    if (Array.isArray(conversation) && conversation.length > 0) {
+      conversation.forEach((c, idx) => {
+        console.log(`[GEMINI FOLLOWUP][${reqId}] Question ${idx + 1}: ${c.question || ''}\nAnswer ${idx + 1}: ${c.answer || ''}`);
       });
     }
 

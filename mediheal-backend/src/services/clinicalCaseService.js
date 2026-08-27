@@ -77,8 +77,9 @@ const extractNegationsFromText = (text) => {
 
   // Fever Negation (English + Sinhala + Tamil)
   if (
-    /\b(?:no|not|don't|do\s+not|without|free\s+of)\s+(?:have\s+)?fever\b/i.test(lower) ||
-    lower.includes('no fever') || lower.includes('have no fever') || lower.includes('not have fever') || lower.includes('don\'t have fever') || lower.includes('do not have fever') ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without|free\s+of)\s+(?:had\s+|have\s+)?(?:a\s+)?fever\b/i.test(lower) ||
+    /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bfever\b/i.test(lower) ||
+    lower.includes('no fever') || lower.includes('have no fever') || lower.includes('not have fever') || lower.includes('don\'t have fever') || lower.includes('do not have fever') || lower.includes('not had a fever') ||
     lower.includes('උණ නැත') || lower.includes('උණ නෑ') || (lower.includes('උණ') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('காய்ச்சல் இல்லை') || (lower.includes('காய்ச்சல்') && lower.includes('இல்லை'))
   ) {
@@ -87,7 +88,8 @@ const extractNegationsFromText = (text) => {
 
   // Vomiting Negation
   if (
-    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:vomit|vomited|vomiting|throwing\s+up)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?(?:vomit|vomited|vomiting|throwing\s+up)\b/i.test(lower) ||
+    /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bvomit/i.test(lower) ||
     lower.includes('not vomited') || lower.includes('have not vomited') || lower.includes('no vomiting') || lower.includes('do not vomit') ||
     lower.includes('වමනය නැත') || lower.includes('වමනය නෑ') || (lower.includes('වමනය') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('வாந்தி இல்லை') || (lower.includes('வாந்தி') && lower.includes('இல்லை'))
@@ -97,7 +99,8 @@ const extractNegationsFromText = (text) => {
 
   // Diarrhea Negation
   if (
-    /\b(?:no|not|don't|do\s+not|without)\s+(?:have\s+)?diarrhea\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?diarrhea\b/i.test(lower) ||
+    /\b(?:no|not|don't|do\s+not|haven't|without)\b[\s\w,]*\bdiarrh/i.test(lower) ||
     lower.includes('no diarrhea') || lower.includes('do not have diarrhea') || lower.includes('don\'t have diarrhea') || lower.includes('not have diarrhea')
   ) {
     if (!negations.includes('no diarrhea')) negations.push('no diarrhea');
@@ -105,7 +108,7 @@ const extractNegationsFromText = (text) => {
 
   // Chest Pain Negation
   if (
-    /\b(?:no|not|don't|do\s+not|without)\s+(?:have\s+)?chest\s+pain\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?chest\s+pain\b/i.test(lower) ||
     lower.includes('no chest pain') || lower.includes('don\'t have chest pain')
   ) {
     if (!negations.includes('no chest pain')) negations.push('no chest pain');
@@ -113,7 +116,7 @@ const extractNegationsFromText = (text) => {
 
   // Shortness of Breath / Breathing Difficulty Negation (handles coordinated "no chest pain or shortness of breath")
   if (
-    /\b(?:no|not|don't|do\s+not|without)\s+(?:shortness\s+of\s+breath|difficulty\s+breathing|breathing\s+difficulty)\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:shortness\s+of\s+breath|difficulty\s+breathing|breathing\s+difficulty)\b/i.test(lower) ||
     lower.includes('no shortness of breath') || lower.includes('no difficulty breathing') ||
     (lower.includes('no chest pain') && (lower.includes('shortness of breath') || lower.includes('breathing')))
   ) {
@@ -122,12 +125,28 @@ const extractNegationsFromText = (text) => {
 
   // Cough Negation
   if (
-    /\b(?:no|not|don't|do\s+not|without)\s+(?:have\s+a\s+)?cough\b/i.test(lower) ||
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+a\s+)?cough\b/i.test(lower) ||
     lower.includes('no cough') || lower.includes('do not have a cough') || lower.includes('don\'t have a cough') ||
     lower.includes('කැස්ස නැත') || lower.includes('කැස්ස නෑ') || (lower.includes('කැස්ස') && (lower.includes('නැත') || lower.includes('නෑ'))) ||
     lower.includes('இருமல் இல்லை') || (lower.includes('இருமல்') && lower.includes('இல்லை'))
   ) {
     if (!negations.includes('no cough')) negations.push('no cough');
+  }
+
+  // Head Injury Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\b[\s\w,]*\b(?:head\s+injury|injured\s+my\s+head|injury\s+to\s+(?:my\s+)?head)\b/i.test(lower) ||
+    lower.includes('not injured my head') || lower.includes('no recent head injury') || lower.includes('no head injury')
+  ) {
+    if (!negations.includes('no recent head injury')) negations.push('no recent head injury');
+  }
+
+  // Numbness Negation
+  if (
+    /\b(?:no|not|haven't|have\s+not|don't|do\s+not|without)\s+(?:had\s+|have\s+)?numbness\b/i.test(lower) ||
+    lower.includes('no numbness')
+  ) {
+    if (!negations.includes('no numbness')) negations.push('no numbness');
   }
 
   return negations;
@@ -255,9 +274,12 @@ const extractContextFromText = (text) => {
     if (!contexts.includes('pain worse climbing stairs')) contexts.push('pain worse climbing stairs');
   }
 
-  // Triggers: Standing up
-  if (lower.includes('stand up') || lower.includes('standing up') || (isAggravatingSentence && lower.includes('standing'))) {
-    if (!contexts.includes('triggered by standing')) contexts.push('triggered by standing');
+  // Aggravating Factors: Bright Light / Computer Screens
+  if (lower.includes('bright light') || lower.includes('bright lights') || (isAggravatingSentence && /\blight(?:s)?\b/i.test(lower))) {
+    if (!contexts.includes('worse with bright light')) contexts.push('worse with bright light');
+  }
+  if (lower.includes('computer screen') || lower.includes('computer screens') || (isAggravatingSentence && lower.includes('screen'))) {
+    if (!contexts.includes('worse with computer screens')) contexts.push('worse with computer screens');
   }
 
   // Fall mechanism
@@ -415,6 +437,17 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
     matchedSymptom = 'chest tightness';
   }
 
+  // HEENT / Vision / Neurological
+  if (!matchedSymptom && (/\bblurr(?:y|ed)\s+vision\b|\bvision\s+becomes\s+blurr(?:y|ed)\b|\bblurr(?:y|ed)\s+eyesight\b/i.test(lower))) {
+    matchedSymptom = 'blurred vision';
+  }
+  if (!matchedSymptom && (/\bbright\s+light(?:s)?\b|\bphotophobia\b|\blight\s+sensitivity\b/i.test(lower))) {
+    matchedSymptom = 'sensitivity to bright light';
+  }
+  if (!matchedSymptom && (/\bcan(?:not|'t)\s+put\s+(?:much\s+)?weight\b|\bdifficulty\s+(?:putting|bearing)\s+weight\b|\bcannot\s+bear\s+weight\b/i.test(lower))) {
+    matchedSymptom = 'difficulty bearing weight';
+  }
+
   // Joint / Musculoskeletal
   if (!matchedSymptom && (/\bknee\s+pain\b|\bpain\s+in\s+(?:my\s+)?knee\b|\bknee\s+hurts\b/i.test(lower))) {
     matchedSymptom = 'knee pain';
@@ -423,7 +456,15 @@ const classifyClauseRole = (itemStr, fullRawText = '') => {
     matchedSymptom = 'ankle pain';
   }
   if (!matchedSymptom && (/\bheadache\b|\bhead\s+hurts\b|\bhead\s+ache\b/i.test(lower))) {
-    matchedSymptom = 'headache';
+    if ((lower.includes('left side') || lower.includes('left-sided')) && lower.includes('throbbing')) {
+      matchedSymptom = 'left-sided throbbing headache';
+    } else if (lower.includes('throbbing')) {
+      matchedSymptom = 'throbbing headache';
+    } else if (lower.includes('left side') || lower.includes('left-sided')) {
+      matchedSymptom = 'left-sided headache';
+    } else {
+      matchedSymptom = 'headache';
+    }
   }
   if (!matchedSymptom && (/\bdizz(?:y|iness)\b|\bfeeling\s+dizzy\b/i.test(lower))) {
     matchedSymptom = 'dizziness';
@@ -501,12 +542,21 @@ const deduplicateAndRefineSymptoms = (symptomArray, contextArray = [], negativeF
     if (!clean || REDUNDANT_PHRASES.includes(clean) || isBareBodyPart(clean)) continue;
 
     // Strict Negation Removal Safety Guarantee
-    if (hasNoFever && (clean === 'fever' || clean === 'mild fever')) continue;
-    if (hasNoVomiting && (clean === 'vomiting' || clean === 'vomit')) continue;
-    if (hasNoDiarrhea && clean === 'diarrhea') continue;
-    if (hasNoChestPain && clean === 'chest pain') continue;
-    if (hasNoCough && clean === 'cough') continue;
-    if (hasNoBreathing && (clean === 'difficulty breathing' || clean === 'shortness of breath')) continue;
+    const cleanLower = clean.toLowerCase();
+    const isExplicitlyNegated = (negativeFindingsArray || []).some((neg) => {
+      const nLower = String(neg || '').toLowerCase();
+      if (!nLower) return false;
+      if (cleanLower === 'fever' || cleanLower === 'mild fever') return nLower.includes('no fever');
+      if (cleanLower === 'vomiting' || cleanLower === 'vomit') return nLower.includes('no vomiting');
+      if (cleanLower === 'diarrhea') return nLower.includes('no diarrhea');
+      if (cleanLower === 'chest pain') return nLower.includes('no chest pain');
+      if (cleanLower === 'cough') return nLower.includes('no cough');
+      if (cleanLower === 'difficulty breathing' || cleanLower === 'shortness of breath') return nLower.includes('no breathing');
+      if (cleanLower.includes('head injury')) return nLower.includes('no recent head injury') || nLower.includes('no head injury');
+      if (cleanLower === 'numbness') return nLower.includes('no numbness');
+      return nLower === `no ${cleanLower}` || nLower.includes(`no ${cleanLower}`);
+    });
+    if (isExplicitlyNegated) continue;
 
     // Filter out cough if it is present only as an aggravating factor in context
     if (clean === 'cough' && hasCoughContext) {
@@ -699,6 +749,10 @@ const extractQuestionSymptomCandidates = (q, primaryLocation = '') => {
 
   if (lowerQ.includes('swallowing') || lowerQ.includes('swallow')) {
     addCand('swallowing difficulty/pain', 'no difficulty swallowing');
+  }
+
+  if (lowerQ.includes('putting weight') || lowerQ.includes('bearing weight') || lowerQ.includes('weight on')) {
+    addCand('difficulty bearing weight', 'no difficulty bearing weight');
   }
 
   if (lowerQ.includes('swelling') || lowerQ.includes('swollen')) {

@@ -108,12 +108,30 @@ const analyzeSymptomsWithOpenBioLLM = async (input, param2 = '', param3 = 'mild'
 
   const tag = reqId ? `[OPENBIOLLM][${reqId}]` : '[OPENBIOLLM]';
   const startedAt = Date.now();
-  console.log(`${tag} Starting biomedical symptom analysis`);
+  console.log(`${tag} Request preparation started`);
 
   const token = process.env.HUGGINGFACE_API_TOKEN;
   if (!token) {
     throw new Error('HUGGINGFACE_API_TOKEN is not configured in backend environment.');
   }
+
+  let endpointHost = 'router.huggingface.co';
+  try {
+    const urlObj = new URL(ROUTER_ENDPOINT);
+    endpointHost = urlObj.hostname;
+  } catch (e) {
+    // Default fallback host
+  }
+
+  console.log(`${tag} Endpoint/model configuration verified`);
+  console.log(`${tag} Model: ${MODEL_NAME}`);
+  console.log(`${tag} Endpoint host: ${endpointHost}`);
+  console.log(`${tag} Payload format: chat-completion`);
+  console.log(`${tag} Positive symptoms count: ${Array.isArray(clinicalCase.positiveSymptoms) ? clinicalCase.positiveSymptoms.length : 0}`);
+  console.log(`${tag} Negative findings count: ${Array.isArray(clinicalCase.negativeFindings) ? clinicalCase.negativeFindings.length : 0}`);
+  console.log(`${tag} Context count: ${Array.isArray(clinicalCase.context) ? clinicalCase.context.length : 0}`);
+  console.log(`${tag} Duration present: ${clinicalCase.duration && clinicalCase.duration !== 'unspecified' ? 'yes' : 'no'}`);
+  console.log(`${tag} Severity explicitly rated: ${clinicalCase.severity ? 'yes' : 'no'}`);
 
   const posText = Array.isArray(clinicalCase.positiveSymptoms) && clinicalCase.positiveSymptoms.length > 0
     ? clinicalCase.positiveSymptoms.map((s) => `- ${s}`).join('\n')
@@ -175,6 +193,8 @@ Do not infer unreported symptoms.
 
 JSON Output:`;
 
+  console.log(`[OPENBIOLLM PAYLOAD][${reqId || 'dev'}]\n\n${userMessage}`);
+
   const payload = {
     model: MODEL_NAME,
     messages: [
@@ -201,7 +221,6 @@ JSON Output:`;
       const elapsed = Date.now() - startedAt;
       const remainingTime = deadlineAt - Date.now();
 
-      // If global deadline or safety margin reached, stop immediately
       if (globalController.signal.aborted || remainingTime <= SAFETY_MARGIN_MS) {
         console.warn(`${tag} Global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, elapsed)}ms)`);
         lastError = lastError || new Error(`OpenBioLLM global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, elapsed)}ms)`);
@@ -218,14 +237,12 @@ JSON Output:`;
       }
 
       if (attempt > 0) {
-        // Short delay on retry (500ms max), respecting safety margin
         const retryDelay = Math.min(500, remainingTime - SAFETY_MARGIN_MS);
         if (retryDelay > 0) {
           await new Promise((r) => setTimeout(r, retryDelay));
         }
       }
 
-      // Re-calculate after retry delay
       const remainingAfterDelay = deadlineAt - Date.now();
       if (globalController.signal.aborted || remainingAfterDelay <= SAFETY_MARGIN_MS) {
         console.warn(`${tag} Global deadline reached (${Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt)}ms)`);
@@ -244,7 +261,6 @@ JSON Output:`;
       const attemptStart = Date.now();
       const attemptTimeoutId = setTimeout(() => attemptController.abort(), attemptMaxTimeout);
 
-      // Link global controller signal to attempt controller
       const onGlobalAbort = () => attemptController.abort();
       if (globalController.signal.aborted) {
         attemptController.abort();
@@ -253,6 +269,7 @@ JSON Output:`;
       }
 
       try {
+        console.log(`${tag} Request dispatched`);
         console.log(`${tag} Provider queued / request still pending...`);
         const response = await fetch(ROUTER_ENDPOINT, {
           method: 'POST',
@@ -268,31 +285,55 @@ JSON Output:`;
         globalController.signal.removeEventListener('abort', onGlobalAbort);
         const attemptDuration = Date.now() - attemptStart;
 
-        if (response.status === 429) {
-          console.warn(`${tag} HTTP 429 Rate Limited (after ${attemptDuration}ms)`);
-          lastError = new Error(`Provider rate limited (HTTP 429)`);
-          if (attemptDuration < 5000) {
-            continue; // Fast failure retry
-          } else {
-            break; // Too late to retry
-          }
+        if (response.status === 401) {
+          console.warn(`${tag} HTTP 401 — authentication failure`);
+          lastError = new Error('Provider authentication failure (HTTP 401)');
+          break;
         }
 
-        if (response.status === 503) {
-          console.warn(`${tag} HTTP 503 Service Unavailable (after ${attemptDuration}ms)`);
-          lastError = new Error(`Provider temporarily unavailable (HTTP 503)`);
+        if (response.status === 402) {
+          console.warn(`${tag} HTTP 402 — provider quota depleted / payment required`);
+          lastError = new Error('Provider quota depleted (HTTP 402)');
+          break;
+        }
+
+        if (response.status === 403) {
+          console.warn(`${tag} HTTP 403 — authorization/provider access failure`);
+          lastError = new Error('Provider access failure (HTTP 403)');
+          break;
+        }
+
+        if (response.status === 404) {
+          console.warn(`${tag} HTTP 404 — model/endpoint not available`);
+          lastError = new Error('Endpoint not available (HTTP 404)');
+          break;
+        }
+
+        if (response.status === 429) {
+          console.warn(`${tag} HTTP 429 — provider capacity/rate limit (after ${attemptDuration}ms)`);
+          lastError = new Error(`Provider rate limited (HTTP 429)`);
           if (attemptDuration < 5000) {
-            continue; // Fast failure retry
+            continue;
           } else {
             break;
           }
         }
 
         if (response.status === 502) {
-          console.warn(`${tag} HTTP 502 Bad Gateway (after ${attemptDuration}ms)`);
+          console.warn(`${tag} HTTP 502 — upstream provider error (after ${attemptDuration}ms)`);
           lastError = new Error(`Provider gateway error (HTTP 502)`);
           if (attemptDuration < 5000) {
-            continue; // Fast failure retry
+            continue;
+          } else {
+            break;
+          }
+        }
+
+        if (response.status === 503) {
+          console.warn(`${tag} HTTP 503 — provider temporarily unavailable (after ${attemptDuration}ms)`);
+          lastError = new Error(`Provider temporarily unavailable (HTTP 503)`);
+          if (attemptDuration < 5000) {
+            continue;
           } else {
             break;
           }
@@ -300,7 +341,7 @@ JSON Output:`;
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.warn(`${tag} HTTP Error ${response.status}: ${errorText.substring(0, 200)}`);
+          console.warn(`${tag} HTTP ${response.status} — provider error: ${errorText.substring(0, 200)}`);
           const permanentError = new Error(`OpenBioLLM API HTTP Error ${response.status}: ${errorText.substring(0, 200)}`);
           if (response.status >= 400 && response.status < 500) {
             lastError = permanentError;
@@ -312,12 +353,22 @@ JSON Output:`;
         const responseData = await response.json();
         const rawContent = responseData.choices?.[0]?.message?.content;
 
+        console.log(`${tag} HTTP status: 200 OK (${attemptDuration}ms)`);
+        console.log(`${tag} HTTP 200`);
+        console.log(`${tag} Raw response structure recognized: ${responseData.choices?.[0]?.message ? 'YES' : 'NO'}`);
+        console.log(`${tag} Generated text extracted: ${rawContent ? 'YES' : 'NO'}`);
+
         if (!rawContent) {
+          console.warn(`${tag} INVALID_RESPONSE`);
+          console.warn(`${tag} Reason: empty content response from provider`);
           throw new Error('OpenBioLLM returned an empty content response');
         }
 
         const parsedJSON = parseJSONFromText(rawContent);
+        console.log(`${tag} JSON parse: ${parsedJSON ? 'PASS' : 'FAIL'}`);
         if (!parsedJSON) {
+          console.warn(`${tag} INVALID_RESPONSE`);
+          console.warn(`${tag} Reason: failed to parse structured JSON from response text`);
           throw new Error('Failed to parse structured JSON from OpenBioLLM response');
         }
 
@@ -345,7 +396,11 @@ JSON Output:`;
           }
         }
 
+        console.log(`${tag} Schema validation: ${possibleConditions.length > 0 ? 'PASS' : 'FAIL'}`);
+
         if (possibleConditions.length === 0) {
+          console.warn(`${tag} INVALID_RESPONSE`);
+          console.warn(`${tag} Reason: no valid possible conditions found in response`);
           throw new Error('OpenBioLLM did not produce valid possible conditions');
         }
 
@@ -368,6 +423,7 @@ JSON Output:`;
         }
 
         const totalElapsed = Math.min(TOTAL_AI_DEADLINE_MS, Date.now() - startedAt);
+        console.log(`${tag} Inference: SUCCESS`);
         console.log(`${tag} Inference SUCCESS (in ${attemptDuration}ms)`);
         console.log(`${tag} Total model elapsed: ${totalElapsed}ms`);
         console.log(`${tag} Model: ${MODEL_NAME}`);
@@ -385,11 +441,15 @@ JSON Output:`;
         globalController.signal.removeEventListener('abort', onGlobalAbort);
         const attemptDuration = Date.now() - attemptStart;
         if (err.name === 'AbortError' || globalController.signal.aborted) {
+          console.warn(`${tag} TIMEOUT — provider exceeded allowed inference time (${attemptDuration}ms)`);
           lastError = new Error(`OpenBioLLM request timed out after ${attemptMaxTimeout}ms`);
-          console.warn(`${tag} Attempt ${attempt + 1} timed out after ${attemptDuration}ms`);
         } else {
           lastError = err;
-          console.warn(`${tag} Attempt ${attempt + 1} failed: ${err.message}`);
+          if (!err.message.includes('HTTP Error') && !err.message.includes('INVALID_RESPONSE')) {
+            console.warn(`${tag} NETWORK_ERROR — transport/connectivity failure (${err.message})`);
+          } else {
+            console.warn(`${tag} Attempt ${attempt + 1} failed: ${err.message}`);
+          }
         }
       }
     }
