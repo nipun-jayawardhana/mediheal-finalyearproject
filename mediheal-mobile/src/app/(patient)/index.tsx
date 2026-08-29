@@ -36,7 +36,12 @@ export default function PatientHomeScreen() {
 
   const currentLangOption =
     SUPPORTED_LANGUAGES.find((l) => l.code === language) || SUPPORTED_LANGUAGES[0];
-  const currentLanguageNativeName = currentLangOption.nativeName;
+
+  const HEADER_LANGUAGE_LABELS: Record<LanguageCode, string> = {
+    en: 'EN',
+    si: 'සිං',
+    ta: 'TA',
+  };
 
   const handleSelectLanguage = async (code: LanguageCode) => {
     setLangModalVisible(false);
@@ -170,22 +175,22 @@ export default function PatientHomeScreen() {
           <Text style={styles.headerIcon}>☰</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle} pointerEvents="none">
+        <Text style={styles.headerTitle} pointerEvents="none" numberOfLines={1}>
           {t('appTitle')}
         </Text>
 
         <View style={styles.headerRightContainer}>
           <TouchableOpacity
-            style={styles.langSelectorPill}
+            style={styles.langBtnCompact}
             onPress={() => { stopSpeech(); setLangModalVisible(true); }}
             accessibilityRole="button"
-            accessibilityLabel={`Change language. Current language: ${currentLangOption.name}`}
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityLabel={`Current language ${currentLangOption.name}. Tap to change language`}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.langGlobeIcon}>🌐</Text>
-            <Text style={styles.langPillText}>{currentLanguageNativeName}</Text>
-            <Text style={styles.langChevron}>▼</Text>
+            <Text style={styles.langTextCompact} numberOfLines={1}>
+              {HEADER_LANGUAGE_LABELS[language] || 'EN'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -449,18 +454,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    minHeight: 56,
+    minHeight: 52,
     position: 'relative',
   },
   headerTitle: {
     ...typography.header,
     color: colors.primary,
     fontWeight: '800',
-    fontSize: 22,
+    fontSize: 19,
     position: 'absolute',
     left: 0,
     right: 0,
@@ -468,9 +473,9 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   headerIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.card,
@@ -479,38 +484,32 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   headerIcon: {
-    fontSize: 22,
+    fontSize: 20,
   },
   headerRightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 4,
     zIndex: 1,
   },
-  langSelectorPill: {
-    flexDirection: 'row',
+  langBtnCompact: {
+    height: 36,
+    minWidth: 42,
+    maxWidth: 48,
+    paddingHorizontal: 8,
+    borderRadius: 18,
+    justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.pill,
-    height: 44,
-    paddingHorizontal: 12,
-    gap: 6,
     ...shadows.card,
   },
-  langGlobeIcon: {
-    fontSize: 18,
-  },
-  langPillText: {
-    fontSize: 15,
+  langTextCompact: {
+    fontSize: 13,
     fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  langChevron: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginLeft: 2,
+    color: colors.primary,
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
