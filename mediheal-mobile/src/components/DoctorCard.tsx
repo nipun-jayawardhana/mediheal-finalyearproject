@@ -5,6 +5,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../constants
 import { AppButton } from './AppButton';
 import { useLanguage } from '../context/LanguageContext';
 import { getSpecializationTranslationKey } from '../utils/displayMappers';
+import { useTheme } from '../context/ThemeContext';
 
 interface DoctorCardProps {
   doctor: DoctorProfile;
@@ -13,6 +14,7 @@ interface DoctorCardProps {
 
 export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const rawName = doctor.userId?.fullName || 'Medical Specialist';
   const doctorName = rawName.toLowerCase().startsWith('dr.')
@@ -38,35 +40,35 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
   const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : doctor.specialization;
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
       {/* Top Header Row with Avatar & Name Info */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+          <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
         </View>
 
         <View style={styles.headerTextCol}>
-          <Text style={styles.doctorName} numberOfLines={1}>
+          <Text style={[styles.doctorName, { color: themeColors.textPrimary }]} numberOfLines={1}>
             {doctorName}
           </Text>
           
-          <Text style={styles.specialization} numberOfLines={1}>
+          <Text style={[styles.specialization, { color: themeColors.primary }]} numberOfLines={1}>
             {specLocalized}
           </Text>
 
           {doctor.slmcNumber ? (
-            <Text style={styles.slmcText}>{t('slmcNumber')}: {doctor.slmcNumber}</Text>
+            <Text style={[styles.slmcText, { color: themeColors.textMuted }]}>{t('slmcNumber')}: {doctor.slmcNumber}</Text>
           ) : null}
         </View>
       </View>
 
       {/* Doctor Meta Info */}
-      <View style={styles.metaContainer}>
+      <View style={[styles.metaContainer, { borderTopColor: themeColors.border }]}>
         {/* Hospital Location */}
         {doctor.hospital ? (
           <View style={styles.metaRow}>
             <Text style={styles.metaIcon}>🏥</Text>
-            <Text style={styles.metaText} numberOfLines={1}>
+            <Text style={[styles.metaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
               {doctor.hospital}
               {doctor.location ? `, ${doctor.location}` : ''}
             </Text>
@@ -76,17 +78,17 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
         {/* Experience & Fee */}
         <View style={styles.statsRow}>
           {doctor.yearsOfExperience > 0 ? (
-            <View style={styles.statBadge}>
+            <View style={[styles.statBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
               <Text style={styles.statIcon}>👨‍⚕️</Text>
-              <Text style={styles.statText}>
+              <Text style={[styles.statText, { color: themeColors.textPrimary }]}>
                 {doctor.yearsOfExperience} {t('yearsExp')}
               </Text>
             </View>
           ) : null}
 
-          <View style={styles.statBadge}>
+          <View style={[styles.statBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
             <Text style={styles.statIcon}>💵</Text>
-            <Text style={styles.statText}>
+            <Text style={[styles.statText, { color: themeColors.textPrimary }]}>
               LKR {doctor.consultationFee ? doctor.consultationFee.toLocaleString() : '0'}
             </Text>
           </View>
@@ -95,23 +97,23 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
         {/* Availability Badge */}
         <View style={styles.availabilityRow}>
           {doctor.isAvailable ? (
-            <View style={[styles.availBadge, styles.availBadgeActive]}>
-              <View style={styles.activeDot} />
-              <Text style={styles.availTextActive}>
+            <View style={[styles.availBadge, { backgroundColor: themeColors.successLight }]}>
+              <View style={[styles.activeDot, { backgroundColor: themeColors.success }]} />
+              <Text style={[styles.availTextActive, { color: themeColors.success }]}>
                 {availableSlotsCount > 0
                   ? `${t('available')} (${availableSlotsCount})`
                   : t('available')}
               </Text>
             </View>
           ) : (
-            <View style={[styles.availBadge, styles.availBadgeInactive]}>
-              <View style={styles.inactiveDot} />
-              <Text style={styles.availTextInactive}>{t('currentlyUnavailable')}</Text>
+            <View style={[styles.availBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
+              <View style={[styles.inactiveDot, { backgroundColor: themeColors.textMuted }]} />
+              <Text style={[styles.availTextInactive, { color: themeColors.textMuted }]}>{t('currentlyUnavailable')}</Text>
             </View>
           )}
 
           {availableDaysText ? (
-            <Text style={styles.availableDaysText} numberOfLines={1}>
+            <Text style={[styles.availableDaysText, { color: themeColors.textSecondary }]} numberOfLines={1}>
               {availableDaysText}
             </Text>
           ) : null}

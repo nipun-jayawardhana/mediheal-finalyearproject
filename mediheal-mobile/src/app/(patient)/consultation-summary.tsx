@@ -9,10 +9,12 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../consta
 import { getConsultationById } from '../../services/consultationService';
 import { Consultation } from '../../types/consultation';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ConsultationSummaryScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
@@ -97,30 +99,30 @@ export default function ConsultationSummaryScreen() {
   const followUpDateStr = formatDate(consultation.followUpDate);
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader title={t('consultationSummary')} onBackPress={() => router.back()} />
 
       <View style={styles.container}>
         {/* Doctor Identity Header Card */}
-        <View style={styles.doctorCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.doctorCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+            <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
           </View>
 
-          <Text style={styles.doctorName}>{doctorName}</Text>
+          <Text style={[styles.doctorName, { color: themeColors.textPrimary }]}>{doctorName}</Text>
           
           {consultation.specialization ? (
-            <Text style={styles.specializationBadge}>
+            <Text style={[styles.specializationBadge, { color: themeColors.primary }]}>
               {consultation.specialization.toUpperCase()}
             </Text>
           ) : (
-            <Text style={styles.specializationBadge}>GENERAL PHYSICIAN</Text>
+            <Text style={[styles.specializationBadge, { color: themeColors.primary }]}>GENERAL PHYSICIAN</Text>
           )}
 
           {completedDateStr ? (
             <View style={styles.dateRow}>
               <Text style={styles.dateIcon}>📅</Text>
-              <Text style={styles.dateText}>{completedDateStr}</Text>
+              <Text style={[styles.dateText, { color: themeColors.textSecondary }]}>{completedDateStr}</Text>
             </View>
           ) : null}
         </View>
@@ -128,21 +130,21 @@ export default function ConsultationSummaryScreen() {
         {/* Diagnosis Hero Banner */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderIcon}>📊</Text>
-          <Text style={styles.sectionHeaderText}>Diagnosis</Text>
+          <Text style={[styles.sectionHeaderText, { color: themeColors.textPrimary }]}>Diagnosis</Text>
         </View>
 
-        <View style={styles.diagnosisHeroCard}>
+        <View style={[styles.diagnosisHeroCard, { backgroundColor: themeColors.primary }]}>
           <Text style={styles.diagnosisTitle}>{consultation.diagnosis}</Text>
         </View>
 
         {/* Clinical / Doctor's Notes */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderIcon}>📑</Text>
-          <Text style={styles.sectionHeaderText}>Doctor's Notes</Text>
+          <Text style={[styles.sectionHeaderText, { color: themeColors.textPrimary }]}>Doctor's Notes</Text>
         </View>
 
-        <View style={styles.cardBox}>
-          <Text style={styles.bodyText}>
+        <View style={[styles.cardBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
             {consultation.clinicalNotes || 'No clinical notes provided for this consultation.'}
           </Text>
         </View>
@@ -150,38 +152,38 @@ export default function ConsultationSummaryScreen() {
         {/* Prescribed Medications Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionHeaderIcon}>💊</Text>
-          <Text style={styles.sectionHeaderText}>Prescribed Medications</Text>
+          <Text style={[styles.sectionHeaderText, { color: themeColors.textPrimary }]}>Prescribed Medications</Text>
         </View>
 
         {consultation.prescriptions && consultation.prescriptions.length > 0 ? (
           <View style={styles.prescriptionList}>
             {consultation.prescriptions.map((item, idx) => (
-              <View key={idx} style={styles.prescriptionCard}>
+              <View key={idx} style={[styles.prescriptionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
                 <View style={styles.prescriptionTextCol}>
-                  <Text style={styles.medicineName}>
+                  <Text style={[styles.medicineName, { color: themeColors.textPrimary }]}>
                     {item.medicineName} {item.dosage ? `(${item.dosage})` : ''}
                   </Text>
                   
-                  <Text style={styles.medicineDetails}>
+                  <Text style={[styles.medicineDetails, { color: themeColors.textSecondary }]}>
                     {item.frequency} • {item.duration}
                   </Text>
 
                   {item.instructions ? (
-                    <Text style={styles.medicineInstructions}>
+                    <Text style={[styles.medicineInstructions, { color: themeColors.primary }]}>
                       Instructions: {item.instructions}
                     </Text>
                   ) : null}
                 </View>
 
-                <View style={styles.prescribedCheckCircle}>
-                  <Text style={styles.prescribedCheckIcon}>✓</Text>
+                <View style={[styles.prescribedCheckCircle, { backgroundColor: themeColors.surfaceSecondary }]}>
+                  <Text style={[styles.prescribedCheckIcon, { color: themeColors.success }]}>✓</Text>
                 </View>
               </View>
             ))}
           </View>
         ) : (
-          <View style={styles.cardBox}>
-            <Text style={styles.bodyText}>
+          <View style={[styles.cardBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
               No prescribed medications for this consultation.
             </Text>
           </View>
@@ -192,14 +194,14 @@ export default function ConsultationSummaryScreen() {
           <>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionHeaderIcon}>💡</Text>
-              <Text style={styles.sectionHeaderText}>Recommendations</Text>
+              <Text style={[styles.sectionHeaderText, { color: themeColors.textPrimary }]}>Recommendations</Text>
             </View>
 
-            <View style={styles.recommendationsCard}>
+            <View style={[styles.recommendationsCard, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
               {consultation.recommendations.map((rec, idx) => (
                 <View key={idx} style={styles.recommendationItem}>
-                  <Text style={styles.recBullet}>•</Text>
-                  <Text style={styles.recText}>{rec}</Text>
+                  <Text style={[styles.recBullet, { color: themeColors.success }]}>•</Text>
+                  <Text style={[styles.recText, { color: themeColors.textPrimary }]}>{rec}</Text>
                 </View>
               ))}
             </View>
@@ -208,7 +210,7 @@ export default function ConsultationSummaryScreen() {
 
         {/* Follow-up Date Banner */}
         {followUpDateStr ? (
-          <View style={styles.followUpBanner}>
+          <View style={[styles.followUpBanner, { backgroundColor: themeColors.infoLight, borderColor: themeColors.info }]}>
             <Text style={styles.followUpIcon}>📅</Text>
             <View style={styles.followUpTextCol}>
               <Text style={styles.followUpTitle}>Follow-up Recommended</Text>

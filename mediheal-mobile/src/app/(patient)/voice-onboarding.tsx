@@ -8,12 +8,14 @@ import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export const VOICE_ONBOARDING_STORAGE_KEY = '@mediheal_voice_onboarding_seen';
 
 export default function VoiceOnboardingScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
   const userLang = user?.preferredLanguage === 'Sinhala' ? 'si' : user?.preferredLanguage === 'Tamil' ? 'ta' : 'en';
 
   const {
@@ -44,7 +46,7 @@ export default function VoiceOnboardingScreen() {
   };
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title="Voice Tutorial"
         subtitle="Learn how to navigate MediHeal with your voice"
@@ -84,11 +86,11 @@ export default function VoiceOnboardingScreen() {
         <View style={styles.instructionBox}>
           {voiceState === 'idle' && (
             <>
-              <Text style={styles.headingText}>
-                Say <Text style={styles.highlightText}>"Check Symptoms"</Text> or{' '}
-                <Text style={styles.highlightText}>"Call Doctor"</Text> to navigate!
+              <Text style={[styles.headingText, { color: themeColors.textPrimary }]}>
+                Say <Text style={[styles.highlightText, { color: themeColors.primary, backgroundColor: themeColors.primaryLight }]}>"Check Symptoms"</Text> or{' '}
+                <Text style={[styles.highlightText, { color: themeColors.primary, backgroundColor: themeColors.primaryLight }]}>"Call Doctor"</Text> to navigate!
               </Text>
-              <Text style={styles.bodyText}>
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
                 Speak clearly near your phone's microphone. MediHeal will listen and guide you.
               </Text>
             </>
@@ -96,15 +98,15 @@ export default function VoiceOnboardingScreen() {
 
           {voiceState === 'requesting' && (
             <>
-              <Text style={styles.headingText}>Requesting Permission...</Text>
-              <Text style={styles.bodyText}>Please grant microphone access to try voice input.</Text>
+              <Text style={[styles.headingText, { color: themeColors.textPrimary }]}>Requesting Permission...</Text>
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>Please grant microphone access to try voice input.</Text>
             </>
           )}
 
           {voiceState === 'listening' && (
             <>
-              <Text style={[styles.headingText, { color: colors.primary }]}>Listening... 🎙️</Text>
-              <Text style={styles.bodyText}>
+              <Text style={[styles.headingText, { color: themeColors.primary }]}>Listening... 🎙️</Text>
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
                 {transcript ? `"${transcript}"` : 'Say something like "I have fever and cough"'}
               </Text>
             </>
@@ -112,18 +114,18 @@ export default function VoiceOnboardingScreen() {
 
           {voiceState === 'recognized' && (
             <>
-              <Text style={[styles.headingText, { color: colors.success }]}>Voice Recognized!</Text>
-              <View style={styles.transcriptCard}>
-                <Text style={styles.transcriptLabel}>Captured Phrase:</Text>
-                <Text style={styles.transcriptText}>"{transcript}"</Text>
+              <Text style={[styles.headingText, { color: themeColors.success }]}>Voice Recognized!</Text>
+              <View style={[styles.transcriptCard, { backgroundColor: themeColors.card, borderColor: themeColors.primary }]}>
+                <Text style={[styles.transcriptLabel, { color: themeColors.primary }]}>Captured Phrase:</Text>
+                <Text style={[styles.transcriptText, { color: themeColors.textPrimary }]}>"{transcript}"</Text>
               </View>
             </>
           )}
 
           {voiceState === 'no_speech' && (
             <>
-              <Text style={[styles.headingText, { color: colors.warning }]}>No Speech Detected</Text>
-              <Text style={styles.bodyText}>
+              <Text style={[styles.headingText, { color: themeColors.warning }]}>No Speech Detected</Text>
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
                 We didn't hear anything. Tap "Try Again" below or continue to manual input.
               </Text>
             </>
@@ -131,24 +133,24 @@ export default function VoiceOnboardingScreen() {
 
           {voiceState === 'error' && (
             <>
-              <Text style={[styles.headingText, { color: colors.danger }]}>Voice Input Notice</Text>
-              <Text style={styles.bodyText}>{errorMessage}</Text>
+              <Text style={[styles.headingText, { color: themeColors.danger }]}>Voice Input Notice</Text>
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{errorMessage}</Text>
             </>
           )}
 
           {/* Status Pill Indicator */}
-          <View style={styles.statusPill}>
+          <View style={[styles.statusPill, { backgroundColor: themeColors.surfaceSecondary }]}>
             <Text
               style={[
                 styles.statusPillDot,
-                isListening && { color: colors.primary },
-                voiceState === 'recognized' && { color: colors.success },
-                voiceState === 'error' && { color: colors.danger },
+                isListening && { color: themeColors.primary },
+                voiceState === 'recognized' && { color: themeColors.success },
+                voiceState === 'error' && { color: themeColors.danger },
               ]}
             >
               ●
             </Text>
-            <Text style={styles.statusPillText}>
+            <Text style={[styles.statusPillText, { color: themeColors.textSecondary }]}>
               {isListening
                 ? 'Listening Active'
                 : voiceState === 'recognized'
@@ -162,21 +164,21 @@ export default function VoiceOnboardingScreen() {
 
         {/* Feature & Privacy Cards */}
         <View style={styles.cardSection}>
-          <View style={styles.infoCard}>
+          <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
             <Text style={styles.cardIcon}>💡</Text>
             <View style={styles.cardTextCol}>
-              <Text style={styles.cardTitle}>Did you know?</Text>
-              <Text style={styles.cardSub}>
+              <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>Did you know?</Text>
+              <Text style={[styles.cardSub, { color: themeColors.textSecondary }]}>
                 You can describe symptoms naturally or type them manually anytime.
               </Text>
             </View>
           </View>
 
-          <View style={styles.infoCard}>
+          <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
             <Text style={styles.cardIcon}>🔒</Text>
             <View style={styles.cardTextCol}>
-              <Text style={styles.cardTitle}>Private & Truthful</Text>
-              <Text style={styles.cardSub}>
+              <Text style={[styles.cardTitle, { color: themeColors.textPrimary }]}>Private & Truthful</Text>
+              <Text style={[styles.cardSub, { color: themeColors.textSecondary }]}>
                 Voice recognition uses your device or system speech service. You can always use text input instead.
               </Text>
             </View>

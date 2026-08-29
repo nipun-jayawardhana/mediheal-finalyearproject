@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface InfoCardProps {
   title: string;
@@ -17,12 +18,14 @@ export const InfoCard: React.FC<InfoCardProps> = ({
   style,
   badge,
 }) => {
+  const { colors } = useTheme();
+
   return (
-    <View style={[styles.card, style]}>
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]}>
       <View style={styles.headerRow}>
         <View style={styles.titleColumn}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+          {subtitle ? <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
         </View>
         {badge}
       </View>

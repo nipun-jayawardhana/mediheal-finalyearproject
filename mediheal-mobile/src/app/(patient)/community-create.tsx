@@ -15,6 +15,7 @@ import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { createCommunityPost } from '../../services/communityService';
 import { CommunityCategory } from '../../types/community';
+import { useTheme } from '../../context/ThemeContext';
 
 const CATEGORY_OPTIONS: { label: string; value: CommunityCategory }[] = [
   { label: 'General Q&A', value: 'general' },
@@ -28,6 +29,7 @@ const CATEGORY_OPTIONS: { label: string; value: CommunityCategory }[] = [
 
 export default function CreateCommunityPostScreen() {
   const router = useRouter();
+  const { colors: themeColors } = useTheme();
 
   const [title, setTitle] = useState<string>('');
   const [category, setCategory] = useState<CommunityCategory>('general');
@@ -74,7 +76,7 @@ export default function CreateCommunityPostScreen() {
   };
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Create Post"
         subtitle="Ask a Question or Share Insights"
@@ -84,35 +86,40 @@ export default function CreateCommunityPostScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Title Input */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Post Title *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Post Title *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { backgroundColor: themeColors.surfaceSecondary, color: themeColors.textPrimary, borderColor: themeColors.border }]}
             placeholder="e.g. Tips for staying active at home?"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textSecondary}
             value={title}
             onChangeText={setTitle}
             maxLength={120}
           />
-          <Text style={styles.charCount}>{title.length} / 120 characters</Text>
+          <Text style={[styles.charCount, { color: themeColors.textSecondary }]}>{title.length} / 120 characters</Text>
         </View>
 
         {/* Category Selector */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Select Topic Category *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Select Topic Category *</Text>
           <View style={styles.categoryWrap}>
             {CATEGORY_OPTIONS.map((cat) => {
               const isSelected = category === cat.value;
               return (
                 <TouchableOpacity
                   key={cat.value}
-                  style={[styles.categoryOption, isSelected && styles.categoryOptionSelected]}
+                  style={[
+                    styles.categoryOption,
+                    { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                    isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
+                  ]}
                   activeOpacity={0.8}
                   onPress={() => setCategory(cat.value)}
                 >
                   <Text
                     style={[
                       styles.categoryOptionText,
-                      isSelected && styles.categoryOptionTextSelected,
+                      { color: themeColors.textSecondary },
+                      isSelected && { color: '#FFFFFF' },
                     ]}
                   >
                     {cat.label}
@@ -125,11 +132,11 @@ export default function CreateCommunityPostScreen() {
 
         {/* Content Multiline Area */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Discussion Details / Question *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Discussion Details / Question *</Text>
           <TextInput
-            style={[styles.textInput, styles.multilineInput]}
+            style={[styles.textInput, styles.multilineInput, { backgroundColor: themeColors.surfaceSecondary, color: themeColors.textPrimary, borderColor: themeColors.border }]}
             placeholder="Write your health question or discussion details here..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textSecondary}
             value={content}
             onChangeText={setContent}
             multiline
@@ -137,7 +144,7 @@ export default function CreateCommunityPostScreen() {
             textAlignVertical="top"
             maxLength={2000}
           />
-          <Text style={styles.charCount}>{content.length} / 2000 characters</Text>
+          <Text style={[styles.charCount, { color: themeColors.textSecondary }]}>{content.length} / 2000 characters</Text>
         </View>
 
         {/* Medical Safety Disclaimer */}

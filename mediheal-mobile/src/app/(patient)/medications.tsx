@@ -21,10 +21,12 @@ import {
 } from '../../services/notificationService';
 
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function PatientMedicationsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const [medications, setMedications] = useState<Medication[]>([]);
   const [logs, setLogs] = useState<MedicationLog[]>([]);
@@ -204,7 +206,7 @@ export default function PatientMedicationsScreen() {
   const isEmpty = medications.length === 0;
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title={t('medications')}
         subtitle={t('medicationReminders')}
@@ -242,12 +244,12 @@ export default function PatientMedicationsScreen() {
             ListHeaderComponent={
               <View style={styles.headerComponent}>
                 {/* Medication Reminders Settings Card */}
-                <View style={styles.reminderCard}>
+                <View style={[styles.reminderCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
                   <View style={styles.reminderTextCol}>
-                    <Text style={styles.reminderTitle}>
+                    <Text style={[styles.reminderTitle, { color: themeColors.textPrimary }]}>
                       Medication Reminders: {remindersEnabled ? 'ON' : 'OFF'}
                     </Text>
-                    <Text style={styles.reminderSub}>
+                    <Text style={[styles.reminderSub, { color: themeColors.textSecondary }]}>
                       {remindersEnabled
                         ? 'Local push alerts will remind you at dose times.'
                         : 'Enable alerts to get local dose notifications.'}
@@ -257,37 +259,37 @@ export default function PatientMedicationsScreen() {
                     value={remindersEnabled}
                     onValueChange={handleToggleReminders}
                     disabled={togglingReminders}
-                    trackColor={{ false: colors.border, true: colors.primaryLight }}
-                    thumbColor={remindersEnabled ? colors.primary : '#f4f3f4'}
+                    trackColor={{ false: themeColors.border, true: themeColors.primaryLight }}
+                    thumbColor={remindersEnabled ? themeColors.primary : '#f4f3f4'}
                   />
                 </View>
 
                 {/* Adherence Summary Box */}
-                <View style={styles.adherenceCard}>
+                <View style={[styles.adherenceCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
                   <View style={styles.adherenceTextCol}>
-                    <Text style={styles.adherenceTitle}>Today's Adherence</Text>
+                    <Text style={[styles.adherenceTitle, { color: themeColors.textPrimary }]}>Today's Adherence</Text>
                     {adherenceStats.percentage !== null ? (
-                      <Text style={styles.adherenceVal}>
+                      <Text style={[styles.adherenceVal, { color: themeColors.primary }]}>
                         {adherenceStats.percentage}% Logged Compliance
                       </Text>
                     ) : (
-                      <Text style={styles.adherenceSub}>
+                      <Text style={[styles.adherenceSub, { color: themeColors.textSecondary }]}>
                         Not enough adherence data recorded yet
                       </Text>
                     )}
                   </View>
 
                   <View style={styles.statsBadgeRow}>
-                    <View style={styles.statPill}>
-                      <Text style={styles.statPillVal}>{adherenceStats.taken}</Text>
-                      <Text style={styles.statPillLbl}>Taken</Text>
+                    <View style={[styles.statPill, { backgroundColor: themeColors.surfaceSecondary }]}>
+                      <Text style={[styles.statPillVal, { color: themeColors.primary }]}>{adherenceStats.taken}</Text>
+                      <Text style={[styles.statPillLbl, { color: themeColors.textSecondary }]}>Taken</Text>
                     </View>
                     {adherenceStats.missed > 0 && (
-                      <View style={[styles.statPill, styles.statPillMissed]}>
-                        <Text style={[styles.statPillVal, { color: colors.danger }]}>
+                      <View style={[styles.statPill, styles.statPillMissed, { backgroundColor: themeColors.dangerLight }]}>
+                        <Text style={[styles.statPillVal, { color: themeColors.danger }]}>
                           {adherenceStats.missed}
                         </Text>
-                        <Text style={styles.statPillLbl}>Missed</Text>
+                        <Text style={[styles.statPillLbl, { color: themeColors.danger }]}>Missed</Text>
                       </View>
                     )}
                   </View>

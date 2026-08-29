@@ -12,10 +12,12 @@ import { getDoctors } from '../../services/doctorService';
 import { DoctorProfile } from '../../types/doctor';
 import { useLanguage } from '../../context/LanguageContext';
 import { getSpecializationTranslationKey } from '../../utils/displayMappers';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function SpecialistListScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
   const { specialization: initialSpecialization } = useLocalSearchParams<{
     specialization?: string;
   }>();
@@ -80,7 +82,7 @@ export default function SpecialistListScreen() {
     : initialSpecialization;
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title={t('specialists')}
         subtitle={t('medicalProfessionals')}
@@ -90,24 +92,24 @@ export default function SpecialistListScreen() {
       <View style={styles.container}>
         {/* Recommendation Context Banner */}
         {selectedSpecialization ? (
-          <View style={styles.recommendationBanner}>
+          <View style={[styles.recommendationBanner, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
             <Text style={styles.sparkleIcon}>✨</Text>
             <View style={styles.bannerTextCol}>
-              <Text style={styles.bannerTitle}>{t('recommendedSpecialization')}</Text>
-              <Text style={styles.bannerSub}>
-                {t('filteredFor')} <Text style={styles.bannerHighlight}>{selectedSpecLocalized}</Text> {t('basedOnAiAnalysis')}
+              <Text style={[styles.bannerTitle, { color: themeColors.primaryDark }]}>{t('recommendedSpecialization')}</Text>
+              <Text style={[styles.bannerSub, { color: themeColors.primary }]}>
+                {t('filteredFor')} <Text style={[styles.bannerHighlight, { color: themeColors.primaryDark }]}>{selectedSpecLocalized}</Text> {t('basedOnAiAnalysis')}
               </Text>
             </View>
             <TouchableOpacity
-              style={styles.clearFilterBtn}
+              style={[styles.clearFilterBtn, { backgroundColor: themeColors.card }]}
               onPress={handleViewAllDoctors}
             >
-              <Text style={styles.clearFilterText}>{t('showAll')}</Text>
+              <Text style={[styles.clearFilterText, { color: themeColors.primary }]}>{t('showAll')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.contextBanner}>
-            <Text style={styles.contextText}>
+          <View style={[styles.contextBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <Text style={[styles.contextText, { color: themeColors.textSecondary }]}>
               {t('showingAllSpecialists')}
             </Text>
           </View>
@@ -119,14 +121,16 @@ export default function SpecialistListScreen() {
             <TouchableOpacity
               style={[
                 styles.chip,
-                selectedSpecialization === initialSpecialization && styles.activeChip,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                selectedSpecialization === initialSpecialization && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
               ]}
               onPress={() => setSelectedSpecialization(initialSpecialization)}
             >
               <Text
                 style={[
                   styles.chipText,
-                  selectedSpecialization === initialSpecialization && styles.activeChipText,
+                  { color: themeColors.textSecondary },
+                  selectedSpecialization === initialSpecialization && { color: themeColors.primary },
                 ]}
               >
                 {t('recommended')}: {initialSpecLocalized}
@@ -137,14 +141,16 @@ export default function SpecialistListScreen() {
           <TouchableOpacity
             style={[
               styles.chip,
-              !selectedSpecialization && styles.activeChip,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              !selectedSpecialization && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
             ]}
             onPress={handleViewAllDoctors}
           >
             <Text
               style={[
                 styles.chipText,
-                !selectedSpecialization && styles.activeChipText,
+                { color: themeColors.textSecondary },
+                !selectedSpecialization && { color: themeColors.primary },
               ]}
             >
               {t('allDoctors')}
@@ -152,7 +158,7 @@ export default function SpecialistListScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.mapChip}
+            style={[styles.mapChip, { backgroundColor: themeColors.primary }]}
             onPress={() =>
               router.push({
                 pathname: '/(patient)/doctor-map' as any,

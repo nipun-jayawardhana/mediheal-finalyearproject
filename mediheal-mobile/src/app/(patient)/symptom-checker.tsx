@@ -23,6 +23,7 @@ import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { TranslationKeys } from '../../i18n/en';
+import { useTheme } from '../../context/ThemeContext';
 
 const SEVERITY_OPTIONS: { labelKey: TranslationKeys; value: SeverityLevel }[] = [
   { labelKey: 'mild', value: 'mild' },
@@ -40,6 +41,7 @@ export default function SymptomCheckerScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { language, t } = useLanguage();
+  const { colors: themeColors, isDark } = useTheme();
 
   // Step Mode: 'initial' | 'conversing' | 'summary'
   const [stepMode, setStepMode] = useState<'initial' | 'conversing' | 'summary'>('initial');
@@ -406,20 +408,20 @@ export default function SymptomCheckerScreen() {
   };
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title={t('symptomCheckerTitle')}
         subtitle={t('whereDoesItHurt')}
         onBackPress={() => router.back()}
         rightComponent={
           <TouchableOpacity
-            style={styles.restartBtn}
+            style={[styles.restartBtn, { backgroundColor: isDark ? themeColors.surfaceSecondary : '#E2E8F0' }]}
             onPress={handleRestart}
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Restart symptom input"
           >
-            <Text style={styles.restartBtnText}>🔄 {t('restart').toUpperCase()}</Text>
+            <Text style={[styles.restartBtnText, { color: themeColors.textSecondary }]}>🔄 {t('restart').toUpperCase()}</Text>
           </TouchableOpacity>
         }
       />
@@ -435,7 +437,7 @@ export default function SymptomCheckerScreen() {
 
         {/* Emergency Alert Card (Prominent Unacknowledged Warning) */}
         {isEmergency && !emergencyWarningAcknowledged && (
-          <View style={styles.emergencyCard}>
+          <View style={[styles.emergencyCard, isDark && { backgroundColor: '#450A0A', borderColor: '#991B1B' }]}>
             <View style={styles.emergencyHeaderRow}>
               <Text style={styles.emergencyIcon}>🚨</Text>
               <View style={styles.emergencyTextCol}>
@@ -454,11 +456,11 @@ export default function SymptomCheckerScreen() {
                 <Text style={styles.emergencyBtnPrimaryText}>{t('triggerEmergencySosNow')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.emergencyBtnSecondary}
+                style={[styles.emergencyBtnSecondary, isDark && { backgroundColor: themeColors.surfaceSecondary, borderColor: '#991B1B' }]}
                 activeOpacity={0.8}
                 onPress={() => setEmergencyWarningAcknowledged(true)}
               >
-                <Text style={styles.emergencyBtnSecondaryText}>{t('continueAssessment')}</Text>
+                <Text style={[styles.emergencyBtnSecondaryText, isDark && { color: '#FCA5A5' }]}>{t('continueAssessment')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -466,9 +468,9 @@ export default function SymptomCheckerScreen() {
 
         {/* Persistent Compact Emergency Banner (When acknowledged) */}
         {isEmergency && emergencyWarningAcknowledged && (
-          <View style={styles.compactEmergencyBanner}>
+          <View style={[styles.compactEmergencyBanner, isDark && { backgroundColor: '#450A0A', borderColor: '#991B1B' }]}>
             <Text style={styles.compactBannerIcon}>🚨</Text>
-            <Text style={styles.compactBannerText}>{t('highRiskBannerText')}</Text>
+            <Text style={[styles.compactBannerText, isDark && { color: '#FCA5A5' }]}>{t('highRiskBannerText')}</Text>
             <TouchableOpacity
               style={styles.compactSosBtn}
               activeOpacity={0.8}
@@ -515,12 +517,13 @@ export default function SymptomCheckerScreen() {
               <View
                 style={[
                   styles.voiceFeedbackCard,
-                  isListening && styles.voiceFeedbackListening,
-                  voiceState === 'recognized' && styles.voiceFeedbackRecognized,
-                  (voiceState === 'no_speech' || voiceState === 'error') && styles.voiceFeedbackError,
+                  { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                  isListening && { backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight, borderColor: themeColors.primary },
+                  voiceState === 'recognized' && { backgroundColor: isDark ? '#064E3B' : '#F0FDF4', borderColor: colors.success },
+                  (voiceState === 'no_speech' || voiceState === 'error') && { backgroundColor: isDark ? '#451A03' : colors.warningLight, borderColor: colors.warning },
                 ]}
               >
-                <Text style={styles.voiceFeedbackTitle}>
+                <Text style={[styles.voiceFeedbackTitle, { color: themeColors.textPrimary }]}>
                   {isListening
                     ? '🎙️ Listening...'
                     : voiceState === 'recognized'
@@ -531,14 +534,14 @@ export default function SymptomCheckerScreen() {
                 </Text>
 
                 {voiceError ? (
-                  <Text style={styles.voiceFeedbackText}>{voiceError}</Text>
+                  <Text style={[styles.voiceFeedbackText, { color: themeColors.textSecondary }]}>{voiceError}</Text>
                 ) : transcript ? (
-                  <Text style={styles.voiceFeedbackText}>"{transcript}"</Text>
+                  <Text style={[styles.voiceFeedbackText, { color: themeColors.textSecondary }]}>"{transcript}"</Text>
                 ) : null}
 
                 {/* STT Language Notice */}
                 {language !== 'en' && (
-                  <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 4 }}>
+                  <Text style={{ fontSize: 12, color: themeColors.textSecondary, marginTop: 4 }}>
                     ℹ️ {t('sttAvailabilityNotice')}
                   </Text>
                 )}
@@ -571,9 +574,9 @@ export default function SymptomCheckerScreen() {
             )}
 
             {/* Initial Symptom Input Form */}
-            <View style={styles.inputCard}>
-              <Text style={styles.cardHeaderTitle}>{t('stateInitialSymptom')}</Text>
-              <Text style={styles.cardHeaderSub}>{t('willAskUpTo3')}</Text>
+            <View style={[styles.inputCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+              <Text style={[styles.cardHeaderTitle, { color: themeColors.textPrimary }]}>{t('stateInitialSymptom')}</Text>
+              <Text style={[styles.cardHeaderSub, { color: themeColors.textSecondary }]}>{t('willAskUpTo3')}</Text>
 
               <View style={styles.inputAddRow}>
                 <AppInput
@@ -588,7 +591,11 @@ export default function SymptomCheckerScreen() {
                 />
 
                 <TouchableOpacity
-                  style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
+                  style={[
+                    styles.micIconButton,
+                    { backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight, borderColor: isDark ? themeColors.border : colors.primary },
+                    isListening && styles.micIconButtonActive,
+                  ]}
                   onPress={handleToggleMic}
                   activeOpacity={0.8}
                 >
@@ -604,22 +611,28 @@ export default function SymptomCheckerScreen() {
               </View>
 
               {/* Active Symptom Chips */}
-              <Text style={styles.chipLabel}>{t('initialSymptoms')} ({symptomsList.length}):</Text>
+              <Text style={[styles.chipLabel, { color: themeColors.textSecondary }]}>{t('initialSymptoms')} ({symptomsList.length}):</Text>
               <View style={styles.chipsContainer}>
                 {symptomsList.length > 0 ? (
                   symptomsList.map((sym, idx) => (
                     <TouchableOpacity
                       key={idx}
-                      style={styles.symptomChip}
+                      style={[
+                        styles.symptomChip,
+                        {
+                          backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight,
+                          borderColor: themeColors.primary,
+                        },
+                      ]}
                       onPress={() => handleRemoveSymptom(idx)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.symptomChipText}>{sym}</Text>
-                      <Text style={styles.chipRemoveIcon}>✕</Text>
+                      <Text style={[styles.symptomChipText, { color: isDark ? themeColors.textPrimary : colors.primary }]}>{sym}</Text>
+                      <Text style={[styles.chipRemoveIcon, { color: isDark ? themeColors.textPrimary : colors.primary }]}>✕</Text>
                     </TouchableOpacity>
                   ))
                 ) : (
-                  <Text style={styles.noChipsText}>
+                  <Text style={[styles.noChipsText, { color: themeColors.textSecondary }]}>
                     {t('noSymptomsAddedYet')}
                   </Text>
                 )}
@@ -639,10 +652,10 @@ export default function SymptomCheckerScreen() {
         {stepMode === 'conversing' && (
           <View>
             {/* Progress Badge */}
-            <View style={styles.progressCard}>
-              <Text style={styles.progressTitle}>{t('followUpQuestion')} {questionCount} / 3</Text>
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${(questionCount / 3) * 100}%` }]} />
+            <View style={[styles.progressCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+              <Text style={[styles.progressTitle, { color: themeColors.primary }]}>{t('followUpQuestion')} {questionCount} / 3</Text>
+              <View style={[styles.progressBarBg, { backgroundColor: themeColors.surfaceSecondary }]}>
+                <View style={[styles.progressBarFill, { backgroundColor: themeColors.primary, width: `${(questionCount / 3) * 100}%` }]} />
               </View>
             </View>
 
@@ -671,10 +684,10 @@ export default function SymptomCheckerScreen() {
 
               {/* Active Bot Question */}
               {currentQuestion ? (
-                <View style={styles.activeQuestionCard}>
+                <View style={[styles.activeQuestionCard, { backgroundColor: themeColors.card, borderColor: themeColors.primary }]}>
                   <View style={styles.activeQuestionHeader}>
                     <Text style={styles.activeQuestionIcon}>🤖</Text>
-                    <Text style={styles.activeQuestionTitle}>{currentQuestion}</Text>
+                    <Text style={[styles.activeQuestionTitle, { color: themeColors.textPrimary }]}>{currentQuestion}</Text>
                   </View>
 
                   {/* Quick Answer Chips (if available) */}
@@ -683,11 +696,17 @@ export default function SymptomCheckerScreen() {
                       {currentQuickOptions.map((opt, oIdx) => (
                         <TouchableOpacity
                           key={oIdx}
-                          style={styles.quickOptionChip}
+                          style={[
+                            styles.quickOptionChip,
+                            {
+                              backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight,
+                              borderColor: themeColors.primary,
+                            },
+                          ]}
                           onPress={() => handleSendAnswer(opt)}
                           activeOpacity={0.8}
                         >
-                          <Text style={styles.quickOptionText}>{opt}</Text>
+                          <Text style={[styles.quickOptionText, { color: isDark ? themeColors.textPrimary : colors.primary }]}>{opt}</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -703,7 +722,11 @@ export default function SymptomCheckerScreen() {
                     />
 
                     <TouchableOpacity
-                      style={[styles.micIconButton, isListening && styles.micIconButtonActive]}
+                      style={[
+                        styles.micIconButton,
+                        { backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight, borderColor: isDark ? themeColors.border : colors.primary },
+                        isListening && styles.micIconButtonActive,
+                      ]}
                       onPress={handleToggleMic}
                       activeOpacity={0.8}
                     >
@@ -731,15 +754,15 @@ export default function SymptomCheckerScreen() {
                     onPress={handleSkipQuestion}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.skipBtnText}>{t('skipQuestion')}</Text>
+                    <Text style={[styles.skipBtnText, { color: themeColors.primary }]}>{t('skipQuestion')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
 
               {loading && (
                 <View style={styles.loadingBox}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <Text style={styles.loadingBoxText}>{loadingText || 'Processing...'}</Text>
+                  <ActivityIndicator size="small" color={themeColors.primary} />
+                  <Text style={[styles.loadingBoxText, { color: themeColors.textSecondary }]}>{loadingText || 'Processing...'}</Text>
                 </View>
               )}
             </View>
@@ -748,21 +771,30 @@ export default function SymptomCheckerScreen() {
 
         {/* STEP MODE 3: STRUCTURED SYMPTOM SUMMARY CONFIRMATION */}
         {stepMode === 'summary' && summaryData && (
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
+          <View style={[styles.summaryCard, { backgroundColor: themeColors.card, borderColor: themeColors.primary }]}>
+            <View style={[styles.summaryHeader, { borderBottomColor: themeColors.border }]}>
               <Text style={styles.summaryHeaderIcon}>📋</Text>
               <View>
-                <Text style={styles.summaryHeaderTitle}>{t('assessmentSummary')}</Text>
-                <Text style={styles.summaryHeaderSub}>{t('reviewBeforeAnalysis')}</Text>
+                <Text style={[styles.summaryHeaderTitle, { color: themeColors.textPrimary }]}>{t('assessmentSummary')}</Text>
+                <Text style={[styles.summaryHeaderSub, { color: themeColors.textSecondary }]}>{t('reviewBeforeAnalysis')}</Text>
               </View>
             </View>
 
             <View style={styles.summarySection}>
-              <Text style={styles.summaryLabel}>POSITIVE SYMPTOMS:</Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>POSITIVE SYMPTOMS:</Text>
               <View style={styles.chipsContainer}>
                 {(summaryData.positiveSymptoms && summaryData.positiveSymptoms.length > 0 ? summaryData.positiveSymptoms : (summaryData.symptoms || [])).map((s, idx) => (
-                  <View key={idx} style={styles.summaryChip}>
-                    <Text style={styles.summaryChipText}>{s}</Text>
+                  <View
+                    key={idx}
+                    style={[
+                      styles.summaryChip,
+                      {
+                        backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight,
+                        borderColor: themeColors.primary,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.summaryChipText, { color: isDark ? themeColors.textPrimary : colors.primary }]}>{s}</Text>
                   </View>
                 ))}
               </View>
@@ -770,13 +802,22 @@ export default function SymptomCheckerScreen() {
 
             {summaryData.negativeFindings && summaryData.negativeFindings.length > 0 && (
               <View style={styles.summarySection}>
-                <Text style={[styles.summaryLabel, { color: '#C62828' }]}>
+                <Text style={[styles.summaryLabel, { color: isDark ? '#FCA5A5' : '#C62828' }]}>
                   NEGATIVE FINDINGS (DENIED):
                 </Text>
                 <View style={styles.chipsContainer}>
                   {summaryData.negativeFindings.map((neg, idx) => (
-                    <View key={idx} style={styles.negChip}>
-                      <Text style={styles.negChipText}>✓ {neg}</Text>
+                    <View
+                      key={idx}
+                      style={[
+                        styles.negChip,
+                        {
+                          backgroundColor: isDark ? '#450A0A' : '#FFF0F0',
+                          borderColor: isDark ? '#991B1B' : '#FFCDD2',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.negChipText, { color: isDark ? '#FCA5A5' : '#C62828' }]}>✓ {neg}</Text>
                     </View>
                   ))}
                 </View>
@@ -785,13 +826,22 @@ export default function SymptomCheckerScreen() {
 
             {summaryData.context && summaryData.context.length > 0 && (
               <View style={styles.summarySection}>
-                <Text style={styles.summaryLabel}>
+                <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>
                   CONTEXT / TRIGGERS:
                 </Text>
                 <View style={styles.chipsContainer}>
                   {summaryData.context.map((ctx, idx) => (
-                    <View key={idx} style={styles.ctxChip}>
-                      <Text style={styles.ctxChipText}>• {ctx}</Text>
+                    <View
+                      key={idx}
+                      style={[
+                        styles.ctxChip,
+                        {
+                          backgroundColor: isDark ? themeColors.surfaceSecondary : '#F5F5F5',
+                          borderColor: isDark ? themeColors.border : '#E0E0E0',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.ctxChipText, { color: isDark ? themeColors.textPrimary : '#424242' }]}>• {ctx}</Text>
                     </View>
                   ))}
                 </View>
@@ -800,15 +850,16 @@ export default function SymptomCheckerScreen() {
 
             <View style={styles.summaryRow}>
               <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>{t('duration')}:</Text>
-                <Text style={styles.summaryVal}>{summaryData.duration || t('unspecified') || 'Unspecified'}</Text>
+                <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('duration')}:</Text>
+                <Text style={[styles.summaryVal, { color: themeColors.textPrimary }]}>{summaryData.duration || t('unspecified') || 'Unspecified'}</Text>
               </View>
 
               <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>{t('severity')}:</Text>
+                <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('severity')}:</Text>
                 <Text
                   style={[
                     styles.summaryVal,
+                    { color: themeColors.textPrimary },
                     summaryData.severity === 'severe' && { color: colors.danger, fontWeight: '800' },
                   ]}
                 >
@@ -821,15 +872,15 @@ export default function SymptomCheckerScreen() {
 
             {summaryData.additionalContext && summaryData.additionalContext.length > 0 && (
               <View style={styles.summarySection}>
-                <Text style={styles.summaryLabel}>{t('additionalNotes')}:</Text>
+                <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('additionalNotes')}:</Text>
                 {summaryData.additionalContext.map((note, nIdx) => (
-                  <Text key={nIdx} style={styles.summaryNoteText}>• {note}</Text>
+                  <Text key={nIdx} style={[styles.summaryNoteText, { color: themeColors.textSecondary }]}>• {note}</Text>
                 ))}
               </View>
             )}
 
             {/* Severity Adjustment Options */}
-            <Text style={styles.fieldLabel}>{t('adjustSeverity')}</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('adjustSeverity')}</Text>
             <View style={styles.severityRow}>
               {SEVERITY_OPTIONS.map((item) => (
                 <TouchableOpacity
@@ -838,14 +889,25 @@ export default function SymptomCheckerScreen() {
                   onPress={() => setSummaryData({ ...summaryData, severity: item.value })}
                   style={[
                     styles.severityChip,
-                    summaryData.severity === item.value && styles.severityChipSelected,
-                    summaryData.severity === item.value && item.value === 'severe' && styles.severityChipDanger,
+                    {
+                      backgroundColor: isDark ? themeColors.surfaceSecondary : colors.background,
+                      borderColor: themeColors.border,
+                    },
+                    summaryData.severity === item.value && {
+                      borderColor: themeColors.primary,
+                      backgroundColor: isDark ? '#1E3A8A' : colors.primaryLight,
+                    },
+                    summaryData.severity === item.value && item.value === 'severe' && {
+                      borderColor: colors.danger,
+                      backgroundColor: isDark ? '#450A0A' : colors.dangerLight,
+                    },
                   ]}
                 >
                   <Text
                     style={[
                       styles.severityText,
-                      summaryData.severity === item.value && styles.severityTextSelected,
+                      { color: themeColors.textSecondary },
+                      summaryData.severity === item.value && { color: isDark ? '#FFFFFF' : colors.primary },
                     ]}
                   >
                     {t(item.labelKey)}
@@ -869,7 +931,7 @@ export default function SymptomCheckerScreen() {
                 onPress={() => !isAnalyzing && !loading && setStepMode('initial')}
                 disabled={isAnalyzing || loading}
               >
-                <Text style={styles.editBtnText}>{t('editSymptoms')}</Text>
+                <Text style={[styles.editBtnText, { color: themeColors.primary }]}>{t('editSymptoms')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -877,7 +939,7 @@ export default function SymptomCheckerScreen() {
                 onPress={() => !isAnalyzing && !loading && handleRestart()}
                 disabled={isAnalyzing || loading}
               >
-                <Text style={styles.restartSummaryBtnText}>🔄 {t('restart')}</Text>
+                <Text style={[styles.restartSummaryBtnText, { color: themeColors.textSecondary }]}>🔄 {t('restart')}</Text>
               </TouchableOpacity>
             </View>
           </View>

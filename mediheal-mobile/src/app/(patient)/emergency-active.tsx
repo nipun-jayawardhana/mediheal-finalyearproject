@@ -9,10 +9,12 @@ import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getEmergencyAlertById, cancelEmergencyAlert, getActiveEmergencyAlert } from '../../services/emergencyService';
 import { EmergencyAlert } from '../../types/emergency';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function EmergencyActiveScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
+  const { colors } = useTheme();
 
   const [alertData, setAlertData] = useState<EmergencyAlert | null>(null);
   const [loading, setLoading] = useState<boolean>(true);

@@ -14,6 +14,7 @@ import {
 } from '../../services/patientService';
 import { BloodGroupType, GenderType } from '../../types/patient';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const BLOOD_GROUPS: BloodGroupType[] = [
   'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
@@ -22,6 +23,7 @@ const BLOOD_GROUPS: BloodGroupType[] = [
 export default function EditPatientProfileScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const GENDER_OPTIONS: { label: string; value: GenderType }[] = [
     { label: t('male'), value: 'male' },
@@ -109,7 +111,7 @@ export default function EditPatientProfileScreen() {
   }
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title={t('editProfile')}
         subtitle={t('manageAccountPreferences')}
@@ -125,8 +127,8 @@ export default function EditPatientProfileScreen() {
           />
         ) : null}
 
-        <View style={styles.formCard}>
-          <Text style={styles.sectionHeader}>{t('personalInformation')}</Text>
+        <View style={[styles.formCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Text style={[styles.sectionHeader, { color: themeColors.primary }]}>{t('personalInformation')}</Text>
 
           <AppInput
             label="Date of Birth (YYYY-MM-DD)"
@@ -136,7 +138,7 @@ export default function EditPatientProfileScreen() {
           />
 
           {/* Gender Selector */}
-          <Text style={styles.fieldLabel}>Gender</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Gender</Text>
           <View style={styles.genderRow}>
             {GENDER_OPTIONS.map((item) => (
               <TouchableOpacity
@@ -145,13 +147,15 @@ export default function EditPatientProfileScreen() {
                 onPress={() => setGender(item.value)}
                 style={[
                   styles.genderChip,
-                  gender === item.value && styles.genderChipSelected,
+                  { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+                  gender === item.value && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
                 ]}
               >
                 <Text
                   style={[
                     styles.genderChipText,
-                    gender === item.value && styles.genderChipTextSelected,
+                    { color: themeColors.textSecondary },
+                    gender === item.value && { color: themeColors.primary },
                   ]}
                 >
                   {item.label}
@@ -161,7 +165,7 @@ export default function EditPatientProfileScreen() {
           </View>
 
           {/* Blood Group Selector */}
-          <Text style={styles.fieldLabel}>Blood Group</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Blood Group</Text>
           <View style={styles.bloodGrid}>
             {BLOOD_GROUPS.map((bg) => (
               <TouchableOpacity
@@ -170,13 +174,15 @@ export default function EditPatientProfileScreen() {
                 onPress={() => setBloodGroup(bg)}
                 style={[
                   styles.bloodChip,
-                  bloodGroup === bg && styles.bloodChipSelected,
+                  { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+                  bloodGroup === bg && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
                 ]}
               >
                 <Text
                   style={[
                     styles.bloodChipText,
-                    bloodGroup === bg && styles.bloodChipTextSelected,
+                    { color: themeColors.textSecondary },
+                    bloodGroup === bg && { color: themeColors.primary },
                   ]}
                 >
                   {bg}
@@ -192,7 +198,7 @@ export default function EditPatientProfileScreen() {
             onChangeText={setAddress}
           />
 
-          <Text style={styles.sectionHeader}>Emergency Contact</Text>
+          <Text style={[styles.sectionHeader, { color: themeColors.primary }]}>Emergency Contact</Text>
 
           <AppInput
             label="Emergency Contact Name"
@@ -209,7 +215,7 @@ export default function EditPatientProfileScreen() {
             onChangeText={setEmergencyContactPhone}
           />
 
-          <Text style={styles.sectionHeader}>Health Background</Text>
+          <Text style={[styles.sectionHeader, { color: themeColors.primary }]}>Health Background</Text>
 
           <AppInput
             label="Medical Conditions (Comma separated)"

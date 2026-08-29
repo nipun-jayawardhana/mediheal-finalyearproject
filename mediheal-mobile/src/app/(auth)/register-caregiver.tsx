@@ -10,10 +10,12 @@ import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
 import { getStoredLanguage } from '../../utils/languageStorage';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function RegisterCaregiverScreen() {
   const router = useRouter();
   const { register } = useAuth();
+  const { colors: themeColors } = useTheme();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -114,7 +116,7 @@ export default function RegisterCaregiverScreen() {
   };
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title="Caregiver Registration"
         subtitle="Create your MediHeal caregiver account"
@@ -130,7 +132,7 @@ export default function RegisterCaregiverScreen() {
           />
         ) : null}
 
-        <View style={styles.formCard}>
+        <View style={[styles.formCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <AppInput
             label="Full Name *"
             placeholder="e.g. Kamal Jayasinghe"
@@ -189,9 +191,9 @@ export default function RegisterCaregiverScreen() {
             error={confirmPasswordError}
           />
 
-          <View style={styles.langInfoBox}>
-            <Text style={styles.langInfoLabel}>Preferred Language:</Text>
-            <Text style={styles.langInfoValue}>{preferredLanguage}</Text>
+          <View style={[styles.langInfoBox, { backgroundColor: themeColors.primaryLight }]}>
+            <Text style={[styles.langInfoLabel, { color: themeColors.primary }]}>Preferred Language:</Text>
+            <Text style={[styles.langInfoValue, { color: themeColors.primaryDark }]}>{preferredLanguage}</Text>
           </View>
 
           <AppButton

@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getCommunityPosts, removeCommunityPost } from '../../services/communityService';
 import { CommunityPost, CommunityCategory, PaginationMetadata } from '../../types/community';
+import { useTheme } from '../../context/ThemeContext';
 
 const CATEGORIES: { label: string; value: CommunityCategory | 'all' }[] = [
   { label: 'All Topics', value: 'all' },
@@ -35,6 +36,7 @@ const CATEGORIES: { label: string; value: CommunityCategory | 'all' }[] = [
 export default function CommunityFeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
 
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CommunityCategory | 'all'>('all');
@@ -158,14 +160,14 @@ export default function CommunityFeedScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Community Health"
         subtitle="Q&A & Peer Support Feed"
         onBackPress={() => router.back()}
         rightComponent={
           <TouchableOpacity
-            style={styles.headerAddBtn}
+            style={[styles.headerAddBtn, { backgroundColor: themeColors.primary }]}
             onPress={() => router.push('/(patient)/community-create' as any)}
           >
             <Text style={styles.headerAddText}>+ Create Post</Text>
@@ -194,7 +196,8 @@ export default function CommunityFeedScreen() {
                   key={cat.value}
                   style={[
                     styles.categoryChip,
-                    isSelected && styles.categoryChipSelected,
+                    { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                    isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
                   ]}
                   activeOpacity={0.8}
                   onPress={() => handleCategorySelect(cat.value)}
@@ -202,7 +205,8 @@ export default function CommunityFeedScreen() {
                   <Text
                     style={[
                       styles.categoryChipText,
-                      isSelected && styles.categoryChipTextSelected,
+                      { color: themeColors.textSecondary },
+                      isSelected && { color: '#FFFFFF' },
                     ]}
                   >
                     {cat.label}
@@ -247,17 +251,17 @@ export default function CommunityFeedScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[colors.primary]}
+                colors={[themeColors.primary]}
               />
             }
             ListFooterComponent={
               pagination && page < pagination.pages ? (
                 <TouchableOpacity
-                  style={styles.loadMoreBtn}
+                  style={[styles.loadMoreBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
                   onPress={handleLoadMore}
                   disabled={loadingMore}
                 >
-                  <Text style={styles.loadMoreText}>
+                  <Text style={[styles.loadMoreText, { color: themeColors.primary }]}>
                     {loadingMore ? 'Loading More...' : 'Load More Posts'}
                   </Text>
                 </TouchableOpacity>

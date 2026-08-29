@@ -15,11 +15,13 @@ import { getPatientProfileApi } from '../../services/patientService';
 import { PatientProfile } from '../../types/patient';
 import { SUPPORTED_LANGUAGES } from '../../utils/languageStorage';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function PatientProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { language, t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +63,7 @@ export default function PatientProfileScreen() {
   }
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title={t('profileSettings')}
         subtitle={t('manageAccountPreferences')}
@@ -78,19 +80,19 @@ export default function PatientProfileScreen() {
           title={t('accountDetails')}
           badge={<StatusBadge status="active" label={t('patientAccount')} />}
         >
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('fullName')}</Text>
-            <Text style={styles.detailValue}>{user?.fullName || 'N/A'}</Text>
+          <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('fullName')}</Text>
+            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{user?.fullName || 'N/A'}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('emailAddress')}</Text>
-            <Text style={styles.detailValue}>{user?.email || 'N/A'}</Text>
+          <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('emailAddress')}</Text>
+            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{user?.email || 'N/A'}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>{t('phoneNumber')}</Text>
-            <Text style={styles.detailValue}>{user?.phoneNumber || 'N/A'}</Text>
+          <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('phoneNumber')}</Text>
+            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{user?.phoneNumber || 'N/A'}</Text>
           </View>
         </InfoCard>
 
@@ -108,60 +110,60 @@ export default function PatientProfileScreen() {
             title={t('healthDetails')}
             subtitle={t('medicalBackground')}
           >
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{t('dateOfBirth')}</Text>
-              <Text style={styles.detailValue}>{profile.dateOfBirth}</Text>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('dateOfBirth')}</Text>
+              <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{profile.dateOfBirth}</Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{t('gender')}</Text>
-              <Text style={styles.detailValue}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('gender')}</Text>
+              <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                 {profile.gender === 'male' ? t('male') : profile.gender === 'female' ? t('female') : profile.gender.toUpperCase()}
               </Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{t('bloodGroup')}</Text>
-              <Text style={styles.detailValueBold}>{profile.bloodGroup}</Text>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('bloodGroup')}</Text>
+              <Text style={[styles.detailValueBold, { color: themeColors.primary }]}>{profile.bloodGroup}</Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{t('homeAddress')}</Text>
-              <Text style={styles.detailValue}>{profile.address}</Text>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('homeAddress')}</Text>
+              <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{profile.address}</Text>
             </View>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{t('emergencyContact')}</Text>
-              <Text style={styles.detailValue}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('emergencyContact')}</Text>
+              <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
                 {profile.emergencyContactName} ({profile.emergencyContactPhone})
               </Text>
             </View>
 
             {/* Medical Conditions */}
-            <Text style={styles.chipSectionTitle}>{t('medicalConditions')}</Text>
+            <Text style={[styles.chipSectionTitle, { color: themeColors.textPrimary }]}>{t('medicalConditions')}</Text>
             <View style={styles.chipWrap}>
               {profile.medicalConditions && profile.medicalConditions.length > 0 ? (
                 profile.medicalConditions.map((cond, idx) => (
-                  <View key={idx} style={styles.conditionChip}>
-                    <Text style={styles.conditionChipText}>{cond}</Text>
+                  <View key={idx} style={[styles.conditionChip, { backgroundColor: themeColors.primaryLight }]}>
+                    <Text style={[styles.conditionChipText, { color: themeColors.primary }]}>{cond}</Text>
                   </View>
                 ))
               ) : (
-                <Text style={styles.noneText}>{t('noneRecorded')}</Text>
+                <Text style={[styles.noneText, { color: themeColors.textMuted }]}>{t('noneRecorded')}</Text>
               )}
             </View>
 
             {/* Allergies */}
-            <Text style={styles.chipSectionTitle}>{t('allergies')}</Text>
+            <Text style={[styles.chipSectionTitle, { color: themeColors.textPrimary }]}>{t('allergies')}</Text>
             <View style={styles.chipWrap}>
               {profile.allergies && profile.allergies.length > 0 ? (
                 profile.allergies.map((alg, idx) => (
-                  <View key={idx} style={styles.allergyChip}>
-                    <Text style={styles.allergyChipText}>{alg}</Text>
+                  <View key={idx} style={[styles.allergyChip, { backgroundColor: themeColors.dangerLight }]}>
+                    <Text style={[styles.allergyChipText, { color: themeColors.danger }]}>{alg}</Text>
                   </View>
                 ))
               ) : (
-                <Text style={styles.noneText}>{t('noneRecorded')}</Text>
+                <Text style={[styles.noneText, { color: themeColors.textMuted }]}>{t('noneRecorded')}</Text>
               )}
             </View>
 
@@ -176,30 +178,30 @@ export default function PatientProfileScreen() {
 
         {/* 4. Medication Reminders Shortcut */}
         <TouchableOpacity
-          style={styles.langSettingCard}
+          style={[styles.langSettingCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
           onPress={() => router.push('/(patient)/medications' as any)}
           activeOpacity={0.8}
         >
           <Text style={styles.langSettingIcon}>🔔</Text>
           <View style={styles.langTextCol}>
-            <Text style={styles.langTitle}>{t('medicationReminders')}</Text>
-            <Text style={styles.langSub}>{t('manageDoseNotifications')}</Text>
+            <Text style={[styles.langTitle, { color: themeColors.textPrimary }]}>{t('medicationReminders')}</Text>
+            <Text style={[styles.langSub, { color: themeColors.textSecondary }]}>{t('manageDoseNotifications')}</Text>
           </View>
-          <Text style={styles.arrow}>→</Text>
+          <Text style={[styles.arrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         {/* 5. Language Selection Shortcut */}
         <TouchableOpacity
-          style={styles.langSettingCard}
+          style={[styles.langSettingCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
           onPress={() => router.push('/language')}
           activeOpacity={0.8}
         >
           <Text style={styles.langSettingIcon}>🌐</Text>
           <View style={styles.langTextCol}>
-            <Text style={styles.langTitle}>{t('languageSelection')}</Text>
-            <Text style={styles.langSub}>{t('currentLanguage')}: {currentLangName}</Text>
+            <Text style={[styles.langTitle, { color: themeColors.textPrimary }]}>{t('languageSelection')}</Text>
+            <Text style={[styles.langSub, { color: themeColors.textSecondary }]}>{t('currentLanguage')}: {currentLangName}</Text>
           </View>
-          <Text style={styles.arrow}>→</Text>
+          <Text style={[styles.arrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         {/* 6. Sign Out Button */}

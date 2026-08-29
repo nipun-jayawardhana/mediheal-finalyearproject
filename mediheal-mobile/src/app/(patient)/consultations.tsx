@@ -12,10 +12,12 @@ import { getMyConsultations } from '../../services/consultationService';
 import { Consultation } from '../../types/consultation';
 
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function PatientConsultationHistoryScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -57,7 +59,7 @@ export default function PatientConsultationHistoryScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title={t('consultationsTitle')}
         subtitle={t('pastDoctorVisits')}

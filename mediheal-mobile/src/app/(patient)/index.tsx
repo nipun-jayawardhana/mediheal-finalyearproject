@@ -23,11 +23,13 @@ import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
 import { useLanguage } from '../../context/LanguageContext';
 import { SUPPORTED_LANGUAGES, LanguageCode } from '../../utils/languageStorage';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function PatientHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { language, setLanguage, t } = useLanguage();
+  const { isDark, toggleTheme, colors: themeColors } = useTheme();
 
   const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,288 +164,307 @@ export default function PatientHomeScreen() {
   const patientName = user?.fullName ? user.fullName.split(' ')[0] : 'Patient';
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
-      {/* Top Header Navigation */}
-      <View style={styles.headerBar}>
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
-          accessibilityRole="button"
-          accessibilityLabel="Open settings"
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-        >
-          <Text style={styles.headerIcon}>☰</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle} pointerEvents="none" numberOfLines={1}>
-          {t('appTitle')}
-        </Text>
-
-        <View style={styles.headerRightContainer}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
+      <View style={{ flex: 1 }}>
+        {/* Universal Header Navigation */}
+        <View style={[styles.headerBar, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
-            style={styles.langBtnCompact}
-            onPress={() => { stopSpeech(); setLangModalVisible(true); }}
-            accessibilityRole="button"
-            accessibilityLabel={`Current language ${currentLangOption.name}. Tap to change language`}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.langTextCompact} numberOfLines={1}>
-              {HEADER_LANGUAGE_LABELS[language] || 'EN'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.headerIconBtn}
+            style={[styles.headerIconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
             accessibilityRole="button"
-            accessibilityLabel="View profile"
+            accessibilityLabel="Open settings"
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Text style={styles.headerIcon}>👤</Text>
+            <Text style={[styles.headerIcon, { color: themeColors.textPrimary }]}>☰</Text>
           </TouchableOpacity>
-        </View>
-      </View>
 
-      {/* Elderly-Friendly Language Selection Modal */}
-      <Modal
-        visible={langModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setLangModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setLangModalVisible(false)}
+          <Text style={[styles.headerTitle, { color: themeColors.primary }]} pointerEvents="none" numberOfLines={1}>
+            {t('appTitle')}
+          </Text>
+
+          <View style={styles.headerRightContainer}>
+            <TouchableOpacity
+              style={[styles.langBtnCompact, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              onPress={() => { stopSpeech(); setLangModalVisible(true); }}
+              accessibilityRole="button"
+              accessibilityLabel={`Current language ${currentLangOption.name}. Tap to change language`}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.langTextCompact, { color: themeColors.primary }]} numberOfLines={1}>
+                {HEADER_LANGUAGE_LABELS[language] || 'EN'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.headerIconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              onPress={() => { stopSpeech(); void toggleTheme(); }}
+              accessibilityRole="button"
+              accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.headerIcon, { color: themeColors.textPrimary }]}>{isDark ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.headerIconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
+              accessibilityRole="button"
+              accessibilityLabel="View profile"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text style={[styles.headerIcon, { color: themeColors.textPrimary }]}>👤</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Elderly-Friendly Language Selection Modal */}
+        <Modal
+          visible={langModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLangModalVisible(false)}
         >
           <Pressable
-            style={styles.modalContent}
-            onPress={(e) => e.stopPropagation()}
+            style={styles.modalOverlay}
+            onPress={() => setLangModalVisible(false)}
           >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t('selectLanguageTitle')}</Text>
-              <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setLangModalVisible(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Close language selection"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.modalCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
+            <Pressable
+              style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
+                <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{t('selectLanguageTitle')}</Text>
+                <TouchableOpacity
+                  style={[styles.modalCloseBtn, { backgroundColor: themeColors.background }]}
+                  onPress={() => setLangModalVisible(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close language selection"
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={[styles.modalCloseText, { color: themeColors.textSecondary }]}>✕</Text>
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.modalOptionsList}>
-              {SUPPORTED_LANGUAGES.map((item) => {
-                const isSelected = language === item.code;
-                return (
-                  <TouchableOpacity
-                    key={item.code}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectLanguage(item.code)}
-                    style={[
-                      styles.langOptionCard,
-                      isSelected && styles.langOptionCardSelected,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Select ${item.nativeName}`}
-                    accessibilityState={{ selected: isSelected }}
-                  >
-                    <View style={styles.langOptionLeft}>
-                      <Text style={styles.langOptionFlag}>{item.flag}</Text>
-                      <View style={styles.langOptionTextCol}>
-                        <Text
-                          style={[
-                            styles.langOptionNative,
-                            isSelected && styles.langOptionTextSelected,
-                          ]}
-                        >
-                          {item.nativeName}
-                        </Text>
-                        <Text style={styles.langOptionEnglish}>{item.name}</Text>
+              <View style={styles.modalOptionsList}>
+                {SUPPORTED_LANGUAGES.map((item) => {
+                  const isSelected = language === item.code;
+                  return (
+                    <TouchableOpacity
+                      key={item.code}
+                      activeOpacity={0.8}
+                      onPress={() => handleSelectLanguage(item.code)}
+                      style={[
+                        styles.langOptionCard,
+                        { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                        isSelected && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${item.nativeName}`}
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <View style={styles.langOptionLeft}>
+                        <Text style={styles.langOptionFlag}>{item.flag}</Text>
+                        <View style={styles.langOptionTextCol}>
+                          <Text
+                            style={[
+                              styles.langOptionNative,
+                              { color: themeColors.textPrimary },
+                              isSelected && { color: themeColors.primaryDark },
+                            ]}
+                          >
+                            {item.nativeName}
+                          </Text>
+                          <Text style={[styles.langOptionEnglish, { color: themeColors.textSecondary }]}>{item.name}</Text>
+                        </View>
                       </View>
-                    </View>
-                    {isSelected ? (
-                      <View style={styles.checkBadge}>
-                        <Text style={styles.checkBadgeText}>✓</Text>
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                      {isSelected ? (
+                        <View style={[styles.checkBadge, { backgroundColor: themeColors.primary }]}>
+                          <Text style={styles.checkBadgeText}>✓</Text>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </Modal>
 
-      <View style={styles.content}>
-        {errorMsg ? (
-          <ErrorView message={errorMsg} onRetry={() => fetchDashboard()} />
-        ) : null}
+        <View style={styles.content}>
+          {errorMsg ? (
+            <ErrorView message={errorMsg} onRetry={() => fetchDashboard()} />
+          ) : null}
 
-        {/* Voice Guidance Banner with real "Read My Dashboard" action */}
-        <TouchableOpacity
-          style={[styles.voiceBanner, isSpeaking && styles.voiceBannerSpeaking]}
-          activeOpacity={0.8}
-          onPress={handleReadDashboard}
-          accessibilityRole="button"
-          accessibilityLabel={isSpeaking ? t('tapToStopAudio') : t('readDashboardVoice')}
-        >
-          <Text style={styles.speakerIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
-          <View style={styles.voiceTextCol}>
-            <Text style={styles.voiceTitle}>
-              {isSpeaking ? t('readDashboardSpeaking') : t('readDashboardVoice')}
-            </Text>
-            <Text style={styles.voiceSub}>
-              {isSpeaking ? t('tapToStopAudio') : t('tapToReadDashboard')}
+          {/* Voice Guidance Banner with real "Read My Dashboard" action */}
+          <TouchableOpacity
+            style={[
+              styles.voiceBanner,
+              { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
+              isSpeaking && styles.voiceBannerSpeaking,
+            ]}
+            activeOpacity={0.8}
+            onPress={handleReadDashboard}
+            accessibilityRole="button"
+            accessibilityLabel={isSpeaking ? t('tapToStopAudio') : t('readDashboardVoice')}
+          >
+            <Text style={styles.speakerIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
+            <View style={styles.voiceTextCol}>
+              <Text style={[styles.voiceTitle, { color: themeColors.primaryDark }]}>
+                {isSpeaking ? t('readDashboardSpeaking') : t('readDashboardVoice')}
+              </Text>
+              <Text style={[styles.voiceSub, { color: themeColors.primary }]}>
+                {isSpeaking ? t('tapToStopAudio') : t('tapToReadDashboard')}
+              </Text>
+            </View>
+            <View style={[styles.audioBadge, { backgroundColor: themeColors.primary }]}>
+              <Text style={styles.audioBadgeText}>{isSpeaking ? t('stop') : t('read')}</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Greeting */}
+          <View style={styles.greetingBox}>
+            <Text style={[styles.greetingTitle, { color: themeColors.textPrimary }]}>{t('goodDay')}, {patientName}</Text>
+            <Text style={[styles.greetingSub, { color: themeColors.textSecondary }]}>
+              {t('howCanWeHelpDashboard')}
             </Text>
           </View>
-          <View style={styles.audioBadge}>
-            <Text style={styles.audioBadgeText}>{isSpeaking ? t('stop') : t('read')}</Text>
+
+          {/* Active Emergency Alert Warning Banner (If active) */}
+          {dashboardData?.activeEmergencyAlert && (
+            <TouchableOpacity
+              style={[styles.sosAlertBanner, { backgroundColor: themeColors.dangerLight, borderColor: themeColors.danger }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                stopSpeech();
+                router.push({
+                  pathname: '/(patient)/emergency-active' as any,
+                  params: { id: dashboardData.activeEmergencyAlert?._id },
+                });
+              }}
+            >
+              <StatusBadge status="emergency" label={t('emergencySos')} />
+              <Text style={[styles.sosAlertText, { color: themeColors.danger }]}>
+                {t('activeEmergencyBanner')}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Quick Action Grid / Buttons */}
+          <View style={styles.actionGrid}>
+            {/* Check Symptoms */}
+            <TouchableOpacity
+              style={[styles.actionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              activeOpacity={0.8}
+              onPress={handleCheckSymptomsPress}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: themeColors.primary }]}>
+                <Text style={styles.actionIconText}>🛡️</Text>
+              </View>
+              <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('checkSymptoms')}</Text>
+            </TouchableOpacity>
+
+            {/* Doctor */}
+            <TouchableOpacity
+              style={[styles.actionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              activeOpacity={0.8}
+              onPress={() => { stopSpeech(); router.push('/(patient)/specialists' as any); }}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: themeColors.primary }]}>
+                <Text style={styles.actionIconText}>🩺</Text>
+              </View>
+              <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('doctor')}</Text>
+            </TouchableOpacity>
+
+            {/* Medications */}
+            <TouchableOpacity
+              style={[styles.actionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              activeOpacity={0.8}
+              onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
+            >
+              <View style={[styles.actionIconCircle, { backgroundColor: themeColors.success }]}>
+                <Text style={styles.actionIconText}>💊</Text>
+              </View>
+              <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('medications')}</Text>
+            </TouchableOpacity>
+
+            {/* EMERGENCY SOS */}
+            <TouchableOpacity
+              style={[styles.actionCard, styles.sosCard]}
+              activeOpacity={0.8}
+              onPress={handleEmergencySOSPress}
+            >
+              <View style={styles.sosIconCircle}>
+                <Text style={styles.sosIconText}>🚨</Text>
+              </View>
+              <Text style={styles.sosTitle}>{t('emergencySos')}</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
 
-        {/* Greeting */}
-        <View style={styles.greetingBox}>
-          <Text style={styles.greetingTitle}>{t('goodDay')}, {patientName}</Text>
-          <Text style={styles.greetingSub}>
-            {t('howCanWeHelpDashboard')}
-          </Text>
-        </View>
-
-        {/* Active Emergency Alert Warning Banner (If active) */}
-        {dashboardData?.activeEmergencyAlert && (
+          {/* My Appointments Quick Action Banner */}
           <TouchableOpacity
-            style={styles.sosAlertBanner}
+            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             activeOpacity={0.8}
-            onPress={() => {
-              stopSpeech();
-              router.push({
-                pathname: '/(patient)/emergency-active' as any,
-                params: { id: dashboardData.activeEmergencyAlert?._id },
-              });
-            }}
+            onPress={() => { stopSpeech(); router.push('/(patient)/my-bookings' as any); }}
           >
-            <StatusBadge status="emergency" label={t('emergencySos')} />
-            <Text style={styles.sosAlertText}>
-              {t('activeEmergencyBanner')}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Quick Action Grid / Buttons */}
-        <View style={styles.actionGrid}>
-          {/* Check Symptoms */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            activeOpacity={0.8}
-            onPress={handleCheckSymptomsPress}
-          >
-            <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
-              <Text style={styles.actionIconText}>🛡️</Text>
+            <Text style={styles.appointmentsIcon}>📅</Text>
+            <View style={styles.appointmentsTextCol}>
+              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>{t('myAppointmentsBookings')}</Text>
+              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>{t('viewUpcomingBookings')}</Text>
             </View>
-            <Text style={styles.actionTitle}>{t('checkSymptoms')}</Text>
+            <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
 
-          {/* Doctor */}
+          {/* Consultation History Banner */}
           <TouchableOpacity
-            style={styles.actionCard}
+            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.accent, marginTop: spacing.sm }]}
             activeOpacity={0.8}
-            onPress={() => { stopSpeech(); router.push('/(patient)/specialists' as any); }}
+            onPress={() => { stopSpeech(); router.push('/(patient)/consultations' as any); }}
           >
-            <View style={[styles.actionIconCircle, { backgroundColor: colors.primary }]}>
-              <Text style={styles.actionIconText}>🩺</Text>
+            <Text style={styles.appointmentsIcon}>📑</Text>
+            <View style={styles.appointmentsTextCol}>
+              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>{t('consultationHistory')}</Text>
+              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>{t('viewDoctorNotes')}</Text>
             </View>
-            <Text style={styles.actionTitle}>{t('doctor')}</Text>
+            <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
 
-          {/* Medications */}
+          {/* Community Health Banner */}
           <TouchableOpacity
-            style={styles.actionCard}
+            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border, marginTop: spacing.sm }]}
+            activeOpacity={0.8}
+            onPress={() => { stopSpeech(); router.push('/(patient)/community' as any); }}
+          >
+            <Text style={styles.appointmentsIcon}>💬</Text>
+            <View style={styles.appointmentsTextCol}>
+              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>{t('communityHealthForum')}</Text>
+              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>{t('communityForumSub')}</Text>
+            </View>
+            <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
+          </TouchableOpacity>
+
+          {/* Next Medication Preview Card */}
+          <TouchableOpacity
+            style={[styles.previewCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             activeOpacity={0.8}
             onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
           >
-            <View style={[styles.actionIconCircle, { backgroundColor: colors.success }]}>
-              <Text style={styles.actionIconText}>💊</Text>
+            <View style={styles.previewHeaderRow}>
+              <Text style={styles.previewIcon}>⏰</Text>
+              <View style={styles.previewTextCol}>
+                <Text style={[styles.previewTitle, { color: themeColors.textPrimary }]}>{t('nextScheduledMedication')}</Text>
+                {dashboardData?.medications && dashboardData.medications.length > 0 ? (
+                  <Text style={[styles.previewSub, { color: themeColors.textSecondary }]}>
+                    {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || 'Scheduled'})
+                  </Text>
+                ) : (
+                  <Text style={[styles.previewSub, { color: themeColors.textSecondary }]}>{t('noActiveMedications')}</Text>
+                )}
+              </View>
             </View>
-            <Text style={styles.actionTitle}>{t('medications')}</Text>
-          </TouchableOpacity>
-
-          {/* EMERGENCY SOS */}
-          <TouchableOpacity
-            style={[styles.actionCard, styles.sosCard]}
-            activeOpacity={0.8}
-            onPress={handleEmergencySOSPress}
-          >
-            <View style={styles.sosIconCircle}>
-              <Text style={styles.sosIconText}>🚨</Text>
-            </View>
-            <Text style={styles.sosTitle}>{t('emergencySos')}</Text>
           </TouchableOpacity>
         </View>
-
-        {/* My Appointments Quick Action Banner */}
-        <TouchableOpacity
-          style={styles.myAppointmentsBanner}
-          activeOpacity={0.8}
-          onPress={() => { stopSpeech(); router.push('/(patient)/my-bookings' as any); }}
-        >
-          <Text style={styles.appointmentsIcon}>📅</Text>
-          <View style={styles.appointmentsTextCol}>
-            <Text style={styles.appointmentsTitle}>{t('myAppointmentsBookings')}</Text>
-            <Text style={styles.appointmentsSub}>{t('viewUpcomingBookings')}</Text>
-          </View>
-          <Text style={styles.appointmentsArrow}>→</Text>
-        </TouchableOpacity>
-
-        {/* Consultation History Banner */}
-        <TouchableOpacity
-          style={[styles.myAppointmentsBanner, { borderColor: colors.accent, marginTop: spacing.sm }]}
-          activeOpacity={0.8}
-          onPress={() => { stopSpeech(); router.push('/(patient)/consultations' as any); }}
-        >
-          <Text style={styles.appointmentsIcon}>📑</Text>
-          <View style={styles.appointmentsTextCol}>
-            <Text style={styles.appointmentsTitle}>{t('consultationHistory')}</Text>
-            <Text style={styles.appointmentsSub}>{t('viewDoctorNotes')}</Text>
-          </View>
-          <Text style={styles.appointmentsArrow}>→</Text>
-        </TouchableOpacity>
-
-        {/* Community Health Banner */}
-        <TouchableOpacity
-          style={[styles.myAppointmentsBanner, { borderColor: colors.primary, marginTop: spacing.sm }]}
-          activeOpacity={0.8}
-          onPress={() => { stopSpeech(); router.push('/(patient)/community' as any); }}
-        >
-          <Text style={styles.appointmentsIcon}>💬</Text>
-          <View style={styles.appointmentsTextCol}>
-            <Text style={styles.appointmentsTitle}>{t('communityHealthForum')}</Text>
-            <Text style={styles.appointmentsSub}>{t('communityForumSub')}</Text>
-          </View>
-          <Text style={styles.appointmentsArrow}>→</Text>
-        </TouchableOpacity>
-
-        {/* Next Medication Preview Card */}
-        <TouchableOpacity
-          style={styles.previewCard}
-          activeOpacity={0.8}
-          onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
-        >
-          <View style={styles.previewHeaderRow}>
-            <Text style={styles.previewIcon}>⏰</Text>
-            <View style={styles.previewTextCol}>
-              <Text style={styles.previewTitle}>{t('nextScheduledMedication')}</Text>
-              {dashboardData?.medications && dashboardData.medications.length > 0 ? (
-                <Text style={styles.previewSub}>
-                  {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || 'Scheduled'})
-                </Text>
-              ) : (
-                <Text style={styles.previewSub}>{t('noActiveMedications')}</Text>
-              )}
-            </View>
-          </View>
-        </TouchableOpacity>
       </View>
     </ScreenContainer>
   );

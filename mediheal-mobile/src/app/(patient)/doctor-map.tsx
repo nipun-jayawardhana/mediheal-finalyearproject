@@ -20,6 +20,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../consta
 import { getDoctors } from '../../services/doctorService';
 import { DoctorProfile } from '../../types/doctor';
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 // Conditionally import MapView to prevent web bundling crashes
 let MapView: any = null;
@@ -67,6 +68,7 @@ function calculateHaversineDistance(
 export default function DoctorMapScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
   const { specialization: initialSpecialization } = useLocalSearchParams<{
     specialization?: string;
   }>();
@@ -239,7 +241,7 @@ export default function DoctorMapScreen() {
 
   if (errorMsg) {
     return (
-      <ScreenContainer backgroundColor={colors.background}>
+      <ScreenContainer backgroundColor={themeColors.background}>
         <AppHeader title={t('viewOnMap')} onBackPress={() => router.back()} />
         <ErrorView message={errorMsg} onRetry={fetchDoctors} />
       </ScreenContainer>
@@ -249,7 +251,7 @@ export default function DoctorMapScreen() {
   // Web Fallback Renderer
   if (Platform.OS === 'web' || !MapView) {
     return (
-      <ScreenContainer backgroundColor={colors.background}>
+      <ScreenContainer backgroundColor={themeColors.background}>
         <AppHeader
           title={t('viewOnMap')}
           subtitle={t('medicalProfessionals')}
@@ -258,11 +260,11 @@ export default function DoctorMapScreen() {
 
         <View style={styles.webFallbackContainer}>
           {/* Context Banner */}
-          <View style={styles.webBanner}>
+          <View style={[styles.webBanner, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
             <Text style={styles.webBannerIcon}>📍</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.webBannerTitle}>Interactive Google Map</Text>
-              <Text style={styles.webBannerSub}>
+              <Text style={[styles.webBannerTitle, { color: themeColors.primaryDark }]}>Interactive Google Map</Text>
+              <Text style={[styles.webBannerSub, { color: themeColors.primary }]}>
                 Interactive map view is optimized for the MediHeal mobile app. You can view doctor locations and open directions below.
               </Text>
             </View>
@@ -270,8 +272,8 @@ export default function DoctorMapScreen() {
 
           {/* Location Permission Status Notice */}
           {locationPermissionGranted === false && (
-            <View style={styles.permissionNotice}>
-              <Text style={styles.permissionNoticeText}>
+            <View style={[styles.permissionNotice, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+              <Text style={[styles.permissionNoticeText, { color: themeColors.textSecondary }]}>
                 💡 Location access is optional. You can still view doctor locations.
               </Text>
             </View>
@@ -299,34 +301,34 @@ export default function DoctorMapScreen() {
                   : `Dr. ${docName}`;
 
                 return (
-                  <View style={styles.webDocCard}>
+                  <View style={[styles.webDocCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
                     <View style={styles.webDocHeader}>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.docCardName}>{displayName}</Text>
-                        <Text style={styles.docCardSpec}>{item.specialization}</Text>
-                        <Text style={styles.docCardHosp}>🏥 {item.hospital}</Text>
+                        <Text style={[styles.docCardName, { color: themeColors.textPrimary }]}>{displayName}</Text>
+                        <Text style={[styles.docCardSpec, { color: themeColors.primary }]}>{item.specialization}</Text>
+                        <Text style={[styles.docCardHosp, { color: themeColors.textSecondary }]}>🏥 {item.hospital}</Text>
                         {item.location ? (
-                          <Text style={styles.docCardLoc}>📍 {item.location}</Text>
+                          <Text style={[styles.docCardLoc, { color: themeColors.textMuted }]}>📍 {item.location}</Text>
                         ) : null}
                       </View>
 
                       {distance !== null && (
-                        <View style={styles.distanceBadge}>
-                          <Text style={styles.distanceText}>📍 Approx. {distance} km away</Text>
+                        <View style={[styles.distanceBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
+                          <Text style={[styles.distanceText, { color: themeColors.primary }]}>📍 Approx. {distance} km away</Text>
                         </View>
                       )}
                     </View>
 
-                    <View style={styles.webActionRow}>
+                    <View style={[styles.webActionRow, { borderTopColor: themeColors.border }]}>
                       <TouchableOpacity
-                        style={styles.detailsBtn}
+                        style={[styles.detailsBtn, { borderColor: themeColors.primary }]}
                         onPress={() => handleNavigateToDoctorDetails(item._id)}
                       >
-                        <Text style={styles.detailsBtnText}>View Doctor Details</Text>
+                        <Text style={[styles.detailsBtnText, { color: themeColors.primary }]}>View Doctor Details</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={styles.directionsBtn}
+                        style={[styles.directionsBtn, { backgroundColor: themeColors.primary }]}
                         onPress={() => handleGetDirections(item)}
                       >
                         <Text style={styles.directionsBtnText}>🧭 Get Directions</Text>

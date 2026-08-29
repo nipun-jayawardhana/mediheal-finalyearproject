@@ -8,6 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { colors, spacing, borderRadius, typography, layout } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export interface AppInputProps extends TextInputProps {
   label?: string;
@@ -25,20 +26,22 @@ export const AppInput: React.FC<AppInputProps> = ({
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const { colors: themeColors } = useTheme();
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: themeColors.textPrimary }]}>{label}</Text>}
       <View
         style={[
           styles.inputWrapper,
-          isFocused && styles.focusedWrapper,
-          !!error && styles.errorWrapper,
+          { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+          isFocused && { borderColor: themeColors.primary },
+          !!error && { borderColor: themeColors.danger },
         ]}
       >
         <TextInput
-          style={[styles.input, style]}
-          placeholderTextColor={colors.textMuted}
+          style={[styles.input, { color: themeColors.textPrimary }, style]}
+          placeholderTextColor={themeColors.textSecondary}
           onFocus={(e) => {
             setIsFocused(true);
             onFocus && onFocus(e);
@@ -50,7 +53,7 @@ export const AppInput: React.FC<AppInputProps> = ({
           {...props}
         />
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={[styles.errorText, { color: themeColors.danger }]}>{error}</Text> : null}
     </View>
   );
 };

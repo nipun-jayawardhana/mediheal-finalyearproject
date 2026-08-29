@@ -25,11 +25,13 @@ import {
   removeCommunityPost,
 } from '../../services/communityService';
 import { CommunityPost, CommunityComment } from '../../types/community';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function SingleCommunityPostScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
 
   const [post, setPost] = useState<CommunityPost | null>(null);
   const [comments, setComments] = useState<CommunityComment[]>([]);
@@ -209,7 +211,7 @@ export default function SingleCommunityPostScreen() {
       .toUpperCase() || 'CM';
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Discussion Details"
         subtitle="Community Health Thread"
@@ -229,30 +231,30 @@ export default function SingleCommunityPostScreen() {
           </View>
 
           {/* Full Post Card */}
-          <View style={styles.postCard}>
+          <View style={[styles.postCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
             <View style={styles.postHeaderRow}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{initials}</Text>
+              <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+                <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
               </View>
 
               <View style={styles.authorCol}>
-                <Text style={styles.authorName}>{authorName}</Text>
-                <Text style={styles.authorSub}>
+                <Text style={[styles.authorName, { color: themeColors.textPrimary }]}>{authorName}</Text>
+                <Text style={[styles.authorSub, { color: themeColors.textMuted }]}>
                   {authorRole === 'caregiver' ? 'Caregiver • ' : 'Patient • '}
                   {formatDate(post.createdAt)}
                 </Text>
               </View>
 
-              <View style={styles.categoryBadge}>
-                <Text style={styles.categoryText}>{post.category.toUpperCase()}</Text>
+              <View style={[styles.categoryBadge, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+                <Text style={[styles.categoryText, { color: themeColors.primary }]}>{post.category.toUpperCase()}</Text>
               </View>
             </View>
 
-            <Text style={styles.postTitle}>{post.title}</Text>
-            <Text style={styles.postContent}>{post.content}</Text>
+            <Text style={[styles.postTitle, { color: themeColors.textPrimary }]}>{post.title}</Text>
+            <Text style={[styles.postContent, { color: themeColors.textPrimary }]}>{post.content}</Text>
 
             {isPostOwner && (
-              <View style={styles.ownerActionsRow}>
+              <View style={[styles.ownerActionsRow, { borderTopColor: themeColors.border }]}>
                 <TouchableOpacity
                   style={styles.editBtn}
                   onPress={() =>
@@ -262,24 +264,24 @@ export default function SingleCommunityPostScreen() {
                     })
                   }
                 >
-                  <Text style={styles.editBtnText}>✏️ Edit Post</Text>
+                  <Text style={[styles.editBtnText, { color: themeColors.primary }]}>✏️ Edit Post</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.deleteBtn} onPress={handleRemovePost}>
-                  <Text style={styles.deleteBtnText}>🗑️ Delete Post</Text>
+                  <Text style={[styles.deleteBtnText, { color: themeColors.danger }]}>🗑️ Delete Post</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
           {/* Comments Section Header */}
-          <Text style={styles.commentsSectionTitle}>
+          <Text style={[styles.commentsSectionTitle, { color: themeColors.textPrimary }]}>
             Comments & Discussion ({comments.length})
           </Text>
 
           {comments.length === 0 ? (
-            <View style={styles.noCommentsBox}>
-              <Text style={styles.noCommentsText}>
+            <View style={[styles.noCommentsBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+              <Text style={[styles.noCommentsText, { color: themeColors.textSecondary }]}>
                 No comments yet. Start the conversation below!
               </Text>
             </View>
@@ -310,15 +312,15 @@ export default function SingleCommunityPostScreen() {
                   .toUpperCase() || 'U';
 
               return (
-                <View key={comment._id} style={styles.commentCard}>
+                <View key={comment._id} style={[styles.commentCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
                   <View style={styles.commentHeaderRow}>
-                    <View style={styles.cAvatarCircle}>
-                      <Text style={styles.cAvatarText}>{cInitials}</Text>
+                    <View style={[styles.cAvatarCircle, { backgroundColor: themeColors.surfaceSecondary }]}>
+                      <Text style={[styles.cAvatarText, { color: themeColors.success }]}>{cInitials}</Text>
                     </View>
 
                     <View style={styles.cAuthorCol}>
-                      <Text style={styles.cAuthorName}>{cAuthorName}</Text>
-                      <Text style={styles.cAuthorSub}>
+                      <Text style={[styles.cAuthorName, { color: themeColors.textPrimary }]}>{cAuthorName}</Text>
+                      <Text style={[styles.cAuthorSub, { color: themeColors.textMuted }]}>
                         {cAuthorRole === 'caregiver' ? 'Caregiver • ' : ''}
                         {formatDate(comment.createdAt)}
                       </Text>
@@ -329,24 +331,24 @@ export default function SingleCommunityPostScreen() {
                         onPress={() => handleRemoveComment(comment._id)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Text style={styles.cDeleteText}>Delete</Text>
+                        <Text style={[styles.cDeleteText, { color: themeColors.danger }]}>Delete</Text>
                       </TouchableOpacity>
                     )}
                   </View>
 
-                  <Text style={styles.commentContent}>{comment.content}</Text>
+                  <Text style={[styles.commentContent, { color: themeColors.textSecondary }]}>{comment.content}</Text>
                 </View>
               );
             })
           )}
 
           {/* Add Comment Input Area */}
-          <View style={styles.addCommentBox}>
-            <Text style={styles.addCommentLabel}>Write a Comment / Response</Text>
+          <View style={[styles.addCommentBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <Text style={[styles.addCommentLabel, { color: themeColors.textPrimary }]}>Write a Comment / Response</Text>
             <TextInput
-              style={styles.commentInput}
+              style={[styles.commentInput, { backgroundColor: themeColors.surfaceSecondary, color: themeColors.textPrimary, borderColor: themeColors.border }]}
               placeholder="Share your thoughts or helpful answer..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textSecondary}
               value={commentText}
               onChangeText={setCommentText}
               multiline

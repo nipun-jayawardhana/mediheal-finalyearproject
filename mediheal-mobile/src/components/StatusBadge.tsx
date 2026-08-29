@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, spacing, borderRadius } from '../constants/theme';
+import { spacing, borderRadius } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export type StatusType =
   | 'active'
@@ -24,6 +25,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
   label,
   style,
 }) => {
+  const { colors } = useTheme();
   const normStatus = String(status).toLowerCase().trim();
 
   const getColors = () => {

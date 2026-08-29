@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CommunityPost } from '../types/community';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface CommunityPostCardProps {
   post: CommunityPost;
@@ -18,6 +19,8 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
   onEdit,
   onRemove,
 }) => {
+  const { colors: themeColors } = useTheme();
+
   const authorName =
     typeof post.authorId === 'object' && post.authorId?.fullName
       ? post.authorId.fullName
@@ -71,44 +74,44 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
 
   return (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
       activeOpacity={0.85}
       onPress={() => onPress(post)}
     >
       {/* Top Author Row & Category Badge */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+          <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
         </View>
 
         <View style={styles.authorCol}>
-          <Text style={styles.authorName} numberOfLines={1}>
+          <Text style={[styles.authorName, { color: themeColors.textPrimary }]} numberOfLines={1}>
             {authorName}
           </Text>
-          <Text style={styles.authorSub}>
+          <Text style={[styles.authorSub, { color: themeColors.textMuted }]}>
             {authorRole === 'caregiver' ? 'Caregiver • ' : ''}
             {formatDate(post.createdAt)}
           </Text>
         </View>
 
-        <View style={styles.categoryBadge}>
-          <Text style={styles.categoryText}>{formatCategory(post.category)}</Text>
+        <View style={[styles.categoryBadge, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+          <Text style={[styles.categoryText, { color: themeColors.primary }]}>{formatCategory(post.category)}</Text>
         </View>
       </View>
 
       {/* Post Title */}
-      <Text style={styles.postTitle} numberOfLines={2}>
+      <Text style={[styles.postTitle, { color: themeColors.textPrimary }]} numberOfLines={2}>
         {post.title}
       </Text>
 
       {/* Post Content Snippet */}
-      <Text style={styles.postSnippet} numberOfLines={3}>
+      <Text style={[styles.postSnippet, { color: themeColors.textSecondary }]} numberOfLines={3}>
         {post.content}
       </Text>
 
       {/* Footer Row */}
-      <View style={styles.footerRow}>
-        <Text style={styles.viewDiscussionText}>💬 View Discussion & Comments →</Text>
+      <View style={[styles.footerRow, { borderTopColor: themeColors.border }]}>
+        <Text style={[styles.viewDiscussionText, { color: themeColors.primary }]}>💬 View Discussion & Comments →</Text>
 
         {isOwner && (
           <View style={styles.ownerActions}>
@@ -118,7 +121,7 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
                 style={styles.ownerBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.editBtnText}>Edit</Text>
+                <Text style={[styles.editBtnText, { color: themeColors.primary }]}>Edit</Text>
               </TouchableOpacity>
             )}
             {onRemove && (
@@ -127,7 +130,7 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
                 style={styles.ownerBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.removeBtnText}>Delete</Text>
+                <Text style={[styles.removeBtnText, { color: themeColors.danger }]}>Delete</Text>
               </TouchableOpacity>
             )}
           </View>

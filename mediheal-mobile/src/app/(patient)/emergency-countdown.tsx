@@ -4,9 +4,11 @@ import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { colors, spacing, typography, shadows } from '../../constants/theme';
 import { createEmergencyAlert, getActiveEmergencyAlert } from '../../services/emergencyService';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function EmergencyCountdownScreen() {
   const router = useRouter();
+  const { isDark, colors: themeColors } = useTheme();
 
   const [count, setCount] = useState<number>(5);
   const [isActivating, setIsActivating] = useState<boolean>(false);
@@ -103,7 +105,7 @@ export default function EmergencyCountdownScreen() {
   };
 
   return (
-    <ScreenContainer backgroundColor="#FDF2F2">
+    <ScreenContainer backgroundColor={isDark ? '#180E10' : '#FDF2F2'}>
       {/* Top Header: Cancel Exit Button & Red Emergency Title */}
       <View style={styles.topHeader}>
         <TouchableOpacity

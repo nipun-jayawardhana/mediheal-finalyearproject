@@ -14,10 +14,12 @@ import { Appointment } from '../../types/appointment';
 import { Consultation } from '../../types/consultation';
 
 import { useLanguage } from '../../context/LanguageContext';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function MyBookingsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [consultationMap, setConsultationMap] = useState<Record<string, string>>({});
@@ -139,7 +141,7 @@ export default function MyBookingsScreen() {
   const isEmpty = appointments.length === 0;
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title={t('myBookingsTitle')}
         subtitle={t('manageAppointments')}
@@ -171,7 +173,7 @@ export default function MyBookingsScreen() {
                 {/* Upcoming Appointments Section */}
                 {upcomingAppointments.length > 0 && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>
+                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
                       {t('upcoming')} ({upcomingAppointments.length})
                     </Text>
                     {upcomingAppointments.map((app) => (
@@ -188,7 +190,7 @@ export default function MyBookingsScreen() {
                 {/* Completed Appointments Section */}
                 {completedAppointments.length > 0 && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>
+                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
                       {t('completed')} ({completedAppointments.length})
                     </Text>
                     {completedAppointments.map((app) => (
@@ -204,7 +206,7 @@ export default function MyBookingsScreen() {
                 {/* Cancelled Appointments Section */}
                 {cancelledAppointments.length > 0 && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>
+                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
                       {t('cancelled')} ({cancelledAppointments.length})
                     </Text>
                     {cancelledAppointments.map((app) => (

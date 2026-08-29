@@ -6,10 +6,12 @@ import { AppButton } from '../../components/AppButton';
 import { StatusBadge } from '../../components/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function RegisterSuccessScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors: themeColors } = useTheme();
 
   const handleContinue = () => {
     if (!user) {
@@ -36,22 +38,22 @@ export default function RegisterSuccessScreen() {
   };
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <View style={styles.container}>
-        <View style={styles.card}>
-          <View style={styles.checkCircle}>
-            <Text style={styles.checkIcon}>✓</Text>
+        <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <View style={[styles.checkCircle, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.success }]}>
+            <Text style={[styles.checkIcon, { color: themeColors.success }]}>✓</Text>
           </View>
 
-          <Text style={styles.title}>Account Created!</Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.title, { color: themeColors.textPrimary }]}>Account Created!</Text>
+          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
             Welcome to MediHeal. Your account has been registered and activated successfully.
           </Text>
 
           {user && (
-            <View style={styles.userBox}>
-              <Text style={styles.userName}>{user.fullName}</Text>
-              <Text style={styles.userEmail}>{user.email}</Text>
+            <View style={[styles.userBox, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
+              <Text style={[styles.userName, { color: themeColors.textPrimary }]}>{user.fullName}</Text>
+              <Text style={[styles.userEmail, { color: themeColors.textSecondary }]}>{user.email}</Text>
               <View style={styles.badgeWrapper}>
                 <StatusBadge status="active" label={`ROLE: ${user.role.toUpperCase()}`} />
               </View>

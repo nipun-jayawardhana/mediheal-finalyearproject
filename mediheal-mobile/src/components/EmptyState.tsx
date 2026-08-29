@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, borderRadius, typography } from '../constants/theme';
 import { AppButton } from './AppButton';
+import { useTheme } from '../context/ThemeContext';
 
 interface EmptyStateProps {
   title: string;
@@ -18,11 +19,13 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   actionText,
   onAction,
 }) => {
+  const { colors: themeColors } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
       <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.title}>{title}</Text>
-      {description ? <Text style={styles.description}>{description}</Text> : null}
+      <Text style={[styles.title, { color: themeColors.textPrimary }]}>{title}</Text>
+      {description ? <Text style={[styles.description, { color: themeColors.textSecondary }]}>{description}</Text> : null}
       {actionText && onAction && (
         <AppButton
           title={actionText}

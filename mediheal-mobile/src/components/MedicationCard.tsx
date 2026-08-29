@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Medication, MedicationLog } from '../types/medication';
 import { AppButton } from './AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface MedicationCardProps {
   medication: Medication;
@@ -19,6 +20,8 @@ export const MedicationCard: React.FC<MedicationCardProps> = ({
   onMarkTaken,
   markingKey,
 }) => {
+  const { colors: themeColors } = useTheme();
+
   // Format 24-hour time "08:00" to "8:00 AM" or "20:00" to "8:00 PM"
   const formatTimeSlot = (timeStr: string) => {
     try {
@@ -46,18 +49,18 @@ export const MedicationCard: React.FC<MedicationCardProps> = ({
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
       {/* Top Header: Pill Icon & Medicine Identity */}
       <View style={styles.headerRow}>
-        <View style={styles.pillIconCircle}>
+        <View style={[styles.pillIconCircle, { backgroundColor: themeColors.successLight, borderColor: themeColors.success }]}>
           <Text style={styles.pillIcon}>💊</Text>
         </View>
 
         <View style={styles.headerTextCol}>
-          <Text style={styles.medicineName} numberOfLines={1}>
+          <Text style={[styles.medicineName, { color: themeColors.textPrimary }]} numberOfLines={1}>
             {medication.medicineName}
           </Text>
-          <Text style={styles.dosageText}>
+          <Text style={[styles.dosageText, { color: themeColors.textSecondary }]}>
             {medication.dosage} • {medication.frequency}
           </Text>
         </View>
@@ -65,16 +68,16 @@ export const MedicationCard: React.FC<MedicationCardProps> = ({
 
       {/* Instructions if available */}
       {medication.instructions ? (
-        <View style={styles.instructionsBox}>
-          <Text style={styles.instructionsText}>
+        <View style={[styles.instructionsBox, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
+          <Text style={[styles.instructionsText, { color: themeColors.textSecondary }]}>
             ℹ️ {medication.instructions}
           </Text>
         </View>
       ) : null}
 
       {/* Time Slots & Mark as Taken Section */}
-      <View style={styles.slotsContainer}>
-        <Text style={styles.slotsHeaderLabel}>Today's Schedule & Action</Text>
+      <View style={[styles.slotsContainer, { borderTopColor: themeColors.border }]}>
+        <Text style={[styles.slotsHeaderLabel, { color: themeColors.textMuted }]}>Today's Schedule & Action</Text>
 
         {medication.timeSlots && medication.timeSlots.length > 0 ? (
           medication.timeSlots.map((slot, idx) => {
@@ -83,17 +86,17 @@ export const MedicationCard: React.FC<MedicationCardProps> = ({
             const isSubmitting = markingKey === currentKey;
 
             return (
-              <View key={idx} style={styles.slotRow}>
+              <View key={idx} style={[styles.slotRow, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
                 <View style={styles.slotTimeCol}>
-                  <Text style={styles.slotTimeText}>⏰ {formatTimeSlot(slot)}</Text>
-                  <Text style={styles.slotRawText}>({slot})</Text>
+                  <Text style={[styles.slotTimeText, { color: themeColors.primary }]}>⏰ {formatTimeSlot(slot)}</Text>
+                  <Text style={[styles.slotRawText, { color: themeColors.textMuted }]}>({slot})</Text>
                 </View>
 
                 <View style={styles.slotActionCol}>
                   {taken ? (
-                    <View style={styles.takenBadge}>
-                      <Text style={styles.takenCheckIcon}>✓</Text>
-                      <Text style={styles.takenBadgeText}>Taken</Text>
+                    <View style={[styles.takenBadge, { backgroundColor: themeColors.successLight, borderColor: themeColors.success }]}>
+                      <Text style={[styles.takenCheckIcon, { color: themeColors.success }]}>✓</Text>
+                      <Text style={[styles.takenBadgeText, { color: themeColors.success }]}>Taken</Text>
                     </View>
                   ) : (
                     <AppButton
@@ -109,7 +112,7 @@ export const MedicationCard: React.FC<MedicationCardProps> = ({
             );
           })
         ) : (
-          <Text style={styles.noSlotsText}>No time slots configured</Text>
+          <Text style={[styles.noSlotsText, { color: themeColors.textMuted }]}>No time slots configured</Text>
         )}
       </View>
     </View>

@@ -21,6 +21,7 @@ import { createAppointment } from '../../services/appointmentService';
 import { DoctorProfile } from '../../types/doctor';
 import { useLanguage } from '../../context/LanguageContext';
 import { getSpecializationTranslationKey } from '../../utils/displayMappers';
+import { useTheme } from '../../context/ThemeContext';
 
 interface DateItem {
   dateIso: string;
@@ -34,6 +35,7 @@ interface DateItem {
 export default function DoctorDetailsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
   const { id, initialReason } = useLocalSearchParams<{ id: string; initialReason?: string }>();
 
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
@@ -246,29 +248,29 @@ export default function DoctorDetailsScreen() {
   const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : doctor.specialization;
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader title={t('doctorDetails')} onBackPress={() => router.back()} />
 
       <View style={styles.container}>
         {/* Main Identity & Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.profileCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+            <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
           </View>
 
-          <Text style={styles.doctorName}>{doctorName}</Text>
+          <Text style={[styles.doctorName, { color: themeColors.textPrimary }]}>{doctorName}</Text>
           
-          <Text style={styles.specializationBadge}>
+          <Text style={[styles.specializationBadge, { backgroundColor: themeColors.primaryLight, color: themeColors.primary }]}>
             {specLocalized.toUpperCase()}
           </Text>
 
           {doctor.slmcNumber ? (
-            <Text style={styles.slmcText}>{t('slmcNumber')}: {doctor.slmcNumber}</Text>
+            <Text style={[styles.slmcText, { color: themeColors.textMuted }]}>{t('slmcNumber')}: {doctor.slmcNumber}</Text>
           ) : null}
 
           <View style={styles.hospitalRow}>
             <Text style={styles.hospitalIcon}>🏥</Text>
-            <Text style={styles.hospitalText}>
+            <Text style={[styles.hospitalText, { color: themeColors.textSecondary }]}>
               {doctor.hospital}
               {doctor.location ? `, ${doctor.location}` : ''}
             </Text>
@@ -278,7 +280,7 @@ export default function DoctorDetailsScreen() {
           {typeof doctor.latitude === 'number' && typeof doctor.longitude === 'number' ? (
             <View style={styles.mapActionsRow}>
               <TouchableOpacity
-                style={styles.mapBtnOutline}
+                style={[styles.mapBtnOutline, { borderColor: themeColors.primary }]}
                 onPress={() =>
                   router.push({
                     pathname: '/(patient)/doctor-map' as any,
@@ -286,11 +288,11 @@ export default function DoctorDetailsScreen() {
                   })
                 }
               >
-                <Text style={styles.mapBtnOutlineText}>🗺️ {t('viewOnMap')}</Text>
+                <Text style={[styles.mapBtnOutlineText, { color: themeColors.primary }]}>🗺️ {t('viewOnMap')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.mapBtnFilled}
+                style={[styles.mapBtnFilled, { backgroundColor: themeColors.primary }]}
                 onPress={() => {
                   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${doctor.latitude},${doctor.longitude}`;
                   Linking.openURL(mapsUrl).catch(() =>
@@ -304,47 +306,47 @@ export default function DoctorDetailsScreen() {
           ) : null}
 
           {/* Stats Bar */}
-          <View style={styles.statsBar}>
+          <View style={[styles.statsBar, { backgroundColor: themeColors.surfaceSecondary }]}>
             <View style={styles.statItem}>
-              <Text style={styles.statVal}>
+              <Text style={[styles.statVal, { color: themeColors.textPrimary }]}>
                 {doctor.yearsOfExperience > 0 ? `${doctor.yearsOfExperience}+` : 'N/A'}
               </Text>
-              <Text style={styles.statLbl}>{t('yearsExp')}</Text>
+              <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>{t('yearsExp')}</Text>
             </View>
 
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
 
             <View style={styles.statItem}>
-              <Text style={styles.statVal}>{feeFormatted}</Text>
-              <Text style={styles.statLbl}>{t('consultationFee')}</Text>
+              <Text style={[styles.statVal, { color: themeColors.primary }]}>{feeFormatted}</Text>
+              <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>{t('consultationFee')}</Text>
             </View>
           </View>
         </View>
 
         {/* Biography & Languages Section */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('biography')}</Text>
-          <Text style={styles.bodyText}>
+        <View style={[styles.sectionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('biography')}</Text>
+          <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
             {doctor.biography || 'No biography provided.'}
           </Text>
 
-          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>{t('currentLanguage')}</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary, marginTop: spacing.md }]}>{t('currentLanguage')}</Text>
           <View style={styles.langChipContainer}>
             {doctor.languages && doctor.languages.length > 0 ? (
               doctor.languages.map((lang, idx) => (
-                <View key={idx} style={styles.langChip}>
-                  <Text style={styles.langText}>🗣️ {lang}</Text>
+                <View key={idx} style={[styles.langChip, { backgroundColor: themeColors.surfaceSecondary }]}>
+                  <Text style={[styles.langText, { color: themeColors.textPrimary }]}>🗣️ {lang}</Text>
                 </View>
               ))
             ) : (
-              <Text style={styles.bodyText}>English</Text>
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>English</Text>
             )}
           </View>
         </View>
 
         {/* Date & Time Slot Picker Section */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>{t('selectDate')}</Text>
+        <View style={[styles.sectionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('selectDate')}</Text>
 
           {/* Date Horizontal Scroll Selector */}
           <ScrollView
@@ -360,18 +362,19 @@ export default function DoctorDetailsScreen() {
                   key={item.dateIso}
                   style={[
                     styles.dateChip,
-                    isSelected && styles.activeDateChip,
-                    !item.isDoctorAvailableDay && styles.unavailableDateChip,
+                    { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+                    isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
+                    !item.isDoctorAvailableDay && { opacity: 0.5 },
                   ]}
                   onPress={() => setSelectedDateIso(item.dateIso)}
                 >
-                  <Text style={[styles.dayShortText, isSelected && styles.activeText]}>
+                  <Text style={[styles.dayShortText, { color: themeColors.textSecondary }, isSelected && { color: '#FFFFFF' }]}>
                     {item.dayShort}
                   </Text>
-                  <Text style={[styles.dayNumText, isSelected && styles.activeText]}>
+                  <Text style={[styles.dayNumText, { color: themeColors.textPrimary }, isSelected && { color: '#FFFFFF' }]}>
                     {item.dayNum}
                   </Text>
-                  <Text style={[styles.monthShortText, isSelected && styles.activeText]}>
+                  <Text style={[styles.monthShortText, { color: themeColors.textSecondary }, isSelected && { color: '#FFFFFF' }]}>
                     {item.monthShort}
                   </Text>
 
@@ -384,13 +387,13 @@ export default function DoctorDetailsScreen() {
           </ScrollView>
 
           {doctor.availableDays && doctor.availableDays.length > 0 ? (
-            <Text style={styles.availableDaysHint}>
+            <Text style={[styles.availableDaysHint, { color: themeColors.textSecondary }]}>
               📅 {t('availableDays')}: {doctor.availableDays.join(', ')}
             </Text>
           ) : null}
 
           {/* Time Slot Picker Grid */}
-          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>{t('selectTimeSlot')}</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary, marginTop: spacing.md }]}>{t('selectTimeSlot')}</Text>
 
           {doctor.availableTimeSlots && doctor.availableTimeSlots.length > 0 ? (
             <View style={styles.slotsGrid}>
@@ -399,11 +402,15 @@ export default function DoctorDetailsScreen() {
                 return (
                   <TouchableOpacity
                     key={idx}
-                    style={[styles.slotChip, isSelected && styles.activeSlotChip]}
+                    style={[
+                      styles.slotChip,
+                      { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+                      isSelected && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
+                    ]}
                     onPress={() => setSelectedSlot(slot)}
                   >
                     <Text
-                      style={[styles.slotText, isSelected && styles.activeSlotText]}
+                      style={[styles.slotText, { color: themeColors.textPrimary }, isSelected && { color: themeColors.primary }]}
                     >
                       ⏰ {slot}
                     </Text>
@@ -412,21 +419,21 @@ export default function DoctorDetailsScreen() {
               })}
             </View>
           ) : (
-            <View style={styles.emptySlotBox}>
-              <Text style={styles.emptyScheduleText}>
+            <View style={[styles.emptySlotBox, { backgroundColor: themeColors.surfaceSecondary }]}>
+              <Text style={[styles.emptyScheduleText, { color: themeColors.textSecondary }]}>
                 {t('noDoctorsForSpec')}
               </Text>
             </View>
           )}
 
           {/* Reason for Appointment Field */}
-          <Text style={[styles.sectionTitle, { marginTop: spacing.md }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary, marginTop: spacing.md }]}>
             {t('reasonForVisit')} *
           </Text>
           <TextInput
-            style={styles.reasonInput}
+            style={[styles.reasonInput, { backgroundColor: themeColors.surfaceSecondary, color: themeColors.textPrimary, borderColor: themeColors.border }]}
             placeholder={t('reasonPlaceholder')}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textSecondary}
             multiline
             numberOfLines={3}
             value={reason}

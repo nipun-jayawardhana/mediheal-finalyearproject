@@ -7,10 +7,12 @@ import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useLanguage } from '../../context/LanguageContext';
 import { getSpecializationTranslationKey } from '../../utils/displayMappers';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function BookingConfirmationScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
   const params = useLocalSearchParams<{
     appointmentId?: string;
     doctorName?: string;
@@ -51,7 +53,7 @@ export default function BookingConfirmationScreen() {
   const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : params.specialization;
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title={t('appTitle')}
         subtitle={t('bookingConfirmation')}
@@ -60,56 +62,56 @@ export default function BookingConfirmationScreen() {
 
       <View style={styles.container}>
         {/* Main White Confirmation Card */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           {/* Green Check Circle */}
-          <View style={styles.checkCircle}>
-            <Text style={styles.checkMark}>✓</Text>
+          <View style={[styles.checkCircle, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.success }]}>
+            <Text style={[styles.checkMark, { color: themeColors.success }]}>✓</Text>
           </View>
 
           {/* Heading */}
-          <Text style={styles.title}>{t('appointmentBookedSuccess')}</Text>
+          <Text style={[styles.title, { color: themeColors.textPrimary }]}>{t('appointmentBookedSuccess')}</Text>
 
           {/* Details Box */}
-          <View style={styles.detailsBox}>
+          <View style={[styles.detailsBox, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
             {/* Doctor */}
-            <View style={styles.detailRow}>
-              <View style={styles.detailIconCircle}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailIconCircle, { backgroundColor: themeColors.primaryLight }]}>
                 <Text style={styles.detailIcon}>👤</Text>
               </View>
               <View style={styles.detailTextCol}>
-                <Text style={styles.detailLabel}>{t('doctor').toUpperCase()}</Text>
-                <Text style={styles.detailVal}>
+                <Text style={[styles.detailLabel, { color: themeColors.textMuted }]}>{t('doctor').toUpperCase()}</Text>
+                <Text style={[styles.detailVal, { color: themeColors.textPrimary }]}>
                   {params.doctorName || 'Medical Specialist'}
                 </Text>
                 {specLocalized ? (
-                  <Text style={styles.detailSubVal}>{specLocalized}</Text>
+                  <Text style={[styles.detailSubVal, { color: themeColors.primary }]}>{specLocalized}</Text>
                 ) : null}
               </View>
             </View>
 
             {/* Hospital */}
-            <View style={styles.detailRow}>
-              <View style={styles.detailIconCircle}>
+            <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+              <View style={[styles.detailIconCircle, { backgroundColor: themeColors.primaryLight }]}>
                 <Text style={styles.detailIcon}>🏥</Text>
               </View>
               <View style={styles.detailTextCol}>
-                <Text style={styles.detailLabel}>{t('hospital').toUpperCase()}</Text>
-                <Text style={styles.detailVal}>
+                <Text style={[styles.detailLabel, { color: themeColors.textMuted }]}>{t('hospital').toUpperCase()}</Text>
+                <Text style={[styles.detailVal, { color: themeColors.textPrimary }]}>
                   {params.hospital || 'MediHeal Partner Hospital'}
                 </Text>
               </View>
             </View>
 
             {/* Date & Time */}
-            <View style={styles.detailRow}>
-              <View style={styles.detailIconCircle}>
+            <View style={[styles.detailRow, { borderBottomColor: 'transparent' }]}>
+              <View style={[styles.detailIconCircle, { backgroundColor: themeColors.primaryLight }]}>
                 <Text style={styles.detailIcon}>📅</Text>
               </View>
               <View style={styles.detailTextCol}>
-                <Text style={styles.detailLabel}>{t('date').toUpperCase()} & {t('time').toUpperCase()}</Text>
-                <Text style={styles.detailVal}>{formattedDate}</Text>
+                <Text style={[styles.detailLabel, { color: themeColors.textMuted }]}>{t('date').toUpperCase()} & {t('time').toUpperCase()}</Text>
+                <Text style={[styles.detailVal, { color: themeColors.textPrimary }]}>{formattedDate}</Text>
                 {params.timeSlot ? (
-                  <Text style={styles.detailSubVal}>⏰ {params.timeSlot}</Text>
+                  <Text style={[styles.detailSubVal, { color: themeColors.primary }]}>⏰ {params.timeSlot}</Text>
                 ) : null}
               </View>
             </View>

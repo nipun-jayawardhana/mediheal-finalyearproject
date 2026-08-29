@@ -6,6 +6,7 @@ import { AppButton } from './AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { getAppointmentStatusTranslationKey, getSpecializationTranslationKey } from '../utils/displayMappers';
+import { useTheme } from '../context/ThemeContext';
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -21,6 +22,7 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   cancellingId,
 }) => {
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const doctorNameRaw = appointment.doctorId?.fullName || 'Medical Specialist';
   const doctorName = doctorNameRaw.toLowerCase().startsWith('dr.')
@@ -68,18 +70,18 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : (appointment.specialization || 'Medical Specialist');
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
       {/* Top Doctor Header Row & Status Badge */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+          <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
         </View>
 
         <View style={styles.headerTextCol}>
-          <Text style={styles.doctorName} numberOfLines={1}>
+          <Text style={[styles.doctorName, { color: themeColors.textPrimary }]} numberOfLines={1}>
             {doctorName}
           </Text>
-          <Text style={styles.specializationText} numberOfLines={1}>
+          <Text style={[styles.specializationText, { color: themeColors.primary }]} numberOfLines={1}>
             {specLocalized}
           </Text>
         </View>
@@ -91,35 +93,35 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
       </View>
 
       {/* Appointment Meta Details */}
-      <View style={styles.detailsContainer}>
+      <View style={[styles.detailsContainer, { borderTopColor: themeColors.border }]}>
         {/* Hospital */}
         {appointment.hospital ? (
           <View style={styles.metaRow}>
             <Text style={styles.metaIcon}>🏥</Text>
-            <Text style={styles.metaText} numberOfLines={1}>
+            <Text style={[styles.metaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
               {appointment.hospital}
             </Text>
           </View>
         ) : null}
 
         {/* Date & Time */}
-        <View style={styles.dateTimeRow}>
+        <View style={[styles.dateTimeRow, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
           <View style={styles.metaRow}>
             <Text style={styles.metaIcon}>📅</Text>
-            <Text style={styles.metaVal}>{formatDate(appointment.appointmentDate)}</Text>
+            <Text style={[styles.metaVal, { color: themeColors.primary }]}>{formatDate(appointment.appointmentDate)}</Text>
           </View>
 
           <View style={styles.metaRow}>
             <Text style={styles.metaIcon}>⏰</Text>
-            <Text style={styles.metaVal}>{appointment.timeSlot}</Text>
+            <Text style={[styles.metaVal, { color: themeColors.primary }]}>{appointment.timeSlot}</Text>
           </View>
         </View>
 
         {/* Reason for Visit */}
         {appointment.reason ? (
-          <View style={styles.reasonBox}>
-            <Text style={styles.reasonLabel}>{t('reasonForVisit')}:</Text>
-            <Text style={styles.reasonText} numberOfLines={2}>
+          <View style={[styles.reasonBox, { backgroundColor: themeColors.surfaceSecondary }]}>
+            <Text style={[styles.reasonLabel, { color: themeColors.textMuted }]}>{t('reasonForVisit')}:</Text>
+            <Text style={[styles.reasonText, { color: themeColors.textSecondary }]} numberOfLines={2}>
               {appointment.reason}
             </Text>
           </View>
@@ -127,8 +129,8 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
         {/* Cancellation Reason if Cancelled */}
         {appointment.status === 'cancelled' && appointment.cancellationReason ? (
-          <View style={styles.cancelledBox}>
-            <Text style={styles.cancelledText}>
+          <View style={[styles.cancelledBox, { backgroundColor: themeColors.dangerLight }]}>
+            <Text style={[styles.cancelledText, { color: themeColors.danger }]}>
               {t('cancelAppointment')}: {appointment.cancellationReason}
             </Text>
           </View>

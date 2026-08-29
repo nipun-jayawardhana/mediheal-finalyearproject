@@ -7,7 +7,8 @@ import {
   StatusBar,
   ViewStyle,
 } from 'react-native';
-import { colors, spacing } from '../constants/theme';
+import { spacing } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -22,11 +23,14 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   scrollable = false,
   style,
   contentContainerStyle,
-  backgroundColor = colors.background,
+  backgroundColor,
 }) => {
+  const { colors: themeColors, isDark } = useTheme();
+  const effectiveBg = backgroundColor || themeColors.background;
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={backgroundColor} />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: effectiveBg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={effectiveBg} />
       {scrollable ? (
         <ScrollView
           style={[styles.container, style]}

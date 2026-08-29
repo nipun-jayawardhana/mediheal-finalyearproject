@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { AppInput, AppInputProps } from './AppInput';
 import { colors, spacing } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export const PasswordInput: React.FC<AppInputProps> = (props) => {
   const [showPassword, setShowPassword] = useState(false);
+  const { colors: themeColors } = useTheme();
 
   return (
     <View style={styles.relativeWrapper}>
@@ -20,7 +22,7 @@ export const PasswordInput: React.FC<AppInputProps> = (props) => {
         accessibilityRole="button"
         accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
       >
-        <Text style={styles.toggleText}>{showPassword ? 'Hide' : 'Show'}</Text>
+        <Text style={[styles.toggleText, { color: themeColors.primary }]}>{showPassword ? 'Hide' : 'Show'}</Text>
       </TouchableOpacity>
     </View>
   );

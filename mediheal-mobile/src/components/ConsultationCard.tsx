@@ -5,6 +5,7 @@ import { AppButton } from './AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 import { getSpecializationTranslationKey } from '../utils/displayMappers';
+import { useTheme } from '../context/ThemeContext';
 
 interface ConsultationCardProps {
   consultation: Consultation;
@@ -16,6 +17,7 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
   onPress,
 }) => {
   const { t } = useLanguage();
+  const { colors: themeColors } = useTheme();
 
   const doctorNameRaw = consultation.doctorId?.fullName || 'Medical Specialist';
   const doctorName = doctorNameRaw.toLowerCase().startsWith('dr.')
@@ -54,31 +56,31 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
   const specLocalized = typeof specKey === 'string' && specKey in t ? t(specKey as any) : (consultation.specialization || t('medicalConsultation'));
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
       {/* Header Row: Doctor Avatar & Identity */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View style={[styles.avatarCircle, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
+          <Text style={[styles.avatarText, { color: themeColors.primary }]}>{initials}</Text>
         </View>
 
         <View style={styles.headerTextCol}>
-          <Text style={styles.doctorName} numberOfLines={1}>
+          <Text style={[styles.doctorName, { color: themeColors.textPrimary }]} numberOfLines={1}>
             {doctorName}
           </Text>
-          <Text style={styles.specializationText} numberOfLines={1}>
+          <Text style={[styles.specializationText, { color: themeColors.primary }]} numberOfLines={1}>
             {specLocalized}
           </Text>
         </View>
 
         {completedDateStr ? (
-          <Text style={styles.dateText}>{completedDateStr}</Text>
+          <Text style={[styles.dateText, { color: themeColors.textMuted }]}>{completedDateStr}</Text>
         ) : null}
       </View>
 
       {/* Diagnosis Banner */}
-      <View style={styles.diagnosisBox}>
-        <Text style={styles.diagnosisLabel}>{t('diagnosis').toUpperCase()}</Text>
-        <Text style={styles.diagnosisTitle} numberOfLines={2}>
+      <View style={[styles.diagnosisBox, { backgroundColor: themeColors.primaryLight, borderLeftColor: themeColors.primary }]}>
+        <Text style={[styles.diagnosisLabel, { color: themeColors.primaryDark }]}>{t('diagnosis').toUpperCase()}</Text>
+        <Text style={[styles.diagnosisTitle, { color: themeColors.textPrimary }]} numberOfLines={2}>
           {consultation.diagnosis}
         </Text>
       </View>
@@ -86,16 +88,16 @@ export const ConsultationCard: React.FC<ConsultationCardProps> = ({
       {/* Prescriptions & Follow-up Summary */}
       <View style={styles.metaRow}>
         {consultation.prescriptions && consultation.prescriptions.length > 0 ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
+          <View style={[styles.badge, { backgroundColor: themeColors.surfaceSecondary }]}>
+            <Text style={[styles.badgeText, { color: themeColors.textSecondary }]}>
               💊 {consultation.prescriptions.length} {t('prescribedMeds')}
             </Text>
           </View>
         ) : null}
 
         {followUpDateStr ? (
-          <View style={[styles.badge, styles.followUpBadge]}>
-            <Text style={styles.followUpBadgeText}>
+          <View style={[styles.badge, styles.followUpBadge, { backgroundColor: themeColors.infoLight }]}>
+            <Text style={[styles.followUpBadgeText, { color: themeColors.info }]}>
               📅 {t('followUp')}: {followUpDateStr}
             </Text>
           </View>

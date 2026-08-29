@@ -9,10 +9,12 @@ import { AppButton } from '../../components/AppButton';
 import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const { colors: themeColors } = useTheme();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -83,14 +85,14 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader title="Sign In" subtitle="Welcome back to MediHeal" />
 
       <View style={styles.content}>
         {/* Brand Banner */}
         <View style={styles.brandBox}>
           <Text style={styles.brandIcon}>🩺</Text>
-          <Text style={styles.brandTitle}>MediHeal Account</Text>
+          <Text style={[styles.brandTitle, { color: themeColors.primary }]}>MediHeal Account</Text>
         </View>
 
         {errorMsg ? (
@@ -102,7 +104,7 @@ export default function LoginScreen() {
         ) : null}
 
         {/* Login Form */}
-        <View style={styles.formCard}>
+        <View style={[styles.formCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <AppInput
             label="Email Address"
             placeholder="e.g. sunil@example.com"
@@ -137,10 +139,10 @@ export default function LoginScreen() {
 
         {/* Links for Registration */}
         <View style={styles.registerSection}>
-          <Text style={styles.registerPrompt}>Don't have a MediHeal account?</Text>
+          <Text style={[styles.registerPrompt, { color: themeColors.textSecondary }]}>Don't have a MediHeal account?</Text>
 
           <TouchableOpacity
-            style={styles.regOptionCard}
+            style={[styles.regOptionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             onPress={() => router.push('/(auth)/register-patient')}
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -148,14 +150,14 @@ export default function LoginScreen() {
           >
             <Text style={styles.regOptionIcon}>👤</Text>
             <View style={styles.regOptionTextCol}>
-              <Text style={styles.regOptionTitle}>Register as Patient</Text>
-              <Text style={styles.regOptionSub}>For personal medical navigation & care</Text>
+              <Text style={[styles.regOptionTitle, { color: themeColors.primary }]}>Register as Patient</Text>
+              <Text style={[styles.regOptionSub, { color: themeColors.textSecondary }]}>For personal medical navigation & care</Text>
             </View>
-            <Text style={styles.arrow}>→</Text>
+            <Text style={[styles.arrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.regOptionCard}
+            style={[styles.regOptionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             onPress={() => router.push('/(auth)/register-caregiver')}
             activeOpacity={0.8}
             accessibilityRole="button"
@@ -163,10 +165,10 @@ export default function LoginScreen() {
           >
             <Text style={styles.regOptionIcon}>🤝</Text>
             <View style={styles.regOptionTextCol}>
-              <Text style={styles.regOptionTitle}>Register as Caregiver</Text>
-              <Text style={styles.regOptionSub}>For family members & senior caregivers</Text>
+              <Text style={[styles.regOptionTitle, { color: themeColors.primary }]}>Register as Caregiver</Text>
+              <Text style={[styles.regOptionSub, { color: themeColors.textSecondary }]}>For family members & senior caregivers</Text>
             </View>
-            <Text style={styles.arrow}>→</Text>
+            <Text style={[styles.arrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
         </View>
       </View>

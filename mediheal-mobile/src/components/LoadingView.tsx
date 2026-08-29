@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors, spacing, typography } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface LoadingViewProps {
   message?: string;
@@ -9,10 +10,12 @@ interface LoadingViewProps {
 export const LoadingView: React.FC<LoadingViewProps> = ({
   message = 'Loading...',
 }) => {
+  const { colors } = useTheme();
+
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.primary} />
-      {message ? <Text style={styles.message}>{message}</Text> : null}
+      {message ? <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text> : null}
     </View>
   );
 };

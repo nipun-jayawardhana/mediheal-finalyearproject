@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface CaregiverLinkCodeCardProps {
   code: string;
@@ -16,6 +17,7 @@ export const CaregiverLinkCodeCard: React.FC<CaregiverLinkCodeCardProps> = ({
   variant = 'card',
 }) => {
   const [copied, setCopied] = useState(false);
+  const { colors } = useTheme();
 
   const handleCopy = () => {
     setCopied(true);
@@ -25,27 +27,35 @@ export const CaregiverLinkCodeCard: React.FC<CaregiverLinkCodeCardProps> = ({
   };
 
   return (
-    <View style={[styles.container, variant === 'card' && styles.cardContainer]}>
-      <Text style={styles.title}>{title}</Text>
+    <View
+      style={[
+        styles.container,
+        variant === 'card' && [
+          styles.cardContainer,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ],
+      ]}
+    >
+      <Text style={[styles.title, { color: colors.textSecondary }]}>{title}</Text>
 
-      <View style={styles.codeBox}>
-        <Text style={styles.codeText}>{code || '-------'}</Text>
+      <View style={[styles.codeBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.borderDark }]}>
+        <Text style={[styles.codeText, { color: colors.primary }]}>{code || '-------'}</Text>
 
         <TouchableOpacity
-          style={[styles.copyButton, copied && styles.copyButtonDone]}
+          style={[styles.copyButton, { backgroundColor: colors.success }, copied && { backgroundColor: colors.primaryLight }]}
           onPress={handleCopy}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Copy linking code"
         >
-          <Text style={[styles.copyButtonText, copied && styles.copyButtonTextDone]}>
+          <Text style={[styles.copyButtonText, { color: colors.textWhite }, copied && { color: colors.primary }]}>
             {copied ? '✓ Copied' : '📋 Copy Code'}
           </Text>
         </TouchableOpacity>
       </View>
 
       {showHelpText && (
-        <Text style={styles.helpText}>
+        <Text style={[styles.helpText, { color: colors.textSecondary }]}>
           Share this code only with a trusted caregiver you want to connect to your MediHeal account.
         </Text>
       )}

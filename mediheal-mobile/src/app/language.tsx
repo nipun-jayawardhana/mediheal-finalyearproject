@@ -16,10 +16,12 @@ import {
   SUPPORTED_LANGUAGES,
 } from '../utils/languageStorage';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 
 export default function LanguageSelectionScreen() {
   const router = useRouter();
   const { language, setLanguage, t, isLoadingLanguage } = useLanguage();
+  const { colors: themeColors } = useTheme();
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(language);
   const [saving, setSaving] = useState<boolean>(false);
   const [savedBanner, setSavedBanner] = useState<string>('');
@@ -48,7 +50,7 @@ export default function LanguageSelectionScreen() {
   };
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title={t('chooseLanguage')}
         subtitle="තෝරන්න / தேர்ந்தெடுக்கவும்"
@@ -56,19 +58,19 @@ export default function LanguageSelectionScreen() {
       />
 
       <View style={styles.content}>
-        <Text style={styles.heading}>{t('chooseLanguage')}</Text>
-        <Text style={styles.subheading}>
+        <Text style={[styles.heading, { color: themeColors.textPrimary }]}>{t('chooseLanguage')}</Text>
+        <Text style={[styles.subheading, { color: themeColors.textSecondary }]}>
           {t('languageSub')}
         </Text>
 
         {savedBanner ? (
-          <View style={styles.banner}>
-            <Text style={styles.bannerText}>✓ {savedBanner}</Text>
+          <View style={[styles.banner, { backgroundColor: themeColors.successLight, borderColor: themeColors.success }]}>
+            <Text style={[styles.bannerText, { color: themeColors.success }]}>✓ {savedBanner}</Text>
           </View>
         ) : null}
 
         {isLoadingLanguage ? (
-          <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+          <ActivityIndicator size="large" color={themeColors.primary} style={styles.loader} />
         ) : (
           <View style={styles.listContainer}>
             {SUPPORTED_LANGUAGES.map((item) => {
@@ -80,7 +82,8 @@ export default function LanguageSelectionScreen() {
                   onPress={() => handleSelectLanguage(item.code)}
                   style={[
                     styles.langCard,
-                    isSelected && styles.langCardSelected,
+                    { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                    isSelected && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel={`Select ${item.name}`}
@@ -89,14 +92,14 @@ export default function LanguageSelectionScreen() {
                   <View style={styles.leftRow}>
                     <Text style={styles.flag}>{item.flag}</Text>
                     <View style={styles.textColumn}>
-                      <Text style={[styles.langNative, isSelected && styles.textSelected]}>
+                      <Text style={[styles.langNative, { color: themeColors.textPrimary }, isSelected && { color: themeColors.primary }]}>
                         {item.nativeName}
                       </Text>
-                      <Text style={styles.langEnglish}>{item.name}</Text>
+                      <Text style={[styles.langEnglish, { color: themeColors.textSecondary }]}>{item.name}</Text>
                     </View>
                   </View>
                   {isSelected && (
-                    <View style={styles.checkCircle}>
+                    <View style={[styles.checkCircle, { backgroundColor: themeColors.primary }]}>
                       <Text style={styles.checkIcon}>✓</Text>
                     </View>
                   )}

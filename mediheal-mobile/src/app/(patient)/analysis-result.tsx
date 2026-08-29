@@ -15,6 +15,7 @@ import { useVoice } from '../../hooks/useVoice';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatConditionForDisplay } from '../../utils/languageUtils';
+import { useTheme } from '../../context/ThemeContext';
 
 import { Platform } from 'react-native';
 
@@ -25,6 +26,7 @@ export default function AnalysisResultScreen() {
   const symptomCheckId = Array.isArray(rawId) ? rawId[0] : (typeof rawId === 'string' ? rawId.trim() : '');
   const { user } = useAuth();
   const { language, t } = useLanguage();
+  const { colors: themeColors, isDark } = useTheme();
 
   const [result, setResult] = useState<SymptomCheckRecord | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -124,7 +126,7 @@ export default function AnalysisResultScreen() {
 
   if (errorMsg || !result) {
     return (
-      <ScreenContainer backgroundColor={colors.background}>
+      <ScreenContainer backgroundColor={themeColors.background}>
         <AppHeader title="Analysis Results" onBackPress={() => { stopSpeech(); router.back(); }} />
         <ErrorView
           message={errorMsg || 'Analysis result not found.'}
@@ -148,7 +150,7 @@ export default function AnalysisResultScreen() {
     : [{ condition: result.possibleCondition, confidence: 'medium' }];
 
   return (
-    <ScreenContainer scrollable backgroundColor={colors.background}>
+    <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <AppHeader
         title={t('analysisResultsTitle')}
         subtitle={t('preliminaryGuidance')}
@@ -192,7 +194,14 @@ export default function AnalysisResultScreen() {
 
         {/* Audio Guidance Banner with real TTS Controls */}
         <TouchableOpacity
-          style={[styles.audioBanner, isSpeaking && styles.audioBannerSpeaking]}
+          style={[
+            styles.audioBanner,
+            {
+              backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight,
+              borderColor: isDark ? themeColors.border : '#BFDBFE',
+            },
+            isSpeaking && styles.audioBannerSpeaking,
+          ]}
           activeOpacity={0.8}
           onPress={handleToggleAudio}
           accessibilityRole="button"
@@ -200,14 +209,14 @@ export default function AnalysisResultScreen() {
         >
           <Text style={styles.audioIcon}>{isSpeaking ? '⏹️' : '🔊'}</Text>
           <View style={styles.audioTextCol}>
-            <Text style={styles.audioTitle}>
+            <Text style={[styles.audioTitle, { color: isDark ? themeColors.textPrimary : colors.primaryDark }]}>
               {isSpeaking ? t('playingAudio') : t('listenExplanation')}
             </Text>
-            <Text style={styles.audioSub}>
+            <Text style={[styles.audioSub, { color: isDark ? themeColors.textSecondary : colors.primary }]}>
               {isSpeaking ? t('tapToStop') : t('tapToListen')}
             </Text>
           </View>
-          <View style={styles.audioBadge}>
+          <View style={[styles.audioBadge, { backgroundColor: themeColors.primary }]}>
             <Text style={styles.audioBadgeText}>{isSpeaking ? 'STOP' : 'PLAY'}</Text>
           </View>
         </TouchableOpacity>
@@ -247,8 +256,9 @@ export default function AnalysisResultScreen() {
         <View
           style={[
             styles.conditionCard,
-            result.riskLevel === 'high' && styles.conditionCardHigh,
-            result.riskLevel === 'medium' && styles.conditionCardMedium,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            result.riskLevel === 'high' && (isDark ? { backgroundColor: '#3B0764', borderColor: '#DC2626' } : styles.conditionCardHigh),
+            result.riskLevel === 'medium' && (isDark ? { backgroundColor: '#451A03', borderColor: '#D97706' } : styles.conditionCardMedium),
           ]}
         >
           <View style={styles.conditionHeaderRow}>
@@ -260,7 +270,7 @@ export default function AnalysisResultScreen() {
                 status={result.riskLevel}
                 label={`${(result.riskLevel === 'high' ? t('highRisk') : result.riskLevel === 'medium' ? t('mediumRisk') : t('lowRisk')).toUpperCase()} ${t('riskAssessment')}`}
               />
-              <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, marginTop: 4 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: themeColors.textSecondary, marginTop: 4 }}>
                 {t('possibleConditions').toUpperCase()} ({conditionsList.length})
               </Text>
             </View>
@@ -275,12 +285,14 @@ export default function AnalysisResultScreen() {
               <View
                 key={idx}
                 style={{
-                  backgroundColor: idx === 0 ? colors.primaryLight : '#F8FAFC',
+                  backgroundColor: idx === 0
+                    ? (isDark ? '#1E3A8A' : colors.primaryLight)
+                    : (isDark ? themeColors.surfaceSecondary : '#F8FAFC'),
                   borderRadius: borderRadius.md,
                   padding: spacing.md,
                   marginBottom: spacing.xs,
                   borderWidth: idx === 0 ? 1.5 : 1,
-                  borderColor: idx === 0 ? colors.primary : colors.border,
+                  borderColor: idx === 0 ? themeColors.primary : colors.border,
                 }}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -288,7 +300,7 @@ export default function AnalysisResultScreen() {
                     <Text
                       style={[
                         styles.conditionTitle,
-                        { fontSize: idx === 0 ? 17 : 15, fontWeight: idx === 0 ? '700' : '600', flexWrap: 'wrap' },
+                        { color: themeColors.textPrimary, fontSize: idx === 0 ? 17 : 15, fontWeight: idx === 0 ? '700' : '600', flexWrap: 'wrap' },
                       ]}
                       numberOfLines={2}
                     >
@@ -298,7 +310,7 @@ export default function AnalysisResultScreen() {
                   {item.confidence && (
                     <View
                       style={{
-                        backgroundColor: idx === 0 ? colors.primary : '#94A3B8',
+                        backgroundColor: idx === 0 ? themeColors.primary : '#64748B',
                         paddingHorizontal: 8,
                         paddingVertical: 2,
                         borderRadius: borderRadius.pill,
@@ -314,7 +326,7 @@ export default function AnalysisResultScreen() {
             );
           })}
 
-          <Text style={styles.matchedText}>
+          <Text style={[styles.matchedText, { color: themeColors.textSecondary }]}>
             {t('basedOnSymptoms')}: {(
               (language !== 'en' && Array.isArray(result.displayPositiveSymptoms) && result.displayPositiveSymptoms.length > 0)
                 ? result.displayPositiveSymptoms
@@ -325,7 +337,7 @@ export default function AnalysisResultScreen() {
           </Text>
 
           {((language !== 'en' && Array.isArray(result.displayContext) && result.displayContext.length > 0) || (result.context && result.context.length > 0)) && (
-            <Text style={[styles.matchedText, { marginTop: 4, fontStyle: 'italic', color: colors.textSecondary }]}>
+            <Text style={[styles.matchedText, { marginTop: 4, fontStyle: 'italic', color: themeColors.textSecondary }]}>
               Relevant details: {(
                 (language !== 'en' && Array.isArray(result.displayContext) && result.displayContext.length > 0)
                   ? result.displayContext
@@ -343,13 +355,13 @@ export default function AnalysisResultScreen() {
               : (result.guidance || []);
 
             if (steps.length === 0) {
-              return <Text style={styles.guidanceText}>Consult a qualified healthcare professional for evaluation.</Text>;
+              return <Text style={[styles.guidanceText, { color: themeColors.textPrimary }]}>Consult a qualified healthcare professional for evaluation.</Text>;
             }
 
             return steps.map((step: string, idx: number) => (
               <View key={idx} style={styles.guidanceItem}>
-                <Text style={styles.guidanceBullet}>•</Text>
-                <Text style={styles.guidanceText}>{step}</Text>
+                <Text style={[styles.guidanceBullet, { color: themeColors.primary }]}>•</Text>
+                <Text style={[styles.guidanceText, { color: themeColors.textPrimary, flex: 1, flexShrink: 1 }]}>{step}</Text>
               </View>
             ));
           })()}
@@ -358,14 +370,14 @@ export default function AnalysisResultScreen() {
         {/* Recommended Specialist Card */}
         <InfoCard title={t('recommendedSpecialist')}>
           <View style={styles.specialistRow}>
-            <View style={styles.specialistIconCircle}>
+            <View style={[styles.specialistIconCircle, { backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight }]}>
               <Text style={styles.specialistIcon}>🩺</Text>
             </View>
             <View style={styles.specialistTextCol}>
-              <Text style={styles.specialistTitle}>
+              <Text style={[styles.specialistTitle, { color: themeColors.primary }]}>
                 {formatConditionForDisplay(result.displayRecommendedSpecialist || result.recommendedSpecialist, language)}
               </Text>
-              <Text style={styles.specialistSub}>{t('recommendedSpecialist')}</Text>
+              <Text style={[styles.specialistSub, { color: themeColors.textSecondary }]}>{t('recommendedSpecialist')}</Text>
             </View>
           </View>
 
@@ -384,10 +396,9 @@ export default function AnalysisResultScreen() {
           style={styles.recheckBtn}
         />
 
-        {/* Mandatory Backend Medical Disclaimer */}
-        <View style={styles.disclaimerBox}>
-          <Text style={styles.disclaimerTitle}>{t('medicalDisclaimerTitle')}</Text>
-          <Text style={styles.disclaimerText}>{result.disclaimer}</Text>
+        <View style={[styles.disclaimerBox, { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border }]}>
+          <Text style={[styles.disclaimerTitle, { color: themeColors.textSecondary }]}>{t('medicalDisclaimerTitle')}</Text>
+          <Text style={[styles.disclaimerText, { color: themeColors.textSecondary }]}>{result.disclaimer}</Text>
         </View>
       </View>
     </ScreenContainer>
