@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Image, Animated } from 'react-native';
-import { colors, spacing, borderRadius, shadows } from '../constants/theme';
+import { spacing, borderRadius } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export interface SplashScreenProps {
   /**
@@ -12,6 +13,7 @@ export interface SplashScreenProps {
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   accessibilityLabel = 'MediHeal Splash Screen',
 }) => {
+  const { isDark, colors, isLoadingTheme } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -22,16 +24,38 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     }).start();
   }, [fadeAnim]);
 
+  const splashImage = isDark
+    ? require('../../assets/images/mediheal-splash-dark.jpg')
+    : require('../../assets/images/mediheal-splash-light.jpg');
+
+  // Prevent flash during initial theme restoration from storage
+  if (isLoadingTheme) {
+    return <View style={[styles.container, { backgroundColor: '#0F172A' }]} />;
+  }
+
   return (
     <View
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       accessibilityRole="header"
       accessibilityLabel={accessibilityLabel}
     >
-      <Animated.View style={[styles.brandCard, { opacity: fadeAnim }]}>
+      <Animated.View
+        style={[
+          styles.brandCard,
+          {
+            backgroundColor: isDark ? '#071424' : colors.card,
+            borderColor: isDark ? '#1E293B' : '#E2E8F0',
+            borderWidth: isDark ? 1 : 0,
+            shadowColor: isDark ? '#000000' : '#0F172A',
+            shadowOpacity: isDark ? 0.25 : 0.08,
+            elevation: isDark ? 4 : 6,
+          },
+          { opacity: fadeAnim },
+        ]}
+      >
         <View style={styles.logoContainer}>
           <Image
-            source={require('../../assets/images/mediheal-splash-light.jpg')}
+            source={splashImage}
             style={styles.logoImage}
             resizeMode="contain"
             accessibilityLabel="MediHeal Logo"
@@ -45,7 +69,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.md,
@@ -53,19 +76,14 @@ const styles = StyleSheet.create({
   brandCard: {
     width: '85%',
     maxWidth: 420,
-    backgroundColor: colors.card,
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    ...shadows.card,
-    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
     shadowRadius: 16,
-    elevation: 6,
   },
   logoContainer: {
     width: '100%',
@@ -78,3 +96,5 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
 });
+
+
