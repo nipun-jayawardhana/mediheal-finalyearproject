@@ -272,7 +272,13 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
     [language, resetVoice, stopSpeech, stopListening, transcript, onTranscript]
   );
 
-  // Clean up on unmount (Requirement 21 & 2)
+  // Stop speech playback immediately when application language changes (Requirement 16)
+  useEffect(() => {
+    stopSpeaking();
+    setIsSpeaking(false);
+  }, [language]);
+
+  // Clean up on unmount
   useEffect(() => {
     return () => {
       clearSilenceTimer();

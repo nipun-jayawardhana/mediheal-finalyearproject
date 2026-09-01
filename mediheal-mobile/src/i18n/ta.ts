@@ -43,8 +43,15 @@ export const ta: Record<TranslationKeys, string> = {
   activeEmergencyBanner: 'அவசர எச்சரிக்கை தற்போது செயலில் உள்ளது. பார்க்க அல்லது ரத்து செய்ய தட்டவும்.',
   quickActions: 'விரைவு சுகாதார நடவடிக்கைகள்',
   recentAssessments: 'சமீபத்திய அறிகுறி மதிப்பீடுகள்',
-  viewAllHistory: 'வரலாற்றைக் காண்க',
+  viewAllHistory: 'வரலாற்றைப் பார்',
   communityHealth: 'சமூக சுகாதாரம்',
+  dashboardVoiceGreeting: 'உங்கள் MediHeal சுகாதார டாஷ்போர்டிற்கு நல்வரவு.',
+  dashboardVoiceNoAppointments: 'உங்களுக்கு வரவிருக்கும் மருத்துவர் சந்திப்புகள் எதுவும் திட்டமிடப்படவில்லை.',
+  dashboardVoiceHasAppointment: 'உங்களுக்கு வரவிருக்கும் மருத்துவர் சந்திப்பு திட்டமிடப்பட்டுள்ளது',
+  dashboardVoiceHasMedication: 'உங்கள் அடுத்த திட்டமிடப்பட்ட மருந்து',
+  dashboardVoiceDosage: 'அளவு',
+  dashboardVoiceEmergencyActive: 'கவனம்: உங்களிடம் தற்போது ஒரு செயலில் உள்ள அவசர எச்சரிக்கை உள்ளது.',
+  dashboardVoiceNavHint: 'அறிகுறிகளைச் சரிபார்க்க அல்லது மருத்துவரை நாட கீழே உள்ள பொத்தான்களைத் தட்டவும்.',
   myBookings: 'எனது முன்பதிவுகள்',
 
   // Symptom Checker

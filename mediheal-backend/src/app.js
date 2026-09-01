@@ -12,6 +12,7 @@ const medicationRoutes = require('./routes/medicationRoutes');
 const symptomRoutes = require('./routes/symptomRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const communityRoutes = require('./routes/communityRoutes');
+const voiceRoutes = require('./routes/voiceRoutes');
 const notFoundHandler = require('./middleware/notFoundHandler');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -29,16 +30,17 @@ app.use(express.urlencoded({ extended: true }));
 // Register Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/voice', voiceRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/caregivers', caregiverRoutes);
-app.use('/api', appointmentRoutes);
-app.use('/api', consultationRoutes);
-app.use('/api', medicationRoutes);
 app.use('/api/symptoms', symptomRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/community', communityRoutes);
+app.use('/api', appointmentRoutes);
+app.use('/api', consultationRoutes);
+app.use('/api', medicationRoutes);
 
 // Centralized 404 handler for undefined routes
 app.use(notFoundHandler);

@@ -43,6 +43,13 @@ export const en = {
   recentAssessments: 'Recent Symptom Assessments',
   viewAllHistory: 'View History',
   communityHealth: 'Community Health',
+  dashboardVoiceGreeting: 'Welcome to your MediHeal health dashboard.',
+  dashboardVoiceNoAppointments: 'You have no upcoming doctor appointments scheduled.',
+  dashboardVoiceHasAppointment: 'You have an upcoming doctor appointment scheduled',
+  dashboardVoiceHasMedication: 'Your next scheduled medication is',
+  dashboardVoiceDosage: 'dosage',
+  dashboardVoiceEmergencyActive: 'Attention: You have an active emergency alert currently open.',
+  dashboardVoiceNavHint: 'Tap Check Symptoms or Doctor to navigate.',
   myBookings: 'My Bookings',
 
   // Symptom Checker

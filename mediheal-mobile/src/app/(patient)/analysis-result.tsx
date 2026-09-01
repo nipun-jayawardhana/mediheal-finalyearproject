@@ -12,6 +12,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../consta
 import { getSymptomCheckByIdApi } from '../../services/symptomService';
 import { SymptomCheckRecord } from '../../types/symptom';
 import { useVoice } from '../../hooks/useVoice';
+import { getLocaleForLanguage } from '../../services/voiceService';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatConditionForDisplay } from '../../utils/languageUtils';
@@ -81,25 +82,96 @@ export default function AnalysisResultScreen() {
     }
   }, [symptomCheckId, fetchResult]);
 
-  // Play Audio Text-to-Speech using real backend analysis data ONLY
+  // Play Audio Text-to-Speech using real backend analysis data (Language-Aware)
   const handleToggleAudio = () => {
     if (isSpeaking) {
       stopSpeech();
     } else if (result) {
-      const condList = Array.isArray(result.possibleConditions) && result.possibleConditions.length > 0
-        ? result.possibleConditions.map((c) => formatConditionForDisplay(c.condition, language)).join(', ')
-        : formatConditionForDisplay(result.possibleCondition, language);
+      const isLocalized = language === 'si' || language === 'ta';
 
-      const specialistLabel = formatConditionForDisplay(result.displayRecommendedSpecialist || result.recommendedSpecialist, language);
+      // 1. Spoken conditions
+      let spokenConditionsStr = '';
+      if (isLocalized && Array.isArray(result.displayPossibleConditions) && result.displayPossibleConditions.length > 0) {
+        spokenConditionsStr = result.displayPossibleConditions
+          .map((c) => formatConditionForDisplay(c.condition, language))
+          .filter(Boolean)
+          .join(', ');
+      } else if (isLocalized && result.displayPossibleCondition) {
+        spokenConditionsStr = formatConditionForDisplay(result.displayPossibleCondition, language);
+      } else {
+        if (isLocalized && __DEV__) {
+          console.warn(`[TTS LOCALIZATION] Missing displayPossibleConditions for language=${language}`);
+        }
+        spokenConditionsStr = Array.isArray(result.possibleConditions) && result.possibleConditions.length > 0
+          ? result.possibleConditions.map((c) => formatConditionForDisplay(c.condition, language)).filter(Boolean).join(', ')
+          : formatConditionForDisplay(result.possibleCondition, language);
+      }
 
-      const guidanceText = Array.isArray(result.guidance) && result.guidance.length > 0
-        ? result.guidance.join('. ')
-        : 'Consult a qualified doctor.';
+      // 2. Spoken positive symptoms
+      let spokenSymptomsStr = '';
+      if (isLocalized && Array.isArray(result.displayPositiveSymptoms) && result.displayPositiveSymptoms.length > 0) {
+        spokenSymptomsStr = result.displayPositiveSymptoms.join(', ');
+      } else if (Array.isArray(result.positiveSymptoms) && result.positiveSymptoms.length > 0) {
+        if (isLocalized && __DEV__) {
+          console.warn(`[TTS LOCALIZATION] Missing displayPositiveSymptoms for language=${language}`);
+        }
+        spokenSymptomsStr = result.positiveSymptoms.join(', ');
+      } else if (Array.isArray(result.symptoms) && result.symptoms.length > 0) {
+        spokenSymptomsStr = result.symptoms.join(', ');
+      }
 
-      let audioSummary = `${t('analysisResultsTitle')}. ${t('possibleConditions')}: ${condList}. ${t('riskAssessment')}: ${result.riskLevel}. ${t('recommendedSpecialist')}: ${specialistLabel}. ${t('immediateCareSteps')}: ${guidanceText}.`;
+      // 3. Spoken guidance / immediate care steps
+      let spokenGuidanceStr = '';
+      if (isLocalized && Array.isArray(result.displayGuidance) && result.displayGuidance.length > 0) {
+        spokenGuidanceStr = result.displayGuidance.join('. ');
+      } else {
+        if (isLocalized && __DEV__) {
+          console.warn(`[TTS LOCALIZATION] Missing displayGuidance for language=${language}`);
+        }
+        spokenGuidanceStr = Array.isArray(result.guidance) && result.guidance.length > 0
+          ? result.guidance.join('. ')
+          : 'Consult a qualified doctor.';
+      }
+
+      // 4. Spoken recommended specialist
+      let spokenSpecialistStr = '';
+      if (isLocalized && result.displayRecommendedSpecialist) {
+        spokenSpecialistStr = formatConditionForDisplay(result.displayRecommendedSpecialist, language);
+      } else {
+        if (isLocalized && __DEV__) {
+          console.warn(`[TTS LOCALIZATION] Missing displayRecommendedSpecialist for language=${language}`);
+        }
+        spokenSpecialistStr = formatConditionForDisplay(result.recommendedSpecialist, language);
+      }
+
+      // 5. Spoken risk level assessment
+      const spokenRiskStr = result.riskLevel === 'high'
+        ? t('highRisk')
+        : result.riskLevel === 'medium'
+        ? t('mediumRisk')
+        : t('lowRisk');
+
+      // Assemble localized narration string
+      let audioSummary = `${t('analysisResultsTitle')}. `;
 
       if (result.emergencyRecommended || result.riskLevel === 'high') {
         audioSummary = `${t('urgentEmergencyTitle')}. ${audioSummary}`;
+      }
+
+      audioSummary += `${t('possibleConditions')}: ${spokenConditionsStr}. `;
+      if (spokenSymptomsStr) {
+        audioSummary += `${t('basedOnSymptoms')}: ${spokenSymptomsStr}. `;
+      }
+      audioSummary += `${t('riskAssessment')}: ${spokenRiskStr}. `;
+      audioSummary += `${t('recommendedSpecialist')}: ${spokenSpecialistStr}. `;
+      audioSummary += `${t('immediateCareSteps')}: ${spokenGuidanceStr}.`;
+
+      // Concise development logging (Requirement 18)
+      if (__DEV__) {
+        console.log(`[TTS PLAYBACK] App language: ${language}`);
+        console.log(`[TTS PLAYBACK] Locale: ${getLocaleForLanguage(language)}`);
+        console.log(`[TTS PLAYBACK] Source: ${language === 'en' ? 'canonical' : 'localized-display'}`);
+        console.log(`[TTS PLAYBACK] Condition: ${spokenConditionsStr}`);
       }
 
       speak(audioSummary);

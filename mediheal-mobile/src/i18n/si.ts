@@ -44,7 +44,14 @@ export const si: Record<TranslationKeys, string> = {
   quickActions: 'ක්ෂණික සෞඛ්‍ය ක්‍රියාමාර්ග',
   recentAssessments: 'මෑත රෝග ලක්ෂණ පරීක්ෂණ',
   viewAllHistory: 'ඉතිහාසය බලන්න',
-  communityHealth: 'සමාජ සෞඛ්‍යය',
+  communityHealth: 'සෞඛ්‍ය සමූහය',
+  dashboardVoiceGreeting: 'ඔබගේ MediHeal සෞඛ්‍ය උපකාරක පුවරුවට සාදරයෙන් පිළිගනිමු.',
+  dashboardVoiceNoAppointments: 'ඔබට ඉදිරි වෛද්‍ය හමුවීම් සටහන් වී නැත.',
+  dashboardVoiceHasAppointment: 'ඔබට ඉදිරි වෛද්‍ය හමුවීමක් වෙන්කර ඇත',
+  dashboardVoiceHasMedication: 'ඔබගේ ඊළඟ ඖෂධය',
+  dashboardVoiceDosage: 'මාත්‍රාව',
+  dashboardVoiceEmergencyActive: 'අවධානය යොමු කරන්න: ඔබගේ සක්‍රිය හදිසි අනතුරු ඇඟවීමක් පවතී.',
+  dashboardVoiceNavHint: 'රෝග ලක්ෂණ පරීක්ෂා කිරීමට හෝ වෛද්‍යවරයකු සෙවීමට පහත බොත්තම් තට්ටු කරන්න.',
   myBookings: 'මගේ වේලාවන් වෙන්කිරීම්',
 
   // Symptom Checker

@@ -21,6 +21,7 @@ import { PatientDashboardData } from '../../types/patient';
 import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
+import { getLocaleForLanguage } from '../../services/voiceService';
 import { useLanguage } from '../../context/LanguageContext';
 import { SUPPORTED_LANGUAGES, LanguageCode } from '../../utils/languageStorage';
 import { useTheme } from '../../context/ThemeContext';
@@ -86,43 +87,58 @@ export default function PatientHomeScreen() {
     }, [fetchDashboard])
   );
 
-  // Real Dashboard TTS Voice Guidance
+  // Real Dashboard TTS Voice Guidance (Language-Aware)
   const handleReadDashboard = () => {
     if (isSpeaking) {
       stopSpeech();
       return;
     }
 
-    const patientName = user?.fullName ? user.fullName.split(' ')[0] : 'Patient';
-    let summaryParts: string[] = [`Welcome ${patientName}.`];
+    const defaultPatientLabel = language === 'si' ? 'රෝගියා' : language === 'ta' ? 'நோயாளி' : 'Patient';
+    const patientName = user?.fullName ? user.fullName.split(' ')[0] : defaultPatientLabel;
+
+    let summaryParts: string[] = [
+      `${t('welcomeBack')}, ${patientName}. ${t('dashboardVoiceGreeting')}`
+    ];
 
     if (dashboardData) {
       if (dashboardData.upcomingAppointments && dashboardData.upcomingAppointments.length > 0) {
         const appt = dashboardData.upcomingAppointments[0];
+        const dateStr = new Date(appt.appointmentDate).toLocaleDateString();
+        const defaultConsultationLabel = language === 'si' ? 'පරීක්ෂාව' : language === 'ta' ? 'ஆலோசனை' : 'consultation';
+        const reasonStr = appt.reason || defaultConsultationLabel;
         summaryParts.push(
-          `You have an upcoming appointment for ${appt.reason || 'consultation'} on ${new Date(appt.appointmentDate).toLocaleDateString()}.`
+          `${t('dashboardVoiceHasAppointment')}: ${reasonStr}, ${t('date')}: ${dateStr}.`
         );
       } else {
-        summaryParts.push('You have no upcoming doctor appointments scheduled.');
+        summaryParts.push(t('dashboardVoiceNoAppointments'));
       }
 
       if (dashboardData.medications && dashboardData.medications.length > 0) {
         const med = dashboardData.medications[0];
         summaryParts.push(
-          `Your next scheduled medication is ${med.medicineName}, dosage ${med.dosage}.`
+          `${t('dashboardVoiceHasMedication')} ${med.medicineName}, ${t('dashboardVoiceDosage')} ${med.dosage}.`
         );
       } else {
-        summaryParts.push('No active medications are currently scheduled.');
+        summaryParts.push(t('noActiveMedications'));
       }
 
       if (dashboardData.activeEmergencyAlert) {
-        summaryParts.push('Attention: You have an active emergency alert currently open.');
+        summaryParts.push(t('dashboardVoiceEmergencyActive'));
       }
     }
 
-    summaryParts.push('Tap Check Symptoms or Doctor to navigate.');
+    summaryParts.push(t('dashboardVoiceNavHint'));
 
-    speak(summaryParts.join(' '));
+    const fullNarration = summaryParts.join(' ');
+
+    if (__DEV__) {
+      console.log(`[TTS DASHBOARD] App language: ${language}`);
+      console.log(`[TTS DASHBOARD] Locale: ${getLocaleForLanguage(language)}`);
+      console.log(`[TTS DASHBOARD] Narration source: localized`);
+    }
+
+    speak(fullNarration);
   };
 
   // Navigate to Symptom Checker or Voice Onboarding
