@@ -12,10 +12,12 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { linkPatient } from '../../services/caregiverService';
 
 export default function LinkPatientScreen() {
   const router = useRouter();
+  const { isDark, colors: themeColors } = useTheme();
 
   const [linkCode, setLinkCode] = useState<string>('');
   const [relationship, setRelationship] = useState<string>('Family Caregiver');
@@ -73,7 +75,7 @@ export default function LinkPatientScreen() {
   };
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Link Patient"
         subtitle="Connect Care Recipient"
@@ -82,21 +84,28 @@ export default function LinkPatientScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Info Card */}
-        <View style={styles.infoCard}>
+        <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <Text style={styles.infoIcon}>🤝</Text>
-          <Text style={styles.infoTitle}>Caregiver Linking</Text>
-          <Text style={styles.infoText}>
+          <Text style={[styles.infoTitle, { color: themeColors.textPrimary }]}>Caregiver Linking</Text>
+          <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
             Ask the patient or elder for their 6-character MediHeal Link Code found on their Patient Profile (e.g. MH-8573).
           </Text>
         </View>
 
         {/* Link Code Field */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Caregiver Link Code *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Caregiver Link Code *</Text>
           <TextInput
-            style={styles.codeInput}
+            style={[
+              styles.codeInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: isDark ? themeColors.primary : colors.primaryDark,
+                borderColor: themeColors.primary,
+              },
+            ]}
             placeholder="e.g. MH-8573"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={linkCode}
             onChangeText={(val) => setLinkCode(val.toUpperCase())}
             autoCapitalize="characters"
@@ -106,11 +115,18 @@ export default function LinkPatientScreen() {
 
         {/* Relationship Field */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Relationship to Patient *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Relationship to Patient *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             placeholder="e.g. Son, Daughter, Spouse, Relative"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={relationship}
             onChangeText={setRelationship}
           />

@@ -8,6 +8,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { colors, spacing, borderRadius, layout, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'danger';
 
@@ -32,31 +33,33 @@ export const AppButton: React.FC<AppButtonProps> = ({
   textStyle,
   accessibilityLabel,
 }) => {
+  const { colors: themeColors } = useTheme();
+
   const getContainerStyle = () => {
     switch (variant) {
       case 'secondary':
-        return styles.secondaryContainer;
+        return [styles.secondaryContainer, { backgroundColor: themeColors.primaryLight }];
       case 'outline':
-        return styles.outlineContainer;
+        return [styles.outlineContainer, { borderColor: themeColors.primary }];
       case 'danger':
-        return styles.dangerContainer;
+        return [styles.dangerContainer, { backgroundColor: themeColors.danger }];
       case 'primary':
       default:
-        return styles.primaryContainer;
+        return [styles.primaryContainer, { backgroundColor: themeColors.primary }];
     }
   };
 
   const getTextStyle = () => {
     switch (variant) {
       case 'secondary':
-        return styles.secondaryText;
+        return [styles.secondaryText, { color: themeColors.primary }];
       case 'outline':
-        return styles.outlineText;
+        return [styles.outlineText, { color: themeColors.primary }];
       case 'danger':
-        return styles.dangerText;
+        return [styles.dangerText, { color: themeColors.textWhite }];
       case 'primary':
       default:
-        return styles.primaryText;
+        return [styles.primaryText, { color: themeColors.textWhite }];
     }
   };
 
@@ -71,17 +74,24 @@ export const AppButton: React.FC<AppButtonProps> = ({
       style={[
         styles.baseButton,
         getContainerStyle(),
-        disabled && styles.disabledContainer,
+        disabled && [styles.disabledContainer, { backgroundColor: themeColors.border, borderColor: themeColors.border }],
         style,
       ]}
     >
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' || variant === 'secondary' ? colors.primary : colors.textWhite}
+          color={variant === 'outline' || variant === 'secondary' ? themeColors.primary : themeColors.textWhite}
         />
       ) : (
-        <Text style={[styles.baseText, getTextStyle(), disabled && styles.disabledText, textStyle]}>
+        <Text
+          style={[
+            styles.baseText,
+            getTextStyle(),
+            disabled && [styles.disabledText, { color: themeColors.textMuted }],
+            textStyle,
+          ]}
+        >
           {title}
         </Text>
       )}

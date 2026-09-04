@@ -16,6 +16,7 @@ import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getCaregiverEmergencyAlerts,
   resolveEmergencyAlert,
@@ -24,6 +25,7 @@ import { EmergencyAlert } from '../../types/emergency';
 
 export default function CaregiverAlertsScreen() {
   const router = useRouter();
+  const { isDark, colors: themeColors } = useTheme();
 
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -118,7 +120,7 @@ export default function CaregiverAlertsScreen() {
   const pastAlerts = alerts.filter((a) => a.status !== 'active');
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Emergency Alerts"
         subtitle="Linked Patient Safety Monitoring"
@@ -147,7 +149,8 @@ export default function CaregiverAlertsScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[colors.danger]}
+                colors={[themeColors.danger]}
+                tintColor={themeColors.danger}
               />
             }
             renderItem={() => (
@@ -155,7 +158,7 @@ export default function CaregiverAlertsScreen() {
                 {/* Active Emergency Alerts Section */}
                 {activeAlerts.length > 0 && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitleActive}>
+                    <Text style={[styles.sectionTitleActive, { color: themeColors.danger }]}>
                       🚨 Active Emergency Alerts ({activeAlerts.length})
                     </Text>
                     {activeAlerts.map((alertItem) => {
@@ -167,23 +170,42 @@ export default function CaregiverAlertsScreen() {
                       const isResolving = resolvingId === alertItem._id;
 
                       return (
-                        <View key={alertItem._id} style={styles.activeAlertCard}>
+                        <View
+                          key={alertItem._id}
+                          style={[
+                            styles.activeAlertCard,
+                            {
+                              backgroundColor: isDark ? themeColors.dangerLight : '#FEF2F2',
+                              borderColor: themeColors.danger,
+                            },
+                          ]}
+                        >
                           <View style={styles.alertHeaderRow}>
-                            <Text style={styles.patientName}>👤 {patientName}</Text>
-                            <View style={styles.activeBadge}>
+                            <Text style={[styles.patientName, { color: themeColors.danger }]}>👤 {patientName}</Text>
+                            <View style={[styles.activeBadge, { backgroundColor: themeColors.danger }]}>
                               <Text style={styles.activeBadgeText}>ACTIVE</Text>
                             </View>
                           </View>
 
-                          <Text style={styles.alertTime}>⏰ Triggered: {formatDate(alertItem.createdAt)}</Text>
+                          <Text style={[styles.alertTime, { color: themeColors.textSecondary }]}>
+                            ⏰ Triggered: {formatDate(alertItem.createdAt)}
+                          </Text>
 
-                          <View style={styles.messageBox}>
-                            <Text style={styles.messageLabel}>Message:</Text>
-                            <Text style={styles.messageText}>{alertItem.message}</Text>
+                          <View
+                            style={[
+                              styles.messageBox,
+                              {
+                                backgroundColor: themeColors.card,
+                                borderColor: isDark ? '#7F1D1D' : '#FCA5A5',
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.messageLabel, { color: themeColors.textMuted }]}>Message:</Text>
+                            <Text style={[styles.messageText, { color: themeColors.textPrimary }]}>{alertItem.message}</Text>
                           </View>
 
                           {alertItem.emergencyContactName ? (
-                            <Text style={styles.contactInfo}>
+                            <Text style={[styles.contactInfo, { color: themeColors.textSecondary }]}>
                               Emergency Contact: {alertItem.emergencyContactName} (
                               {alertItem.emergencyContactPhone || 'N/A'})
                             </Text>
@@ -205,7 +227,9 @@ export default function CaregiverAlertsScreen() {
                 {/* Past / Resolved Alerts Section */}
                 {pastAlerts.length > 0 && (
                   <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>Alert History ({pastAlerts.length})</Text>
+                    <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
+                      Alert History ({pastAlerts.length})
+                    </Text>
                     {pastAlerts.map((alertItem) => {
                       const patientName =
                         typeof alertItem.patientId === 'object' && alertItem.patientId?.fullName
@@ -213,15 +237,42 @@ export default function CaregiverAlertsScreen() {
                           : 'Linked Patient';
 
                       return (
-                        <View key={alertItem._id} style={styles.pastAlertCard}>
+                        <View
+                          key={alertItem._id}
+                          style={[
+                            styles.pastAlertCard,
+                            {
+                              backgroundColor: themeColors.card,
+                              borderColor: themeColors.border,
+                            },
+                          ]}
+                        >
                           <View style={styles.alertHeaderRow}>
-                            <Text style={styles.pastPatientName}>{patientName}</Text>
-                            <View style={styles.pastBadge}>
-                              <Text style={styles.pastBadgeText}>{alertItem.status.toUpperCase()}</Text>
+                            <Text style={[styles.pastPatientName, { color: themeColors.textPrimary }]}>
+                              {patientName}
+                            </Text>
+                            <View
+                              style={[
+                                styles.pastBadge,
+                                { backgroundColor: themeColors.primaryLight },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.pastBadgeText,
+                                  { color: themeColors.primary },
+                                ]}
+                              >
+                                {alertItem.status.toUpperCase()}
+                              </Text>
                             </View>
                           </View>
-                          <Text style={styles.pastTime}>{formatDate(alertItem.createdAt)}</Text>
-                          <Text style={styles.pastMessage}>{alertItem.message}</Text>
+                          <Text style={[styles.pastTime, { color: themeColors.textMuted }]}>
+                            {formatDate(alertItem.createdAt)}
+                          </Text>
+                          <Text style={[styles.pastMessage, { color: themeColors.textSecondary }]}>
+                            {alertItem.message}
+                          </Text>
                         </View>
                       );
                     })}

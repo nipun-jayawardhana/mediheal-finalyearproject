@@ -13,11 +13,13 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { addMedicationForPatient } from '../../services/caregiverService';
 
 export default function CaregiverAddMedicationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ patientId?: string }>();
+  const { isDark, colors: themeColors } = useTheme();
 
   // Default dates
   const defaultToday = useMemo(() => {
@@ -123,7 +125,7 @@ export default function CaregiverAddMedicationScreen() {
   };
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Add Medication"
         subtitle="Prescription & Dose Schedule"
@@ -133,11 +135,18 @@ export default function CaregiverAddMedicationScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Medicine Name */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Medication Name *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Medication Name *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             placeholder="e.g. Amlodipine or Lisinopril"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={medicineName}
             onChangeText={setMedicineName}
           />
@@ -145,11 +154,18 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Dosage */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Dosage *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dosage *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             placeholder="e.g. 5mg - 1 Tablet"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={dosage}
             onChangeText={setDosage}
           />
@@ -157,11 +173,18 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Frequency */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Frequency / Schedule *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Frequency / Schedule *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             placeholder="e.g. Daily / Twice Daily"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={frequency}
             onChangeText={setFrequency}
           />
@@ -169,12 +192,21 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Time Slots Section */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Dose Schedule Times (24h format) *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dose Schedule Times (24h format) *</Text>
           
           <View style={styles.timeSlotsRow}>
             {timeSlots.map((slot) => (
-              <View key={slot} style={styles.timeChip}>
-                <Text style={styles.timeChipText}>⏰ {slot}</Text>
+              <View
+                key={slot}
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: themeColors.primaryLight,
+                    borderColor: themeColors.primary,
+                  },
+                ]}
+              >
+                <Text style={[styles.timeChipText, { color: themeColors.primary }]}>⏰ {slot}</Text>
                 <TouchableOpacity
                   onPress={() => handleRemoveTimeSlot(slot)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -187,13 +219,23 @@ export default function CaregiverAddMedicationScreen() {
 
           <View style={styles.addTimeRow}>
             <TextInput
-              style={styles.timeInput}
+              style={[
+                styles.timeInput,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  color: themeColors.textPrimary,
+                  borderColor: themeColors.border,
+                },
+              ]}
               placeholder="e.g. 14:00"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={newTimeInput}
               onChangeText={setNewTimeInput}
             />
-            <TouchableOpacity style={styles.addTimeBtn} onPress={handleAddTimeSlot}>
+            <TouchableOpacity
+              style={[styles.addTimeBtn, { backgroundColor: themeColors.primary }]}
+              onPress={handleAddTimeSlot}
+            >
               <Text style={styles.addTimeBtnText}>+ Add Time</Text>
             </TouchableOpacity>
           </View>
@@ -202,22 +244,36 @@ export default function CaregiverAddMedicationScreen() {
         {/* Start & End Dates */}
         <View style={styles.datesRow}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>Start Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Start Date *</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  color: themeColors.textPrimary,
+                  borderColor: themeColors.border,
+                },
+              ]}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={startDate}
               onChangeText={setStartDate}
             />
           </View>
 
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>End Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>End Date *</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  color: themeColors.textPrimary,
+                  borderColor: themeColors.border,
+                },
+              ]}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={endDate}
               onChangeText={setEndDate}
             />
@@ -226,11 +282,19 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Instructions */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Special Instructions</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Special Instructions</Text>
           <TextInput
-            style={[styles.textInput, styles.multilineInput]}
+            style={[
+              styles.textInput,
+              styles.multilineInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             placeholder="e.g. Blood Pressure - Take after breakfast with warm water"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={instructions}
             onChangeText={setInstructions}
             multiline

@@ -16,6 +16,7 @@ import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getLinkedPatients,
   getCaregiverEmergencyAlerts,
@@ -26,6 +27,7 @@ import { EmergencyAlert } from '../../types/emergency';
 export default function CaregiverDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { isDark, toggleTheme, colors: themeColors } = useTheme();
 
   const [patients, setPatients] = useState<LinkedPatientItem[]>([]);
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
@@ -95,14 +97,41 @@ export default function CaregiverDashboardScreen() {
   const activePatientItem = patients.find((p) => p.patient?._id === selectedPatientId) || patients[0];
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="MediHeal Caregiver"
         subtitle={`Welcome, ${user?.fullName || 'Caregiver'}`}
         rightComponent={
-          <TouchableOpacity style={styles.logoutHeaderBtn} onPress={handleLogout}>
-            <Text style={styles.logoutHeaderText}>Logout</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRightRow}>
+            <TouchableOpacity
+              style={[
+                styles.themeToggleBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={() => { void toggleTheme(); }}
+              accessibilityRole="button"
+              accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.themeToggleIcon, { color: themeColors.textPrimary }]}>
+                {isDark ? '☀️' : '🌙'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.logoutHeaderBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={handleLogout}
+              accessibilityRole="button"
+              accessibilityLabel="Logout"
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -113,7 +142,8 @@ export default function CaregiverDashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
+            colors={[themeColors.primary]}
+            tintColor={themeColors.primary}
           />
         }
       >
@@ -124,26 +154,40 @@ export default function CaregiverDashboardScreen() {
         {/* Emergency SOS Banner (Rule 37) */}
         {activeAlerts.length > 0 ? (
           <TouchableOpacity
-            style={styles.sosAlertBanner}
+            style={[
+              styles.sosAlertBanner,
+              {
+                backgroundColor: isDark ? themeColors.dangerLight : '#FEF2F2',
+                borderColor: themeColors.danger,
+              },
+            ]}
             activeOpacity={0.85}
             onPress={() => router.push('/(caregiver)/alerts' as any)}
           >
             <View style={styles.sosBadgeRow}>
               <Text style={styles.sosIconText}>🚨</Text>
-              <Text style={styles.sosBannerTitle}>
+              <Text style={[styles.sosBannerTitle, { color: themeColors.danger }]}>
                 ACTIVE EMERGENCY ALERT ({activeAlerts.length})
               </Text>
             </View>
-            <Text style={styles.sosBannerSub}>
+            <Text style={[styles.sosBannerSub, { color: themeColors.textSecondary }]}>
               Tap to view and resolve active emergency alert for linked patient.
             </Text>
           </TouchableOpacity>
         ) : (
-          <View style={styles.safeBanner}>
+          <View
+            style={[
+              styles.safeBanner,
+              {
+                backgroundColor: isDark ? themeColors.successLight : '#F0FDF4',
+                borderColor: isDark ? '#047857' : '#BBF7D0',
+              },
+            ]}
+          >
             <Text style={styles.safeIcon}>🛡️</Text>
             <View style={styles.safeTextCol}>
-              <Text style={styles.safeTitle}>No Active Emergency Alerts</Text>
-              <Text style={styles.safeSub}>All linked patients are currently clear.</Text>
+              <Text style={[styles.safeTitle, { color: themeColors.success }]}>No Active Emergency Alerts</Text>
+              <Text style={[styles.safeSub, { color: themeColors.textSecondary }]}>All linked patients are currently clear.</Text>
             </View>
           </View>
         )}
@@ -151,10 +195,15 @@ export default function CaregiverDashboardScreen() {
         {/* Patients Section */}
         {patients.length === 0 ? (
           /* Empty State - No Patients Linked */
-          <View style={styles.emptyPatientsCard}>
+          <View
+            style={[
+              styles.emptyPatientsCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+          >
             <Text style={styles.emptyIcon}>🤝</Text>
-            <Text style={styles.emptyTitle}>No Patients Linked Yet</Text>
-            <Text style={styles.emptyDesc}>
+            <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Patients Linked Yet</Text>
+            <Text style={[styles.emptyDesc, { color: themeColors.textSecondary }]}>
               Link your family member or patient using their MediHeal caregiver link code to monitor care plans and emergency alerts.
             </Text>
             <AppButton
@@ -175,12 +224,20 @@ export default function CaregiverDashboardScreen() {
                   return (
                     <TouchableOpacity
                       key={item._id}
-                      style={[styles.patientTab, isSelected && styles.patientTabSelected]}
+                      style={[
+                        styles.patientTab,
+                        { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                        isSelected && {
+                          backgroundColor: themeColors.primary,
+                          borderColor: themeColors.primary,
+                        },
+                      ]}
                       onPress={() => setSelectedPatientId(item.patient._id)}
                     >
                       <Text
                         style={[
                           styles.patientTabText,
+                          { color: themeColors.textSecondary },
                           isSelected && styles.patientTabTextSelected,
                         ]}
                       >
@@ -194,10 +251,23 @@ export default function CaregiverDashboardScreen() {
 
             {/* Primary Elder Care Overview Card */}
             {activePatientItem && activePatientItem.patient && (
-              <View style={styles.patientCard}>
+              <View
+                style={[
+                  styles.patientCard,
+                  { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                ]}
+              >
                 <View style={styles.cardHeaderRow}>
-                  <View style={styles.avatarCircle}>
-                    <Text style={styles.avatarText}>
+                  <View
+                    style={[
+                      styles.avatarCircle,
+                      {
+                        backgroundColor: themeColors.primaryLight,
+                        borderColor: themeColors.primary,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.avatarText, { color: themeColors.primary }]}>
                       {activePatientItem.patient.fullName
                         .split(' ')
                         .map((n) => n[0])
@@ -208,8 +278,10 @@ export default function CaregiverDashboardScreen() {
                     </Text>
                   </View>
                   <View style={styles.patientInfoCol}>
-                    <Text style={styles.patientName}>{activePatientItem.patient.fullName}</Text>
-                    <Text style={styles.patientRel}>
+                    <Text style={[styles.patientName, { color: themeColors.textPrimary }]}>
+                      {activePatientItem.patient.fullName}
+                    </Text>
+                    <Text style={[styles.patientRel, { color: themeColors.textMuted }]}>
                       {activePatientItem.relationship || 'Care Recipient'} • Linked
                     </Text>
                   </View>
@@ -218,7 +290,13 @@ export default function CaregiverDashboardScreen() {
                 {/* Primary Quick Actions */}
                 <View style={styles.actionsGrid}>
                   <TouchableOpacity
-                    style={styles.actionCard}
+                    style={[
+                      styles.actionCard,
+                      {
+                        backgroundColor: themeColors.surfaceSecondary,
+                        borderColor: themeColors.border,
+                      },
+                    ]}
                     activeOpacity={0.8}
                     onPress={() =>
                       router.push({
@@ -228,12 +306,18 @@ export default function CaregiverDashboardScreen() {
                     }
                   >
                     <Text style={styles.actionIcon}>📋</Text>
-                    <Text style={styles.actionTitle}>Care Overview</Text>
-                    <Text style={styles.actionSub}>Vitals, Consults & Notes</Text>
+                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>Care Overview</Text>
+                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>Vitals, Consults & Notes</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={styles.actionCard}
+                    style={[
+                      styles.actionCard,
+                      {
+                        backgroundColor: themeColors.surfaceSecondary,
+                        borderColor: themeColors.border,
+                      },
+                    ]}
                     activeOpacity={0.8}
                     onPress={() =>
                       router.push({
@@ -243,15 +327,15 @@ export default function CaregiverDashboardScreen() {
                     }
                   >
                     <Text style={styles.actionIcon}>💊</Text>
-                    <Text style={styles.actionTitle}>Add Medication</Text>
-                    <Text style={styles.actionSub}>Prescribe & Schedule</Text>
+                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>Add Medication</Text>
+                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>Prescribe & Schedule</Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Patient Profile Link Code Reference */}
                 {activePatientItem.patientProfile?.caregiverLinkCode ? (
                   <View style={styles.linkCodeFooter}>
-                    <Text style={styles.linkCodeLabel}>
+                    <Text style={[styles.linkCodeLabel, { color: themeColors.textMuted }]}>
                       Link Code: {activePatientItem.patientProfile.caregiverLinkCode}
                     </Text>
                   </View>
@@ -261,47 +345,61 @@ export default function CaregiverDashboardScreen() {
 
             {/* Quick Action: Link Another Patient */}
             <TouchableOpacity
-              style={styles.linkAnotherBtn}
+              style={[
+                styles.linkAnotherBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
               onPress={() => router.push('/(caregiver)/link-patient' as any)}
             >
-              <Text style={styles.linkAnotherText}>+ Link Another Patient</Text>
+              <Text style={[styles.linkAnotherText, { color: themeColors.primary }]}>+ Link Another Patient</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Safety & Alerts Quick Access */}
         <TouchableOpacity
-          style={styles.menuCard}
+          style={[
+            styles.menuCard,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
           activeOpacity={0.8}
           onPress={() => router.push('/(caregiver)/alerts' as any)}
         >
           <Text style={styles.menuIcon}>🚨</Text>
           <View style={styles.menuTextCol}>
-            <Text style={styles.menuTitle}>Emergency Safety Alerts</Text>
-            <Text style={styles.menuSub}>View and resolve active emergency signals</Text>
+            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>Emergency Safety Alerts</Text>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>View and resolve active emergency signals</Text>
           </View>
-          <Text style={styles.menuArrow}>→</Text>
+          <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         {/* Community Health Forum Reuse */}
         <TouchableOpacity
-          style={[styles.menuCard, { borderColor: colors.primary }]}
+          style={[
+            styles.menuCard,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
           activeOpacity={0.8}
           onPress={() => router.push('/(caregiver)/community' as any)}
         >
           <Text style={styles.menuIcon}>💬</Text>
           <View style={styles.menuTextCol}>
-            <Text style={styles.menuTitle}>Community Health Forum</Text>
-            <Text style={styles.menuSub}>Ask questions & share caregiving support</Text>
+            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>Community Health Forum</Text>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>Ask questions & share caregiving support</Text>
           </View>
-          <Text style={styles.menuArrow}>→</Text>
+          <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         {/* Caregiver Account Info */}
-        <View style={styles.accountCard}>
-          <Text style={styles.accountTitle}>Caregiver Account</Text>
-          <Text style={styles.accountDetail}>Email: {user?.email}</Text>
-          <Text style={styles.accountDetail}>Phone: {user?.phoneNumber || 'N/A'}</Text>
+        <View
+          style={[
+            styles.accountCard,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
+        >
+          <Text style={[styles.accountTitle, { color: themeColors.textMuted }]}>Caregiver Account</Text>
+          <Text style={[styles.accountDetail, { color: themeColors.textSecondary }]}>Email: {user?.email}</Text>
+          <Text style={[styles.accountDetail, { color: themeColors.textSecondary }]}>Phone: {user?.phoneNumber || 'N/A'}</Text>
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -313,18 +411,32 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xxl,
   },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  themeToggleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  themeToggleIcon: {
+    fontSize: 18,
+  },
   logoutHeaderBtn: {
-    backgroundColor: colors.card,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.pill,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   logoutHeaderText: {
     ...typography.caption,
     fontSize: 12,
-    color: colors.danger,
     fontWeight: '800',
   },
   sosAlertBanner: {

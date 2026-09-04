@@ -18,6 +18,7 @@ import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { getCommunityPosts, removeCommunityPost } from '../../services/communityService';
 import { CommunityPost, CommunityCategory, PaginationMetadata } from '../../types/community';
 
@@ -35,6 +36,7 @@ const CATEGORIES: { label: string; value: CommunityCategory | 'all' }[] = [
 export default function CaregiverCommunityFeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
 
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CommunityCategory | 'all'>('all');
@@ -149,7 +151,7 @@ export default function CaregiverCommunityFeedScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Community Health"
         subtitle="Caregiver Forum & Support Feed"
@@ -158,9 +160,24 @@ export default function CaregiverCommunityFeedScreen() {
 
       <View style={styles.container}>
         {/* Medical Disclaimer Banner */}
-        <View style={styles.disclaimerBanner}>
+        <View
+          style={[
+            styles.disclaimerBanner,
+            {
+              backgroundColor: isDark ? themeColors.warningLight : '#FEF3C7',
+              borderColor: isDark ? '#78350F' : '#FDE68A',
+            },
+          ]}
+        >
           <Text style={styles.disclaimerIcon}>ℹ️</Text>
-          <Text style={styles.disclaimerText}>{disclaimerText}</Text>
+          <Text
+            style={[
+              styles.disclaimerText,
+              { color: isDark ? themeColors.warning : '#92400E' },
+            ]}
+          >
+            {disclaimerText}
+          </Text>
         </View>
 
         {/* Category Selector Chips */}
@@ -177,7 +194,14 @@ export default function CaregiverCommunityFeedScreen() {
                   key={cat.value}
                   style={[
                     styles.categoryChip,
-                    isSelected && styles.categoryChipSelected,
+                    {
+                      backgroundColor: themeColors.card,
+                      borderColor: themeColors.border,
+                    },
+                    isSelected && {
+                      backgroundColor: themeColors.primary,
+                      borderColor: themeColors.primary,
+                    },
                   ]}
                   activeOpacity={0.8}
                   onPress={() => handleCategorySelect(cat.value)}
@@ -185,6 +209,7 @@ export default function CaregiverCommunityFeedScreen() {
                   <Text
                     style={[
                       styles.categoryChipText,
+                      { color: themeColors.textSecondary },
                       isSelected && styles.categoryChipTextSelected,
                     ]}
                   >
@@ -227,17 +252,24 @@ export default function CaregiverCommunityFeedScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[colors.primary]}
+                colors={[themeColors.primary]}
+                tintColor={themeColors.primary}
               />
             }
             ListFooterComponent={
               pagination && page < pagination.pages ? (
                 <TouchableOpacity
-                  style={styles.loadMoreBtn}
+                  style={[
+                    styles.loadMoreBtn,
+                    {
+                      backgroundColor: themeColors.card,
+                      borderColor: themeColors.border,
+                    },
+                  ]}
                   onPress={handleLoadMore}
                   disabled={loadingMore}
                 >
-                  <Text style={styles.loadMoreText}>
+                  <Text style={[styles.loadMoreText, { color: themeColors.primary }]}>
                     {loadingMore ? 'Loading More...' : 'Load More Posts'}
                   </Text>
                 </TouchableOpacity>

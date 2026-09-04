@@ -15,6 +15,7 @@ import { AppButton } from '../../components/AppButton';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getPatientMedications,
   updateMedication,
@@ -24,6 +25,7 @@ import {
 export default function CaregiverEditMedicationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; patientId?: string }>();
+  const { isDark, colors: themeColors } = useTheme();
 
   const [medicineName, setMedicineName] = useState<string>('');
   const [dosage, setDosage] = useState<string>('');
@@ -139,32 +141,32 @@ export default function CaregiverEditMedicationScreen() {
 
     Alert.alert(
       'Deactivate Medication',
-      'Are you sure you want to stop this medication schedule? It will be marked as inactive for the patient.',
+      `Deactivate prescription schedule for ${medicineName}? This marks the medication inactive.`,
       [
         { text: 'Keep Active', style: 'cancel' },
         {
           text: 'Deactivate',
           style: 'destructive',
-          onPress: performDeactivation,
+          onPress: performDeactivate,
         },
       ]
     );
   };
 
-  const performDeactivation = async () => {
+  const performDeactivate = async () => {
     if (!params.id) return;
     setDeactivating(true);
 
     try {
       const res = await deactivateMedication(params.id);
       if (res && res.success) {
-        Alert.alert('Medication Deactivated', 'The medication schedule has been stopped.');
+        Alert.alert('Schedule Deactivated', 'Medication schedule deactivated successfully.');
         router.back();
       } else {
-        Alert.alert('Error', res.message || 'Failed to deactivate medication.');
+        Alert.alert('Error', res.message || 'Failed to deactivate schedule.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to deactivate medication.');
+      Alert.alert('Error', err.message || 'Unable to deactivate schedule.');
     } finally {
       setDeactivating(false);
     }
@@ -176,7 +178,7 @@ export default function CaregiverEditMedicationScreen() {
 
   if (errorMsg) {
     return (
-      <ScreenContainer backgroundColor={colors.background}>
+      <ScreenContainer backgroundColor={themeColors.background}>
         <AppHeader title="Edit Medication" onBackPress={() => router.back()} />
         <ErrorView message={errorMsg} onRetry={fetchMedication} />
       </ScreenContainer>
@@ -184,7 +186,7 @@ export default function CaregiverEditMedicationScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Edit Medication"
         subtitle="Modify Prescription Schedule"
@@ -194,42 +196,75 @@ export default function CaregiverEditMedicationScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Medicine Name */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Medication Name *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Medication Name *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             value={medicineName}
             onChangeText={setMedicineName}
+            placeholderTextColor={themeColors.textMuted}
           />
         </View>
 
         {/* Dosage */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Dosage *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dosage *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             value={dosage}
             onChangeText={setDosage}
+            placeholderTextColor={themeColors.textMuted}
           />
         </View>
 
         {/* Frequency */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Frequency / Schedule *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Frequency / Schedule *</Text>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             value={frequency}
             onChangeText={setFrequency}
+            placeholderTextColor={themeColors.textMuted}
           />
         </View>
 
         {/* Time Slots Section */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Dose Schedule Times (24h format) *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dose Schedule Times (24h format) *</Text>
           
           <View style={styles.timeSlotsRow}>
             {timeSlots.map((slot) => (
-              <View key={slot} style={styles.timeChip}>
-                <Text style={styles.timeChipText}>⏰ {slot}</Text>
+              <View
+                key={slot}
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: themeColors.primaryLight,
+                    borderColor: themeColors.primary,
+                  },
+                ]}
+              >
+                <Text style={[styles.timeChipText, { color: themeColors.primary }]}>⏰ {slot}</Text>
                 <TouchableOpacity
                   onPress={() => handleRemoveTimeSlot(slot)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -242,13 +277,23 @@ export default function CaregiverEditMedicationScreen() {
 
           <View style={styles.addTimeRow}>
             <TextInput
-              style={styles.timeInput}
+              style={[
+                styles.timeInput,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  color: themeColors.textPrimary,
+                  borderColor: themeColors.border,
+                },
+              ]}
               placeholder="e.g. 14:00"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={newTimeInput}
               onChangeText={setNewTimeInput}
             />
-            <TouchableOpacity style={styles.addTimeBtn} onPress={handleAddTimeSlot}>
+            <TouchableOpacity
+              style={[styles.addTimeBtn, { backgroundColor: themeColors.primary }]}
+              onPress={handleAddTimeSlot}
+            >
               <Text style={styles.addTimeBtnText}>+ Add Time</Text>
             </TouchableOpacity>
           </View>
@@ -257,34 +302,59 @@ export default function CaregiverEditMedicationScreen() {
         {/* Start & End Dates */}
         <View style={styles.datesRow}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>Start Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Start Date *</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  color: themeColors.textPrimary,
+                  borderColor: themeColors.border,
+                },
+              ]}
               value={startDate}
               onChangeText={setStartDate}
+              placeholderTextColor={themeColors.textMuted}
             />
           </View>
 
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>End Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>End Date *</Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  color: themeColors.textPrimary,
+                  borderColor: themeColors.border,
+                },
+              ]}
               value={endDate}
               onChangeText={setEndDate}
+              placeholderTextColor={themeColors.textMuted}
             />
           </View>
         </View>
 
         {/* Instructions */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Special Instructions</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Special Instructions</Text>
           <TextInput
-            style={[styles.textInput, styles.multilineInput]}
+            style={[
+              styles.textInput,
+              styles.multilineInput,
+              {
+                backgroundColor: themeColors.surfaceSecondary,
+                color: themeColors.textPrimary,
+                borderColor: themeColors.border,
+              },
+            ]}
             value={instructions}
             onChangeText={setInstructions}
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            placeholderTextColor={themeColors.textMuted}
           />
         </View>
 
@@ -301,11 +371,17 @@ export default function CaregiverEditMedicationScreen() {
 
         {/* Deactivate Action */}
         <TouchableOpacity
-          style={styles.deactivateBtn}
+          style={[
+            styles.deactivateBtn,
+            {
+              backgroundColor: themeColors.dangerLight,
+              borderColor: themeColors.danger,
+            },
+          ]}
           onPress={handleDeactivate}
           disabled={deactivating || submitting}
         >
-          <Text style={styles.deactivateBtnText}>
+          <Text style={[styles.deactivateBtnText, { color: themeColors.danger }]}>
             {deactivating ? 'Deactivating...' : '⛔ Deactivate Medication Schedule'}
           </Text>
         </TouchableOpacity>
