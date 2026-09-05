@@ -184,16 +184,6 @@ export default function PatientHomeScreen() {
       <View style={{ flex: 1 }}>
         {/* Universal Header Navigation */}
         <View style={[styles.headerBar, { borderBottomColor: themeColors.border }]}>
-          <TouchableOpacity
-            style={[styles.headerIconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-            onPress={() => { stopSpeech(); router.push('/(patient)/profile' as any); }}
-            accessibilityRole="button"
-            accessibilityLabel="Open settings"
-            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          >
-            <Text style={[styles.headerIcon, { color: themeColors.textPrimary }]}>☰</Text>
-          </TouchableOpacity>
-
           <Text style={[styles.headerTitle, { color: themeColors.primary }]} pointerEvents="none" numberOfLines={1}>
             {t('appTitle')}
           </Text>
@@ -490,7 +480,7 @@ const styles = StyleSheet.create({
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
     borderBottomWidth: 1,
