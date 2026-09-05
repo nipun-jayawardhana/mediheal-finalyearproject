@@ -73,7 +73,7 @@ export const ta: Record<TranslationKeys, string> = {
   duration: 'கால அளவு',
   severity: 'அசெளகரியத்தின் தீவிரத்தன்மை',
   adjustSeverity: 'தீவிரத்தன்மை அளவை சரிசெய்யவும்',
-  analyzeSymptomsBtn: '🔍 OpenBioLLM மூலம் அறிகுறிகளைப் பகுப்பாய்வு செய்க',
+  analyzeSymptomsBtn: '🔍 அறிகுறிகளைப் பகுப்பாய்வு செய்க',
   editSymptoms: '✏️ Edit Symptoms',
   speechRecognized: 'குரல் அங்கீகரிக்கப்பட்டது',
   addSymptomChip: 'அறிகுறிகள் பட்டியலில் சேர்க்கவும்',

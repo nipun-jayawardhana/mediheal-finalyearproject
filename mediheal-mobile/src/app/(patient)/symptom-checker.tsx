@@ -392,7 +392,7 @@ export default function SymptomCheckerScreen() {
     return found ? found.answer : '';
   };
 
-  // Final OpenBioLLM Analysis Call
+  // Final Med42 Analysis Call
   const handleFinalAnalyze = async () => {
     if (!summaryData || loading || isAnalyzing) return;
 
@@ -404,7 +404,7 @@ export default function SymptomCheckerScreen() {
     setErrorMsg('');
     setIsAnalyzing(true);
     setLoading(true);
-    setLoadingText('Analyzing symptoms with OpenBioLLM...');
+    setLoadingText('Analyzing symptoms with Med42...');
 
     try {
       const res = await analyzeSymptomsApi({

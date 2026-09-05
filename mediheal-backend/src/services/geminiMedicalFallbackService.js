@@ -13,7 +13,7 @@
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
-const { normalizeSpecialist } = require('./openBioLLMService');
+const { normalizeSpecialist } = require('./med42Service');
 
 /**
  * Helper to parse and extract JSON object from raw response text

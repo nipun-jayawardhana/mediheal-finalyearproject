@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const SymptomCheck = require('../models/SymptomCheck');
 const symptomService = require('../services/symptomService');
-const openBioLLMService = require('../services/openBioLLMService');
+const med42Service = require('../services/med42Service');
 const geminiConversationService = require('../services/geminiConversationService');
 const geminiTranslationService = require('../services/geminiTranslationService');
 const geminiMedicalFallbackService = require('../services/geminiMedicalFallbackService');
@@ -177,7 +177,7 @@ const analyzeSymptoms = async (req, res, next) => {
     // Secondary duration check on raw inputs if inputDuration was not provided
     const parsedTextDuration = inputDuration || translatedDuration || clinicalCaseService.extractDurationFromText(symptoms.join(' ')) || clinicalCaseService.extractDurationFromText(sanitizedSymptoms.join(' '));
 
-    // ASSEMBLE & RECONCILE ONE CANONICAL CLINICAL CASE BEFORE OPENBIOLLM
+    // ASSEMBLE & RECONCILE ONE CANONICAL CLINICAL CASE BEFORE MED42
     let clinicalCase = clinicalCaseService.buildCanonicalClinicalCase({
       symptoms: canonicalConcepts,
       conversation: Array.isArray(conversation) ? conversation : [],
@@ -222,21 +222,21 @@ const analyzeSymptoms = async (req, res, next) => {
 
     console.log(`[SYMPTOM PIPELINE][${reqId}] Initial input received`);
 
-    // LOG EXACT CLINICAL CASE BEFORE OPENBIOLLM INFERENCE
-    console.log(`[CANONICAL CASE][${reqId}][OPENBIOLLM]\n${JSON.stringify(clinicalCase, null, 2)}`);
+    // LOG EXACT CLINICAL CASE BEFORE MED42 INFERENCE
+    console.log(`[CANONICAL CASE][${reqId}][MED42]\n${JSON.stringify(clinicalCase, null, 2)}`);
 
     // Automatic equality check in development if summary canonical case passed in request body
     if (Array.isArray(bodyPos) && bodyPos.length > 0) {
       const summaryPosSet = new Set(bodyPos.map(s => String(s).toLowerCase().trim()));
-      const openBioPosSet = new Set(clinicalCase.positiveSymptoms.map(s => String(s).toLowerCase().trim()));
-      let mismatch = summaryPosSet.size !== openBioPosSet.size;
+      const med42PosSet = new Set(clinicalCase.positiveSymptoms.map(s => String(s).toLowerCase().trim()));
+      let mismatch = summaryPosSet.size !== med42PosSet.size;
       if (!mismatch) {
         for (const s of summaryPosSet) {
-          if (!openBioPosSet.has(s)) { mismatch = true; break; }
+          if (!med42PosSet.has(s)) { mismatch = true; break; }
         }
       }
       if (mismatch) {
-        console.error(`[CASE INTEGRITY][${reqId}] SUMMARY/OPENBIOLLM MISMATCH`);
+        console.error(`[CASE INTEGRITY][${reqId}] SUMMARY/MED42 MISMATCH`);
       }
     }
 
@@ -246,9 +246,9 @@ const analyzeSymptoms = async (req, res, next) => {
 
     let finalAnalysis = null;
 
-    // Attempt Primary OpenBioLLM Inference using Complete Canonical Case
+    // Attempt Primary Med42 Inference using Complete Canonical Case
     try {
-      const aiResult = await openBioLLMService.analyzeSymptomsWithOpenBioLLM(
+      const aiResult = await med42Service.analyzeSymptomsWithMed42(
         clinicalCase,
         reqId
       );
@@ -274,14 +274,14 @@ const analyzeSymptoms = async (req, res, next) => {
         matchedSymptoms: normalizedInputSymptoms,
         emergencyRecommended: false,
         disclaimer: symptomService.MEDICAL_DISCLAIMER,
-        analysisSource: 'openbiollm',
+        analysisSource: 'med42',
         modelName: aiResult.modelName,
       };
 
-      console.log(`[AI FAILOVER][${reqId}] Secondary skipped (primary OpenBioLLM succeeded)`);
-      console.log(`[SYMPTOM API][${reqId}] Final analysis source: openbiollm`);
+      console.log(`[AI FAILOVER][${reqId}] Secondary skipped (primary Med42 succeeded)`);
+      console.log(`[SYMPTOM API][${reqId}] Final analysis source: med42`);
     } catch (aiError) {
-      console.warn(`${tag} OpenBioLLM primary inference failed (${aiError.message})`);
+      console.warn(`${tag} Med42 primary inference failed (${aiError.message})`);
 
       const remainingBudgetMs = deadlineAt - Date.now();
       let secondarySuccess = false;
@@ -290,7 +290,7 @@ const analyzeSymptoms = async (req, res, next) => {
       if (remainingBudgetMs >= MINIMUM_GEMINI_BUDGET_MS) {
         try {
           const geminiBudgetMs = Math.min(remainingBudgetMs - 3000, 8000);
-          console.log(`[AI FAILOVER][${reqId}] Secondary invoked (reason: primary OpenBioLLM failed: ${aiError.message})`);
+          console.log(`[AI FAILOVER][${reqId}] Secondary invoked (reason: primary Med42 failed: ${aiError.message})`);
           console.log(`${tag} Attempting secondary Gemini failover (Remaining budget: ${remainingBudgetMs}ms, Secondary ceiling: ${geminiBudgetMs}ms)`);
 
           const secondaryResult = await geminiMedicalFallbackService.analyzeSymptomsWithGeminiSecondary(

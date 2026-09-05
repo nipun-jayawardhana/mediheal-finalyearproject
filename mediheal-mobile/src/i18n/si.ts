@@ -73,7 +73,7 @@ export const si: Record<TranslationKeys, string> = {
   duration: 'කාලසීමාව',
   severity: 'අපහසුතාවයේ තීව්‍රතාවය',
   adjustSeverity: 'අපහසුතා මට්ටම සකසන්න (අවශ්‍ය නම්)',
-  analyzeSymptomsBtn: '🔍 OpenBioLLM හරහා රෝග ලක්ෂණ විශ්ලේෂණය කරන්න',
+  analyzeSymptomsBtn: '🔍 රෝග ලක්ෂණ විශ්ලේෂණය කරන්න',
   editSymptoms: '✏️ Edit Symptoms',
   speechRecognized: 'කථනය හඳුනා ගන්නා ලදී',
   addSymptomChip: 'රෝග ලක්ෂණ ලැයිස්තුවට එකතු කරන්න',

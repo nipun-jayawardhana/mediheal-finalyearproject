@@ -71,7 +71,7 @@ export const en = {
   duration: 'Duration',
   severity: 'Discomfort Severity',
   adjustSeverity: 'Adjust Severity Level (if needed)',
-  analyzeSymptomsBtn: '🔍 Analyze Symptoms with OpenBioLLM',
+  analyzeSymptomsBtn: '🔍 Analyze Symptoms',
   editSymptoms: '✏️ Edit Symptoms',
   speechRecognized: 'Speech Recognized',
   addSymptomChip: 'Add to Symptoms List',

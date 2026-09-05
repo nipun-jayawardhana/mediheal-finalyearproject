@@ -234,8 +234,8 @@ export default function AnalysisResultScreen() {
         {__DEV__ && result?.analysisSource && (
           <View
             style={{
-              backgroundColor: result.analysisSource === 'openbiollm' ? '#DCFCE7' : result.analysisSource === 'gemini-secondary' ? '#E0F2FE' : '#FEF3C7',
-              borderColor: result.analysisSource === 'openbiollm' ? '#166534' : result.analysisSource === 'gemini-secondary' ? '#0369A1' : '#B45309',
+              backgroundColor: (result.analysisSource === 'med42' || result.analysisSource === 'openbiollm') ? '#DCFCE7' : result.analysisSource === 'gemini-secondary' ? '#E0F2FE' : '#FEF3C7',
+              borderColor: (result.analysisSource === 'med42' || result.analysisSource === 'openbiollm') ? '#166534' : result.analysisSource === 'gemini-secondary' ? '#0369A1' : '#B45309',
               borderWidth: 1,
               borderRadius: borderRadius.md,
               paddingVertical: 4,
@@ -246,13 +246,15 @@ export default function AnalysisResultScreen() {
           >
             <Text
               style={{
-                color: result.analysisSource === 'openbiollm' ? '#166534' : result.analysisSource === 'gemini-secondary' ? '#0369A1' : '#B45309',
+                color: (result.analysisSource === 'med42' || result.analysisSource === 'openbiollm') ? '#166534' : result.analysisSource === 'gemini-secondary' ? '#0369A1' : '#B45309',
                 fontSize: 11,
                 fontWeight: '700',
               }}
             >
               🛠️ AI Source: {
-                result.analysisSource === 'openbiollm'
+                result.analysisSource === 'med42'
+                  ? `Med42 (${result.modelName || 'm42-health/Llama3-Med42-8B'})`
+                  : result.analysisSource === 'openbiollm'
                   ? `OpenBioLLM (${result.modelName || 'aaditya/Llama3-OpenBioLLM-8B'})`
                   : result.analysisSource === 'gemini-secondary'
                   ? `Gemini Secondary (${result.modelName || 'gemini-flash-lite-latest'})`

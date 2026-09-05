@@ -34,7 +34,7 @@ export interface SymptomAnalysisResult {
   displayPositiveSymptoms?: string[];
   displayContext?: string[];
   displayGuidance?: string[];
-  analysisSource?: 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
+  analysisSource?: 'med42' | 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
   modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
@@ -70,7 +70,7 @@ export interface SymptomCheckRecord {
   displayPositiveSymptoms?: string[];
   displayContext?: string[];
   displayGuidance?: string[];
-  analysisSource?: 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
+  analysisSource?: 'med42' | 'openbiollm' | 'gemini-secondary' | 'rule-based-fallback' | 'rule-based-emergency';
   modelName?: string;
   riskLevel: RiskLevel;
   recommendedSpecialist: string;
