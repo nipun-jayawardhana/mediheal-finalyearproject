@@ -7,6 +7,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -75,18 +76,37 @@ export default function CaregiverDashboardScreen() {
     fetchDashboardData(true);
   };
 
+  const performSignOut = async () => {
+    await logout();
+    router.replace('/(auth)/login');
+  };
+
   const handleLogout = async () => {
-    Alert.alert('Logout', 'Are you sure you want to log out of MediHeal Caregiver?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' && window.confirm(
+        'Are you sure you want to sign out?'
+      );
+      if (confirmed) {
+        await performSignOut();
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
         },
-      },
-    ]);
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: performSignOut,
+        },
+      ]
+    );
   };
 
   if (loading && patients.length === 0) {
@@ -126,10 +146,11 @@ export default function CaregiverDashboardScreen() {
               ]}
               onPress={handleLogout}
               accessibilityRole="button"
-              accessibilityLabel="Logout"
+              accessibilityLabel="Sign Out"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Logout</Text>
+              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Sign Out</Text>
             </TouchableOpacity>
           </View>
         }
