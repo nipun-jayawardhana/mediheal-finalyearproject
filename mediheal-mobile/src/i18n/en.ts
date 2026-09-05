@@ -131,6 +131,8 @@ export const en = {
   languageSelection: 'Language Selection',
   currentLanguage: 'Current',
   signOut: 'Sign Out',
+  signOutConfirmTitle: 'Sign Out',
+  signOutConfirmMsg: 'Are you sure you want to sign out?',
   personalInformation: 'Personal Information',
   male: 'Male',
   female: 'Female',

@@ -133,6 +133,8 @@ export const si: Record<TranslationKeys, string> = {
   languageSelection: 'භාෂාව තෝරන්න',
   currentLanguage: 'වත්මන් භාෂාව',
   signOut: 'ගිණුමෙන් නික්මෙන්න',
+  signOutConfirmTitle: 'ඉවත් වන්න',
+  signOutConfirmMsg: 'ඔබට ගිණුමෙන් ඉවත් වීමට අවශ්‍ය බව විශ්වාසද?',
   personalInformation: 'පෞද්ගලික තොරතුරු',
   male: 'පුරුෂ',
   female: 'ස්ත්‍රී',

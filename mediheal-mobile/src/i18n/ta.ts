@@ -133,6 +133,8 @@ export const ta: Record<TranslationKeys, string> = {
   languageSelection: 'மொழி தேர்வு',
   currentLanguage: 'தற்போதைய மொழி',
   signOut: 'வெளியேறு',
+  signOutConfirmTitle: 'வெளியேறு',
+  signOutConfirmMsg: 'நீங்கள் உறுதியாக வெளியேற விரும்புகிறீர்களா?',
   personalInformation: 'தனிப்பட்ட தகவல்',
   male: 'ஆண்',
   female: 'பெண்',

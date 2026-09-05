@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
@@ -53,9 +53,38 @@ export default function PatientProfileScreen() {
     fetchProfile();
   }, [fetchProfile]);
 
-  const handleSignOut = async () => {
+  const performSignOut = async () => {
     await logout();
     router.replace('/(auth)/login');
+  };
+
+  const handleSignOut = () => {
+    const title = t('signOutConfirmTitle');
+    const message = t('signOutConfirmMsg');
+
+    if (Platform.OS === 'web') {
+      const confirmed = typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`);
+      if (confirmed) {
+        void performSignOut();
+      }
+      return;
+    }
+
+    Alert.alert(
+      title,
+      message,
+      [
+        {
+          text: t('cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('signOut'),
+          style: 'destructive',
+          onPress: performSignOut,
+        },
+      ]
+    );
   };
 
   if (loading) {
