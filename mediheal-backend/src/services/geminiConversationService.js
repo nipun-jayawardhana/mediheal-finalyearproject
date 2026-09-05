@@ -344,13 +344,35 @@ const getDeterministicFallback = (symptoms, conversation = [], questionCount = 0
  * Question Quality & Clinical Relevance Validator
  * Validates candidate follow-up questions against active complaint domains, known findings, and previous turns.
  */
-const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions = [], previousAnswers = [] }) => {
+const validateFollowUpQuestion = (arg1, arg2, arg3 = [], arg4 = []) => {
+  let question, canonicalCase, previousQuestions, previousAnswers;
+  if (typeof arg1 === 'object' && arg1 !== null && typeof arg1.question === 'string') {
+    question = arg1.question;
+    canonicalCase = arg1.canonicalCase || {};
+    previousQuestions = arg1.previousQuestions || [];
+    previousAnswers = arg1.previousAnswers || [];
+  } else {
+    question = arg1;
+    canonicalCase = arg2 || {};
+    previousQuestions = arg3 || [];
+    previousAnswers = arg4 || [];
+  }
+
   if (!question || typeof question !== 'string') {
     return { accepted: false, reason: 'invalid' };
   }
 
   const cleanQ = question.trim();
-  const lowerQ = cleanQ.toLowerCase();
+
+  // Canonicalize non-English questions (Sinhala / Tamil) for English-based clinical validation
+  let canonicalEnglishQ = cleanQ;
+  if (/[^\x00-\x7F]/.test(cleanQ)) {
+    const geminiTranslationService = require('./geminiTranslationService');
+    canonicalEnglishQ = geminiTranslationService.normalizeQuestionTextToEnglish
+      ? geminiTranslationService.normalizeQuestionTextToEnglish(cleanQ)
+      : cleanQ;
+  }
+  const lowerQ = canonicalEnglishQ.toLowerCase();
 
   // 1. Length & Basic Structure Validation
   if (cleanQ.length < 10 || cleanQ.length > 220) {
@@ -375,21 +397,38 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
   }
 
   // 3. Known Information & Negation Contradiction Guard
-  // A. CONTRADICTS NEGATIVE FINDING GUARD (CRITICAL CLINICAL SAFETY)
-  const contradictsNegative = (canonicalCase.negativeFindings || []).some((neg) => {
+  // A. CONTRADICTS OR ASSUMES NEGATIVE FINDING GUARD (CRITICAL CLINICAL SAFETY)
+  const assumesNegatedFinding = (canonicalCase.negativeFindings || []).some((neg) => {
     const nLower = String(neg || '').toLowerCase().trim();
     if (!nLower) return false;
     const coreNeg = nLower.replace(/^(?:no|not|denies|without)\s+/, '').trim();
     if (!coreNeg || coreNeg.length < 3) return false;
-    return lowerQ.includes(coreNeg);
+
+    // Direct question contains the exact negated finding (e.g. "chest pain" when "no chest pain")
+    if (lowerQ.includes(coreNeg)) return true;
+
+    // Swelling assumption: if "no lip swelling" or "no swelling" is known, question asking about "the swelling" / "your swelling"
+    if (coreNeg.includes('swelling') && (lowerQ.includes('the swelling') || lowerQ.includes('your swelling') || lowerQ.includes('experiencing the swelling') || lowerQ.includes('had the swelling') || lowerQ.includes('experiencing swelling') || lowerQ.includes('duration of the swelling'))) {
+      return true;
+    }
+
+    // Breathing assumption: if "no difficulty breathing" is known, question asking about "your breathing difficulty"
+    if (coreNeg.includes('breathing') && (lowerQ.includes('your breathing difficulty') || lowerQ.includes('the difficulty breathing') || lowerQ.includes('the shortness of breath'))) {
+      return true;
+    }
+
+    return false;
   });
-  if (contradictsNegative) {
+
+  if (assumesNegatedFinding) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=assumes_negated_symptom`);
     return { accepted: false, reason: 'CONTRADICTS_NEGATIVE_FINDING' };
   }
 
   // B. Duration already known
   const hasKnownDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified' && canonicalCase.duration !== '';
   if (hasKnownDuration && (/\bhow\s+long\b|\bwhen\s+did\b|\bhow\s+many\s+days\b|\bduration\b|\bhow\s+long\s+has\b|\bsince\s+when\b/i.test(lowerQ))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=already_answered`);
     return { accepted: false, reason: 'already_answered' };
   }
 
@@ -402,23 +441,28 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
 
   if (lowerQ.includes('weight') && allKnownFindings.some((s) => s.includes('weight'))) {
     if (!lowerQ.includes('completely unable') && !lowerQ.includes('bear any weight')) {
+      console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=already_answered`);
       return { accepted: false, reason: 'already_answered' };
     }
   }
 
   if (lowerQ.includes('unstable') && allKnownFindings.some((s) => s.includes('unstable') || s.includes('instability'))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=already_answered`);
     return { accepted: false, reason: 'already_answered' };
   }
 
   if (lowerQ.includes('fever') && allKnownFindings.some((s) => s.includes('fever'))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=already_answered`);
     return { accepted: false, reason: 'already_answered' };
   }
 
   if ((lowerQ.includes('vomit') || lowerQ.includes('vomiting')) && allKnownFindings.some((s) => s.includes('vomit'))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=already_answered`);
     return { accepted: false, reason: 'already_answered' };
   }
 
   if (lowerQ.includes('abdominal pain') && allKnownFindings.some((s) => s.includes('abdominal') || s.includes('stomach'))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=already_answered`);
     return { accepted: false, reason: 'already_answered' };
   }
 
@@ -432,21 +476,21 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
     );
   });
   if (isSystemicOnly && (lowerQ.includes('which body part') || lowerQ.includes('where does it hurt') || lowerQ.includes('part of your body') || lowerQ.includes('location of your pain'))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=location_question_unneeded_for_systemic`);
     return { accepted: false, reason: 'location_question_unneeded_for_systemic' };
+  }
+
+  // F. Ambiguous Multi-Concept Question Guard (Sections 2, 3, 4, Step 35X)
+  const conceptInfo = clinicalCaseService.extractPrimaryClinicalConcept(canonicalEnglishQ, canonicalCase);
+  if (conceptInfo.type === 'multiple_independent_concepts') {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=ambiguous_multi_concept_question`);
+    return { accepted: false, reason: 'ambiguous_multi_concept_question' };
   }
 
   // E. Unsupported Symptom Assumption Guard
   if ((lowerQ.includes('head pain') || lowerQ.includes('headache')) && !(canonicalCase.positiveSymptoms || []).some((s) => s.toLowerCase().includes('head'))) {
+    console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=unsupported_symptom_assumption`);
     return { accepted: false, reason: 'unsupported_symptom_assumption' };
-  }
-
-  // F. Ambiguous Multi-Concept Binary Question Guard (Section D & G)
-  const isMultiConceptBinary =
-    (/\bor\b/i.test(lowerQ) && (lowerQ.includes('dizziness') || lowerQ.includes('numbness') || lowerQ.includes('weakness') || lowerQ.includes('confusion') || lowerQ.includes('vision') || lowerQ.includes('tingling'))) ||
-    /\b(?:dizziness|numbness|weakness|confusion|vision|tingling)\s+or\s+(?:dizziness|numbness|weakness|confusion|vision|tingling)\b/i.test(lowerQ);
-
-  if (isMultiConceptBinary) {
-    return { accepted: false, reason: 'ambiguous_multi_concept_question' };
   }
 
   // 4. Complaint Domain Relevance Guard (Generic across medical domains)
@@ -454,9 +498,10 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
 
   const questionDomains = new Set();
   if (/\burinat|\burine|\bpeni|\bdischarge\b|\bprostate\b|\bbladder\b|\btestic\b|\bgenital\b/i.test(lowerQ)) {
+    questionDomains.add('urinary');
     questionDomains.add('urinary_genital');
   }
-  if (/\bstomach\b|\babdomen\b|\babdominal\b|\bspicy\b|\bbowel\b|\bdiarrh\b|\bheartburn\b|\bacid\b|\bepigastric\b/i.test(lowerQ)) {
+  if (/\bstomach\b|\babdomen\b|\babdominal\b|\bspicy\b|\bbowel\b|\bdiarrh\b|\bheartburn\b|\bacid\b|\bepigastric\b|\bbloat/i.test(lowerQ)) {
     questionDomains.add('gastrointestinal');
   }
   if (/\bcough\b|\bwheez\b|\bsputum\b|\blung\b|\bphlegm\b/i.test(lowerQ)) {
@@ -465,17 +510,49 @@ const validateFollowUpQuestion = ({ question, canonicalCase, previousQuestions =
   if (/\bchest\s+pain\b|\bpalpitations\b|\bchest\s+tight\b|\bcardiac\b/i.test(lowerQ)) {
     questionDomains.add('cardiovascular');
   }
-  if (/\bheadache\b|\bdizzy\b|\bdizziness\b|\bphotophobia\b|\bseizure\b|\bstroke\b/i.test(lowerQ)) {
+  if (/\bheadache\b|\bdizzy\b|\bdizziness\b|\bphotophobia\b|\bseizure\b|\bstroke\b|\bvision\b|\bblurr|\bspots\b|\bweakness\b|\bnumb/i.test(lowerQ)) {
+    questionDomains.add('neurology');
     questionDomains.add('neurological_heent');
+  }
+  if (/\brash\b|\bskin\b|\bitching\b|\bblister\b|\bhives\b/i.test(lowerQ)) {
+    questionDomains.add('dermatology');
+    questionDomains.add('dermatological');
+  }
+  if (/\bknee\b|\bankle\b|\bjoint\b|\bshoulder\b|\bwrist\b|\belbow\b|\bhip\b|\bweight\b|\blocking\b/i.test(lowerQ)) {
+    questionDomains.add('musculoskeletal');
   }
 
   // If question is in a domain NOT present in activeDomains AND not systemic/general safety
   for (const qDomain of questionDomains) {
-    if (!activeDomains.has(qDomain) && !activeDomains.has('systemic_general')) {
+    if (!activeDomains.has(qDomain) && !activeDomains.has('systemic_general') && !activeDomains.has('general')) {
+      console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=unrelated_domain`);
       return { accepted: false, reason: 'unrelated_domain' };
     }
   }
 
+  // G. Yes/No Semantic Resolution Invariant (Step 36G.2)
+  // For every accepted follow-up question:
+  // IF the question expects a short Yes/No answer,
+  // THEN before sending it to the patient it MUST resolve to:
+  // A. safely resolved single clinical concept (single_concept or single_concept_with_examples)
+  // OR
+  // B. special structured concept such as duration/severity.
+  // Never allow accepted=true + Yes/No question + clinicalConcept="" + Type=generic.
+  const isYesNoStyle = /\b^(?:have\s+you|do\s+you|did\s+you|are\s+you|is\s+there|has\s+there|was\s+there|were\s+there|does\s+(?:it|your)|is\s+your|are\s+your|can\s+you|any\b)/i.test(canonicalEnglishQ.trim()) ||
+    (/\?$/.test(canonicalEnglishQ.trim()) && !/\b^(?:how\s+long|how\s+often|how\s+severe|what|when|where|why|which|how\s+much)\b/i.test(canonicalEnglishQ.trim()) && !canonicalEnglishQ.toLowerCase().includes('better or worse'));
+
+  if (isYesNoStyle) {
+    const isStructured = conceptInfo.type === 'duration' || conceptInfo.type === 'severity';
+    const isSingleConcept = (conceptInfo.type === 'single_concept' || conceptInfo.type === 'single_concept_with_examples') &&
+      conceptInfo.primaryConcept && conceptInfo.primaryConcept !== 'none';
+
+    if (!isStructured && !isSingleConcept) {
+      console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=false\nreason=unresolved_yes_no_concept`);
+      return { accepted: false, reason: 'unresolved_yes_no_concept' };
+    }
+  }
+
+  console.log(`[FOLLOWUP VALIDATION]\nQuestion: "${cleanQ}"\naccepted=true\nreason=relevant`);
   return { accepted: true, reason: 'relevant' };
 };
 
@@ -523,7 +600,7 @@ Respond strictly with a single JSON object matching one of these two schemas:
 Schema 1 (When asking a follow-up question):
 {
   "status": "ask",
-  "question": "Have you noticed any redness, warmth, or locking in your joint?",
+  "question": "Have you noticed any changes in your vision, such as blurriness or seeing spots?",
   "field": "associated_symptoms",
   "quickOptions": ["Yes", "No"]
 }
@@ -543,16 +620,30 @@ Schema 2 (When conversation is complete or 3 questions reached):
 }
 
 Strict Rules:
-- Ask ONLY about clinically relevant missing information for the active complaint.
-- Do NOT ask questions about information already provided (e.g. if duration or symptoms are already known, DO NOT ask them again!).
-- Do NOT introduce an unrelated body system domain (e.g. do NOT ask about difficulty urinating for a traumatic knee injury!).
+- Ask one concise follow-up question about ONLY ONE clinical concept.
+- Ask exactly ONE single clinical concept per question. Do NOT combine multiple symptoms or concepts (e.g. do NOT ask "frequent and urgent need" or "frequent or urgent" - ask ONLY about frequency OR urgency; do NOT ask "fever or stomach pain").
+- For urinary complaints, ask ONE concept at a time, for example: "Have you been urinating more frequently than usual?" or "Have you noticed any blood in your urine?".
+- You may include examples ONLY if they are examples of the SAME clinical concept (for example: "Have you noticed any changes in your vision, such as blurriness or seeing spots?").
+- Do NOT combine multiple independent symptoms in one question (e.g. do NOT ask "Do you have dizziness, vomiting, or weakness?").
+- Ask questions relevant to the patient's current symptoms and active complaint domain.
+- Do NOT ask questions about information already provided (e.g. if duration, severity, or symptoms are already known, DO NOT ask them again!).
+- Do NOT introduce an unrelated body system domain (e.g. do NOT ask about bowel changes for a headache, or urination for a knee injury!).
 - Do NOT repeat previous questions.
+- Prioritize information that materially improves preliminary assessment.
+- Do NOT diagnose.
 - Preserve the patient's anatomical location and mechanism.
 - If no additional useful question is necessary or max questions reached, return Schema 2 (status: "complete").`;
 
-  const userPrompt = `Patient Cumulative Clinical Case:
+  const clinicalProfile = clinicalCaseService.buildClinicalProfile(canonicalCase);
+
+  const userPrompt = `Patient Clinical Profile:
+Primary Complaint: ${clinicalProfile.primaryComplaint}
+Clinical Domain: ${clinicalProfile.clinicalDomain}
+Body Regions: ${clinicalProfile.bodyRegions.join(', ') || 'unspecified'}
+
+Patient Cumulative Clinical Case:
 Positive Symptoms: ${canonicalCase.positiveSymptoms.join(', ') || 'none reported'}
-Negative Findings: ${canonicalCase.negativeFindings.join(', ') || 'none'}
+Negative Findings (NEVER ASK ABOUT OR ASSUME THESE): ${canonicalCase.negativeFindings.join(', ') || 'none'}
 Injury Mechanism / Context: ${canonicalCase.context.join(', ') || 'none'}
 Current Duration: ${canonicalCase.duration || 'unspecified'}
 Current Severity: ${canonicalCase.severity || 'null'}
@@ -564,7 +655,10 @@ Previous Answers: ${previousAnswers.join(' | ') || 'none'}
 Current Question Count: ${currentCount} / 3
 
 Instruction:
-Generate 1 relevant follow-up question (Schema 1) targeting missing clinical information ONLY. Do not re-ask known information or introduce unrelated body systems. If no useful question remains, return Schema 2.
+Generate 1 relevant follow-up question (Schema 1) targeting missing clinical information ONLY.
+STRICT DOMAIN RULE: The question MUST strictly relate to the active Clinical Domain (${clinicalProfile.clinicalDomain}).
+CRITICAL NEGATION RULE: NEVER ask about or assume symptoms that appear in Negative Findings (e.g. if 'no lip swelling' is in Negative Findings, do NOT ask about swelling!).
+If no useful question remains, return Schema 2.
 
 Output JSON:`;
 
@@ -642,9 +736,16 @@ Output JSON:`;
 
       // ONE-ATTEMPT CONTROLLED REGENERATION WITH FEEDBACK
       console.log(`[FOLLOWUP REGENERATION] Attempting controlled retry for rejected question...`);
-      const retryUserPrompt = `${userPrompt}\n\nCRITICAL FEEDBACK:
-Your candidate question "${candidateQ}" was REJECTED because it was ${val.reason} (e.g. asking for already known information or introducing an unrelated body system domain).
+      let retryFeedback = `Your candidate question "${candidateQ}" was REJECTED because it was ${val.reason}.`;
+      if (val.reason === 'ambiguous_multi_concept_question') {
+        retryFeedback = `The previous question "${candidateQ}" contained multiple independent clinical concepts.
+Generate one question about only one clinical concept. You may include examples if they clarify that same single concept, but do not combine independent symptoms.`;
+      } else {
+        retryFeedback = `Your candidate question "${candidateQ}" was REJECTED because it was ${val.reason} (e.g. asking for already known information or introducing an unrelated body system domain).
 Generate ONE different, clinically relevant follow-up question targeting missing information only, or return Schema 2 if no useful question remains.`;
+      }
+
+      const retryUserPrompt = `${userPrompt}\n\nCRITICAL FEEDBACK:\n${retryFeedback}`;
 
       const retryPayload = {
         contents: [
@@ -736,20 +837,211 @@ const getValidatedDeterministicFallback = (symptoms, conversation = [], question
   }
 
   const activeDomains = clinicalCaseService.getComplaintDomains(canonicalCase);
-  const hasSeverity = canonicalCase.severity !== null;
-  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified';
+  const hasSeverity = canonicalCase.severity !== null && canonicalCase.severity !== undefined;
+  const hasDuration = canonicalCase.duration && canonicalCase.duration !== 'unspecified' && canonicalCase.duration !== '';
+
+  const allKnown = [
+    ...(canonicalCase.positiveSymptoms || []),
+    ...(canonicalCase.negativeFindings || []),
+    ...(canonicalCase.context || []),
+    ...(previousQuestions || []),
+  ].map((s) => String(s).toLowerCase());
+
+  const hasKnown = (term) => allKnown.some((k) => k.includes(term.toLowerCase()));
 
   const candidates = [];
 
-  if (!hasDuration) {
-    candidates.push({
-      status: 'ask',
-      question: 'How long have you been experiencing these symptoms?',
-      field: 'duration',
-      quickOptions: ['Today', '1-3 days', 'More than 3 days'],
-    });
+  // Priority 1: Safety-relevant missing concept for current symptom domain (ONE concept at a time)
+  if (activeDomains.has('neurological_heent')) {
+    if (!hasKnown('vision') && !hasKnown('blurr') && !hasKnown('spot')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any changes in your vision?',
+        field: 'vision_changes',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('vomit')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you experienced vomiting?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('dizzy')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you experienced dizziness?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('stiff')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any neck stiffness?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('weakness')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any weakness?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
   }
 
+  if (activeDomains.has('cardiovascular')) {
+    if (!hasKnown('breath') && !hasKnown('breathing')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Are you having any difficulty breathing?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('palpitat') && !hasKnown('racing')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any racing or fluttering heartbeats?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  if (activeDomains.has('dermatology') || activeDomains.has('dermatological')) {
+    if (!hasKnown('spread')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Is the rash spreading to other parts of your body?',
+        field: 'rash_spread',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('pain') && !hasKnown('itch')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Is the rash painful or mainly itchy?',
+        field: 'rash_quality',
+        quickOptions: ['Mainly itchy', 'Painful', 'Both'],
+      });
+    }
+    if (!hasKnown('sudden') && !hasKnown('start')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Did the rash start suddenly?',
+        field: 'rash_onset',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  if (activeDomains.has('musculoskeletal')) {
+    if (!hasKnown('injury')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Did this start after a specific injury or physical activity?',
+        field: 'injury_trigger',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('movement') && !hasKnown('moving') && !hasKnown('worse')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Does moving the joint or area make the pain worse?',
+        field: 'aggravating_factor',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('weight')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Are you able to put weight on the joint?',
+        field: 'difficulty_bearing_weight',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('locking')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any locking in the joint?',
+        field: 'associated_musculoskeletal_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  if (activeDomains.has('respiratory')) {
+    if (!hasKnown('breath') && !hasKnown('breathing')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Are you experiencing shortness of breath or difficulty breathing?',
+        field: 'associated_respiratory_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('wheez')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any wheezing sounds when you breathe?',
+        field: 'associated_respiratory_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  if (activeDomains.has('gastrointestinal')) {
+    if (!hasKnown('vomit')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you experienced vomiting?',
+        field: 'associated_gi_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('blood')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any blood in your stool?',
+        field: 'associated_gi_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  if (activeDomains.has('urinary') || activeDomains.has('urinary_genital')) {
+    if (!hasKnown('frequen') && !hasKnown('often')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Do you feel the need to urinate more often than usual?',
+        field: 'urinary_frequency',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('blood')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any blood in your urine?',
+        field: 'associated_urinary_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('back')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Do you have any back pain?',
+        field: 'associated_urinary_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  // Priority 2: Severity, if missing
   if (!hasSeverity) {
     candidates.push({
       status: 'ask',
@@ -759,42 +1051,105 @@ const getValidatedDeterministicFallback = (symptoms, conversation = [], question
     });
   }
 
-  if (activeDomains.has('musculoskeletal')) {
+  // Priority 3: Duration / onset, if missing
+  if (!hasDuration) {
     candidates.push({
       status: 'ask',
-      question: 'Have you noticed any redness, warmth, or locking in the joint?',
-      field: 'associated_musculoskeletal_symptoms',
-      quickOptions: ['Yes', 'No'],
+      question: 'How long have you been experiencing these symptoms?',
+      field: 'duration',
+      quickOptions: ['Today', '1-3 days', 'More than 3 days'],
     });
   }
 
-  if (activeDomains.has('urinary_genital')) {
-    candidates.push({
-      status: 'ask',
-      question: 'Have you noticed any urinary frequency, urgency, or blood in your urine?',
-      field: 'associated_urinary_symptoms',
-      quickOptions: ['Yes', 'No'],
-    });
+  // Priority 4: Domain-specific associated symptoms
+  if (activeDomains.has('neurological_heent')) {
+    if (!hasKnown('numb') && !hasKnown('tingl')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you experienced any numbness or tingling?',
+        field: 'associated_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  if (activeDomains.has('musculoskeletal')) {
+    if (!hasKnown('swell')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any swelling in the joint?',
+        field: 'associated_musculoskeletal_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('redness')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any redness in the joint?',
+        field: 'associated_musculoskeletal_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
   }
 
   if (activeDomains.has('gastrointestinal')) {
-    candidates.push({
-      status: 'ask',
-      question: 'Have you noticed any changes in your bowel movements or abdominal bloating?',
-      field: 'associated_gi_symptoms',
-      quickOptions: ['Yes', 'No'],
-    });
+    if (!hasKnown('bowel') && !hasKnown('diarrh') && !hasKnown('constipat')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed any changes in your bowel movements?',
+        field: 'associated_gi_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('bloat')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you experienced abdominal bloating?',
+        field: 'associated_gi_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
   }
 
   if (activeDomains.has('respiratory')) {
-    candidates.push({
-      status: 'ask',
-      question: 'Are you having any wheezing, chest tightness, or coughing up phlegm?',
-      field: 'associated_respiratory_symptoms',
-      quickOptions: ['Yes', 'No'],
-    });
+    if (!hasKnown('phlegm') && !hasKnown('sputum')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Are you coughing up phlegm or mucus?',
+        field: 'associated_respiratory_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('tight')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you felt any tightness in your chest?',
+        field: 'associated_respiratory_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
   }
 
+  if (activeDomains.has('urinary_genital')) {
+    if (!hasKnown('frequency') && !hasKnown('urgency')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Have you noticed an increased need to urinate?',
+        field: 'associated_urinary_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+    if (!hasKnown('burning') && !hasKnown('painful')) {
+      candidates.push({
+        status: 'ask',
+        question: 'Do you experience pain or burning when you urinate?',
+        field: 'associated_urinary_symptoms',
+        quickOptions: ['Yes', 'No'],
+      });
+    }
+  }
+
+  // Priority 5: Generic final clarification
   candidates.push({
     status: 'ask',
     question: 'Are you experiencing any other associated symptoms or changes in your condition?',
@@ -875,7 +1230,8 @@ const extractStructuredSummary = async (symptoms, conversation) => {
 module.exports = {
   generateFollowUp,
   validateFollowUpQuestion,
-  getDeterministicFallback,
+  getValidatedDeterministicFallback,
+  getDeterministicFallback: getValidatedDeterministicFallback,
   validateAndFormatSummary,
   parseDurationFromAnswers,
   parseSeverityFromAnswers,

@@ -12,6 +12,7 @@
  */
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const clinicalCaseService = require('./clinicalCaseService');
 
 /**
  * Helper to parse and extract JSON object from raw response text
@@ -148,17 +149,21 @@ Your task is to translate patient symptom descriptions from Sinhala (si), Tamil 
 
 STRICT SAFETY RULES:
 - Do NOT invent, assume, or add medical symptoms that were not explicitly mentioned by the patient.
-- PRESERVE ALL PATIENT-REPORTED SYMPTOMS: Long sentences may contain multiple symptoms (e.g. "painful sore throat", "fever", "headache", "fatigue", "difficulty swallowing", "swollen neck glands", "white patches at back of throat"). All mentioned positive symptoms MUST be preserved.
-- PRESERVE EXACT ANATOMICAL LOCATIONS & QUALIFIERS: (e.g. "lower right abdomen", "swollen neck glands", "white patches at back of throat", "difficulty swallowing", "painful sore throat").
-- PRESERVE DURATION: Extract explicit duration stated in input (e.g. "3 days", "12 hours", "today") into the "duration" field.
-- Extract up to 10 distinct, concise symptom concept phrases (<= 80 chars each) in "symptomConcepts".
+- CRITICAL NEGATION SAFETY RULE:
+  Explicitly negated symptoms (e.g. "මම සිහි නැති වෙලා නැහැ, පපුවේ වේදනාවකුත් නැහැ" -> "I have not fainted, and I do not have chest pain") MUST be placed into "negativeFindings" (e.g. ["no fainting", "no chest pain"]).
+  Negated or denied symptoms must NEVER, under any circumstance, be placed into "positiveSymptoms" or "symptomConcepts".
+- PRESERVE ALL AFFIRMED POSITIVE SYMPTOMS: Extract positive/affirmed symptoms into "positiveSymptoms" and "symptomConcepts".
+- PRESERVE EXACT ANATOMICAL LOCATIONS & QUALIFIERS: (e.g. "light-headedness on standing", "lower right abdomen", "swollen neck glands").
+- PRESERVE DURATION: Extract explicit duration into the "duration" field (e.g. "several days", "3 days", "today").
 
 Respond strictly with JSON:
 {
   "detectedLanguage": "si",
-  "englishText": "Over the past three days I had a painful sore throat with fever, headache, fatigue, and difficulty swallowing. I have noticed swollen neck glands and white patches at the back of my throat.",
-  "symptomConcepts": ["painful sore throat", "fever", "headache", "fatigue", "difficulty swallowing", "swollen neck glands", "white patches at back of throat"],
-  "duration": "3 days"
+  "englishText": "Whenever I stand up I feel light-headed, my heart sometimes beats faster than usual, and I feel weak and tired. I have not fainted and I do not have chest pain.",
+  "positiveSymptoms": ["light-headedness on standing", "palpitations", "weakness", "fatigue"],
+  "negativeFindings": ["no fainting", "no chest pain"],
+  "symptomConcepts": ["light-headedness on standing", "palpitations", "weakness", "fatigue"],
+  "duration": ""
 }`;
 
   const userPrompt = `Source Language Hint: ${sourceLanguage}
@@ -171,26 +176,62 @@ Output JSON:`;
   if (parsed && parsed.englishText) {
     let concepts = Array.isArray(parsed.symptomConcepts)
       ? parsed.symptomConcepts.filter((c) => typeof c === 'string' && c.trim().length > 0)
-      : [];
+      : (Array.isArray(parsed.positiveSymptoms) ? parsed.positiveSymptoms : []);
     
-    if (concepts.length === 0 && parsed.englishText) {
-      concepts = [parsed.englishText.toLowerCase()];
+    let pos = Array.isArray(parsed.positiveSymptoms)
+      ? parsed.positiveSymptoms.filter((c) => typeof c === 'string' && c.trim().length > 0)
+      : concepts;
+
+    let neg = Array.isArray(parsed.negativeFindings)
+      ? parsed.negativeFindings.filter((c) => typeof c === 'string' && c.trim().length > 0)
+      : [];
+
+    // Also run local deterministic negation extractor on cleanInput to guarantee no Sinhala negations were missed
+    const localInitial = clinicalCaseService.extractInitialSymptomsAndContext(cleanInput);
+    localInitial.negativeFindings.forEach((n) => {
+      if (!neg.includes(n)) neg.push(n);
+    });
+
+    // Guard: Remove any negated concept from positive concepts
+    pos = pos.filter((p) => {
+      const pLow = p.toLowerCase();
+      return !neg.some((n) => {
+        const nLow = n.toLowerCase();
+        if (pLow.includes('chest pain')) return nLow.includes('no chest pain');
+        if (pLow.includes('faint')) return nLow.includes('no fainting');
+        return nLow === `no ${pLow}` || nLow.includes(`no ${pLow}`);
+      });
+    });
+    concepts = concepts.filter((c) => pos.includes(c));
+
+    // If pos is empty but localInitial has positive symptoms
+    if (pos.length === 0 && localInitial.positiveSymptoms.length > 0) {
+      pos = localInitial.positiveSymptoms;
+      concepts = localInitial.positiveSymptoms;
     }
+
+    const dur = typeof parsed.duration === 'string' && parsed.duration.trim() ? parsed.duration.trim() : (localInitial.duration || '');
 
     return {
       detectedLanguage: parsed.detectedLanguage || sourceLanguage || 'si',
       englishText: parsed.englishText.trim(),
       symptomConcepts: concepts,
-      duration: typeof parsed.duration === 'string' ? parsed.duration.trim() : '',
+      positiveSymptoms: pos,
+      negativeFindings: neg,
+      duration: dur,
     };
   }
 
   // Fallback if translation API fails or times out
+  const fallbackInitial = clinicalCaseService.extractInitialSymptomsAndContext(cleanInput);
   return {
     detectedLanguage: sourceLanguage || 'en',
     englishText: cleanInput,
-    symptomConcepts: [cleanInput.toLowerCase()],
-    duration: '',
+    symptomConcepts: fallbackInitial.positiveSymptoms.length > 0 ? fallbackInitial.positiveSymptoms : [cleanInput.toLowerCase()],
+    positiveSymptoms: fallbackInitial.positiveSymptoms,
+    negativeFindings: fallbackInitial.negativeFindings,
+    duration: fallbackInitial.duration || '',
+    isFallback: true,
   };
 };
 
@@ -346,8 +387,78 @@ Output JSON:`;
   };
 };
 
+/**
+ * Deterministically normalizes common Sinhala/Tamil follow-up questions to canonical English.
+ */
+const normalizeQuestionTextToEnglish = (questionText = '') => {
+  if (!questionText || typeof questionText !== 'string') return '';
+  const cleanQ = questionText.trim();
+  if (/^[a-zA-Z0-9\s,.?!'\-]+$/.test(cleanQ)) {
+    return cleanQ;
+  }
+
+  const lower = cleanQ.toLowerCase();
+
+  // Multi-concept detection in Sinhala
+  const hasHeadacheSi = lower.includes('හිසේ කැක්කුම') || lower.includes('හිසරදය') || lower.includes('හිස රදය');
+  const hasVisionSi = lower.includes('පෙනීමේ වෙනස') || lower.includes('පෙනීම') || lower.includes('ඇස් පෙනීම') || lower.includes('බලන්න අමාරු');
+  const hasDizzySi = lower.includes('ක්ලාන්ත') || lower.includes('කරකැවිල්ල');
+
+  if (hasHeadacheSi && hasVisionSi) {
+    return 'Do you have headache or vision changes?';
+  }
+  if (hasDizzySi && hasHeadacheSi && hasVisionSi) {
+    return 'Do you experience headache or vision changes when you feel dizzy?';
+  }
+  if (hasDizzySi && (hasHeadacheSi || lower.includes('වමනය'))) {
+    if (lower.includes('වමනය')) return 'Do you have dizziness or vomiting?';
+    return 'Do you have dizziness or headache?';
+  }
+
+  // Single concept Sinhala questions
+  if (lower.includes('පපුවේ වේදනා') || lower.includes('පපුවේ කැක්කුම') || lower.includes('පපුවේ අමාරුව')) {
+    return 'Do you have chest pain?';
+  }
+  if (hasHeadacheSi) {
+    return 'Do you have a headache?';
+  }
+  if (hasVisionSi) {
+    return 'Have you experienced any changes in your vision, such as blurriness or seeing spots?';
+  }
+  if (hasDizzySi) {
+    return 'Have you experienced dizziness?';
+  }
+  if (lower.includes('මුත්රා සමඟ රුධිරය') || lower.includes('මුත්රා වල ලේ') || lower.includes('මුත්රා වල රුධිරය') || lower.includes('රුධිරය පිටවීමක්') || lower.includes('இரத்தம்') || lower.includes('சிறுநீரில் இரத்தம்')) {
+    return 'Have you noticed any blood in your urine?';
+  }
+  if (lower.includes('නිතර මුත්රා') || lower.includes('නිතරම මුත්රා') || lower.includes('අடிக்கடி சிறுநீர்')) {
+    return 'Do you feel the need to urinate more often than usual?';
+  }
+  if ((lower.includes('ඇවිදීමේ') || lower.includes('ඇවිදින')) && (lower.includes('සමබර') || lower.includes('අපහසු')) || lower.includes('සමබරතාවය') || lower.includes('சமநிலை') || lower.includes('நடப்பதில்')) {
+    return 'Have you noticed any difficulty with your balance or walking?';
+  }
+  if (lower.includes('කොපමණ කාලයක්') || lower.includes('කොච්චර කල්') || lower.includes('කවදා සිට') || lower.includes('කාලයක් තිස්සේ')) {
+    return 'How long have you been experiencing this?';
+  }
+  if (lower.includes('උණ')) {
+    return 'Do you have a fever?';
+  }
+  if (lower.includes('වමනය')) {
+    return 'Have you been vomiting?';
+  }
+  if (lower.includes('හුස්ම')) {
+    return 'Do you have difficulty breathing?';
+  }
+  if (lower.includes('බඩේ කැක්කුම') || lower.includes('බඩේ අමාරුව')) {
+    return 'Do you have abdominal pain?';
+  }
+
+  return cleanQ;
+};
+
 module.exports = {
   translateInputToCanonicalEnglish,
   translateFollowUpQuestion,
   translateAnalysisResult,
+  normalizeQuestionTextToEnglish,
 };

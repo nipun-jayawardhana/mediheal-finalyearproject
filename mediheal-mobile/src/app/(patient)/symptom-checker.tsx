@@ -54,6 +54,9 @@ export default function SymptomCheckerScreen() {
   const [conversation, setConversation] = useState<SymptomConversationTurn[]>([]);
   const [questionCount, setQuestionCount] = useState<number>(0);
   const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [currentCanonicalQuestion, setCurrentCanonicalQuestion] = useState<string>('');
+  const [currentClinicalConcept, setCurrentClinicalConcept] = useState<string>('');
+  const [activeCanonicalCase, setActiveCanonicalCase] = useState<SymptomSummaryData | null>(null);
   const [currentQuickOptions, setCurrentQuickOptions] = useState<string[]>([]);
   const [answerInput, setAnswerInput] = useState<string>('');
 
@@ -240,8 +243,16 @@ export default function SymptomCheckerScreen() {
           setEmergencyWarning(res.data.emergencyWarning || 'High risk symptoms detected! Seek immediate medical attention.');
         }
 
-        if (res.data.status === 'ask' && res.data.question) {
-          setCurrentQuestion(res.data.question);
+        if (res.data.status === 'ask' && (res.data.question || res.data.displayQuestion)) {
+          const dispQ = res.data.displayQuestion || res.data.question || '';
+          const canQ = res.data.canonicalQuestion || res.data.question || '';
+          const cConcept = res.data.clinicalConcept || '';
+          setCurrentQuestion(dispQ);
+          setCurrentCanonicalQuestion(canQ);
+          setCurrentClinicalConcept(cConcept);
+          if (res.data.canonicalCase) {
+            setActiveCanonicalCase(res.data.canonicalCase);
+          }
           setCurrentQuickOptions(res.data.quickOptions || []);
           setQuestionCount(1);
           setStepMode('conversing');
@@ -286,6 +297,11 @@ export default function SymptomCheckerScreen() {
     const updatedTurn: SymptomConversationTurn = {
       question: currentQuestion,
       answer: finalAnswer,
+      originalQuestion: currentQuestion,
+      originalAnswer: finalAnswer,
+      canonicalQuestion: currentCanonicalQuestion || currentQuestion,
+      canonicalAnswer: finalAnswer,
+      clinicalConcept: currentClinicalConcept || '',
     };
     const newHistory = [...conversation, updatedTurn];
     setConversation(newHistory);
@@ -302,6 +318,12 @@ export default function SymptomCheckerScreen() {
         conversation: newHistory,
         questionCount: newQCount,
         language,
+        canonicalCase: activeCanonicalCase || undefined,
+        positiveSymptoms: activeCanonicalCase?.positiveSymptoms || activeCanonicalCase?.symptoms,
+        negativeFindings: activeCanonicalCase?.negativeFindings,
+        context: activeCanonicalCase?.context,
+        duration: activeCanonicalCase?.duration,
+        severity: activeCanonicalCase?.severity,
       });
 
       if (res && res.success && res.data) {
@@ -312,8 +334,16 @@ export default function SymptomCheckerScreen() {
           }
         }
 
-        if (res.data.status === 'ask' && res.data.question && newQCount < 3) {
-          setCurrentQuestion(res.data.question);
+        if (res.data.status === 'ask' && (res.data.question || res.data.displayQuestion) && newQCount < 3) {
+          const nextDispQ = res.data.displayQuestion || res.data.question || '';
+          const nextCanQ = res.data.canonicalQuestion || res.data.question || '';
+          const nextConcept = res.data.clinicalConcept || '';
+          setCurrentQuestion(nextDispQ);
+          setCurrentCanonicalQuestion(nextCanQ);
+          setCurrentClinicalConcept(nextConcept);
+          if (res.data.canonicalCase) {
+            setActiveCanonicalCase(res.data.canonicalCase);
+          }
           setCurrentQuickOptions(res.data.quickOptions || []);
           setQuestionCount(newQCount + 1);
         } else {

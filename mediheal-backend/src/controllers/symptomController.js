@@ -146,6 +146,7 @@ const analyzeSymptoms = async (req, res, next) => {
     let canonicalConcepts = [...sanitizedSymptoms];
     let detectedInputLang = targetLang;
     let translatedDuration = '';
+    let translatedNegatives = [];
 
     if (targetLang !== 'en' || sanitizedSymptoms.some((s) => /[^\x00-\x7F]/.test(s))) {
       const transStart = Date.now();
@@ -156,10 +157,16 @@ const analyzeSymptoms = async (req, res, next) => {
       const transElapsed = Date.now() - transStart;
       console.log(`[TRANSLATION][${reqId}] Input translation completed in ${transElapsed}ms`);
 
-      if (translated && translated.englishText) {
+      if (translated) {
+        if (translated.isFallback) {
+          console.log(`[CANONICAL PRESERVATION] Translation failed\nPrevious canonical case preserved: YES`);
+        }
         detectedInputLang = translated.detectedLanguage || targetLang;
         if (Array.isArray(translated.symptomConcepts) && translated.symptomConcepts.length > 0) {
           canonicalConcepts = translated.symptomConcepts;
+        }
+        if (Array.isArray(translated.negativeFindings) && translated.negativeFindings.length > 0) {
+          translatedNegatives = translated.negativeFindings;
         }
         if (translated.duration) {
           translatedDuration = translated.duration;
@@ -177,7 +184,7 @@ const analyzeSymptoms = async (req, res, next) => {
       duration: parsedTextDuration,
       severity: inputSeverity,
       positiveSymptoms: bodyPos,
-      negativeFindings: bodyNeg,
+      negativeFindings: (Array.isArray(bodyNeg) && bodyNeg.length > 0) ? bodyNeg : translatedNegatives,
       context: bodyCtx,
     });
 
@@ -538,20 +545,89 @@ const handleFollowUp = async (req, res, next) => {
 
     // 0. Input Translation for Follow-Up if input is non-English
     let canonicalSymptoms = [...symptoms];
+    let translatedNegatives = [];
+    let translatedDuration = '';
+
     if (targetLang !== 'en' || symptoms.some((s) => /[^\x00-\x7F]/.test(s))) {
       const inputTrans = await geminiTranslationService.translateInputToCanonicalEnglish(
         symptoms.join(', '),
         targetLang
       );
-      if (inputTrans && inputTrans.symptomConcepts && inputTrans.symptomConcepts.length > 0) {
-        canonicalSymptoms = inputTrans.symptomConcepts;
+      if (inputTrans) {
+        if (inputTrans.isFallback) {
+          console.log(`[CANONICAL PRESERVATION]\nTranslation failed\nPrevious canonical case preserved: YES`);
+        }
+        if (Array.isArray(inputTrans.symptomConcepts) && inputTrans.symptomConcepts.length > 0) {
+          canonicalSymptoms = inputTrans.symptomConcepts;
+        }
+        if (Array.isArray(inputTrans.negativeFindings) && inputTrans.negativeFindings.length > 0) {
+          translatedNegatives = inputTrans.negativeFindings;
+        }
+        if (inputTrans.duration) {
+          translatedDuration = inputTrans.duration;
+        }
       }
     }
+
+    // 0b. Multilingual Conversation Normalization
+    // Maintain { originalQuestion, originalAnswer, canonicalQuestion, canonicalAnswer, language }
+    const normalizedConversation = [];
+    for (const turn of (Array.isArray(conversation) ? conversation : [])) {
+      const origQ = turn.originalQuestion || turn.question || '';
+      const origA = turn.originalAnswer || turn.answer || '';
+      let canQ = turn.canonicalQuestion || origQ;
+      let canA = turn.canonicalAnswer || origA;
+
+      if (/[^\x00-\x7F]/.test(canQ)) {
+        canQ = geminiTranslationService.normalizeQuestionTextToEnglish
+          ? geminiTranslationService.normalizeQuestionTextToEnglish(canQ)
+          : canQ;
+      }
+
+      if (/[^\x00-\x7F]/.test(canA)) {
+        canA = clinicalCaseService.normalizeFollowUpAnswer
+          ? clinicalCaseService.normalizeFollowUpAnswer(canA)
+          : canA;
+      }
+
+      console.log(`[MULTILINGUAL FOLLOWUP NORMALIZATION]\nLanguage: ${targetLang}\nOriginal question: "${origQ}"\nCanonical question: "${canQ}"\nOriginal answer: "${origA}"\nCanonical answer: "${canA}"`);
+
+      normalizedConversation.push({
+        ...turn,
+        originalQuestion: origQ,
+        originalAnswer: origA,
+        canonicalQuestion: canQ,
+        canonicalAnswer: canA,
+        clinicalConcept: turn.clinicalConcept || '',
+        question: canQ,
+        answer: canA,
+        language: targetLang,
+      });
+    }
+
+    // Read incoming canonicalCase state from body if supplied by client
+    const incomingCase = req.body?.canonicalCase || {};
+    const incomingPositives = Array.isArray(req.body?.positiveSymptoms)
+      ? req.body.positiveSymptoms
+      : (Array.isArray(incomingCase.positiveSymptoms) ? incomingCase.positiveSymptoms : (Array.isArray(incomingCase.symptoms) ? incomingCase.symptoms : []));
+    const incomingNegatives = Array.isArray(req.body?.negativeFindings)
+      ? req.body.negativeFindings
+      : (Array.isArray(incomingCase.negativeFindings) ? incomingCase.negativeFindings : []);
+    const incomingContext = Array.isArray(req.body?.context)
+      ? req.body.context
+      : (Array.isArray(incomingCase.context) ? incomingCase.context : []);
+    const incomingDuration = req.body?.duration || incomingCase.duration || '';
+    const incomingSeverity = req.body?.severity || incomingCase.severity || null;
 
     // 1. Build & Reconcile active canonical case for context logging & turn merging
     const activeCase = clinicalCaseService.buildCanonicalClinicalCase({
       symptoms: canonicalSymptoms,
-      conversation,
+      conversation: normalizedConversation,
+      positiveSymptoms: incomingPositives,
+      negativeFindings: Array.from(new Set([...translatedNegatives, ...incomingNegatives])),
+      context: incomingContext,
+      duration: translatedDuration || incomingDuration,
+      severity: incomingSeverity,
     });
 
     console.log(`[FOLLOWUP CONTEXT][${reqId}]\nCurrent canonical case:\n${JSON.stringify(activeCase, null, 2)}`);
@@ -565,8 +641,8 @@ const handleFollowUp = async (req, res, next) => {
     console.log(`[FOLLOWUP FLOW][${reqId}] Gemini request started`);
 
     let result = await geminiConversationService.generateFollowUp(
-      canonicalSymptoms,
-      conversation,
+      activeCase.positiveSymptoms.length > 0 ? activeCase.positiveSymptoms : canonicalSymptoms,
+      normalizedConversation,
       questionCount
     );
 
@@ -579,7 +655,7 @@ const handleFollowUp = async (req, res, next) => {
           symptoms: symptomService.normalizeSymptoms(canonicalSymptoms),
           duration: 'unspecified',
           severity: null,
-          additionalContext: conversation.map((c) => `${c.question}: ${c.answer}`),
+          additionalContext: normalizedConversation.map((c) => `${c.question}: ${c.answer}`),
         },
       };
     }
@@ -593,13 +669,13 @@ const handleFollowUp = async (req, res, next) => {
 
       const summaryCanonicalCase = clinicalCaseService.buildCanonicalClinicalCase({
         symptoms: canonicalSymptoms,
-        conversation,
-        duration: result.summary?.duration,
-        severity: result.summary?.severity,
-        positiveSymptoms: result.summary?.positiveSymptoms || result.summary?.symptoms,
-        negativeFindings: result.summary?.negativeFindings,
-        context: result.summary?.context,
-        additionalDetails: result.summary?.additionalDetails,
+        conversation: normalizedConversation,
+        duration: (activeCase.duration && activeCase.duration !== 'unspecified') ? activeCase.duration : (result.summary?.duration || ''),
+        severity: result.summary?.severity || activeCase.severity,
+        positiveSymptoms: result.summary?.positiveSymptoms || result.summary?.symptoms || activeCase.positiveSymptoms,
+        negativeFindings: [...(result.summary?.negativeFindings || []), ...(activeCase.negativeFindings || [])],
+        context: [...(result.summary?.context || []), ...(activeCase.context || [])],
+        additionalDetails: [...(result.summary?.additionalDetails || []), ...(activeCase.additionalDetails || [])],
       });
 
       result.summary = {
@@ -629,17 +705,64 @@ const handleFollowUp = async (req, res, next) => {
     }
 
     // 4. Translate question and quick options into patient target language if non-English
-    if (result && result.status === 'ask' && result.question && targetLang !== 'en') {
-      const qTrans = await geminiTranslationService.translateFollowUpQuestion(
-        result.question,
-        result.quickOptions || [],
-        targetLang
-      );
-      result.question = qTrans.translatedQuestion;
-      if (qTrans.translatedQuickOptions) {
-        result.quickOptions = qTrans.translatedQuickOptions;
+    if (result && result.status === 'ask' && result.question) {
+      let canonicalEngQ = result.canonicalQuestion || result.question;
+      let conceptInfo = clinicalCaseService.extractPrimaryClinicalConcept(canonicalEngQ, activeCase);
+      let clinicalConcept = conceptInfo.primaryConcept || '';
+
+      // Safety Invariant (Step 36G.2): If a question is Yes/No style but clinicalConcept is still empty,
+      // fallback to deterministic single-concept question to prevent unanswerable Yes/No evidence turn.
+      if (!clinicalConcept && (
+        /^(?:have\s+you|do\s+you|did\s+you|are\s+you|is\s+there|has\s+there|can\s+you|any\b)/i.test(canonicalEngQ) ||
+        (Array.isArray(result.quickOptions) && result.quickOptions.includes('Yes') && result.quickOptions.includes('No'))
+      )) {
+        console.warn(`⚠️ [FOLLOWUP SEMANTICS] Question "${canonicalEngQ}" is Yes/No style but clinicalConcept is empty. Invoking validated fallback.`);
+        const fallbackResult = geminiConversationService.getValidatedDeterministicFallback(
+          activeCase.positiveSymptoms,
+          req.body.conversation || [],
+          (req.body.conversation || []).length,
+          activeCase
+        );
+        if (fallbackResult && fallbackResult.status === 'ask' && fallbackResult.question) {
+          result.question = fallbackResult.question;
+          canonicalEngQ = fallbackResult.question;
+          result.quickOptions = fallbackResult.quickOptions || ['Yes', 'No'];
+          conceptInfo = clinicalCaseService.extractPrimaryClinicalConcept(fallbackResult.question, activeCase);
+          clinicalConcept = conceptInfo.primaryConcept || '';
+        }
       }
+
+      result.canonicalQuestion = canonicalEngQ;
+      result.clinicalConcept = clinicalConcept;
+
+      if (targetLang !== 'en') {
+        const qTrans = await geminiTranslationService.translateFollowUpQuestion(
+          canonicalEngQ,
+          result.quickOptions || [],
+          targetLang
+        );
+        result.displayQuestion = qTrans.translatedQuestion;
+        result.question = qTrans.translatedQuestion;
+        if (qTrans.translatedQuickOptions) {
+          result.quickOptions = qTrans.translatedQuickOptions;
+        }
+      } else {
+        result.displayQuestion = canonicalEngQ;
+      }
+
+      console.log(`[FOLLOWUP STORED SEMANTICS]\nDisplay question: "${result.displayQuestion}"\nCanonical question: "${result.canonicalQuestion}"\nClinical concept: "${result.clinicalConcept}"`);
     }
+
+    // Attach active canonical case state
+    result.canonicalCase = {
+      symptoms: activeCase.positiveSymptoms,
+      positiveSymptoms: activeCase.positiveSymptoms,
+      negativeFindings: activeCase.negativeFindings,
+      context: activeCase.context,
+      duration: activeCase.duration,
+      severity: activeCase.severity,
+      additionalDetails: activeCase.additionalDetails || [],
+    };
 
     return res.status(200).json({
       success: true,

@@ -97,6 +97,11 @@ export interface SymptomCheckDetailResponse {
 export interface SymptomConversationTurn {
   question: string;
   answer: string;
+  originalQuestion?: string;
+  originalAnswer?: string;
+  canonicalQuestion?: string;
+  canonicalAnswer?: string;
+  clinicalConcept?: string;
 }
 
 export interface SymptomFollowUpRequest {
@@ -104,6 +109,12 @@ export interface SymptomFollowUpRequest {
   conversation: SymptomConversationTurn[];
   questionCount: number;
   language?: string;
+  canonicalCase?: SymptomSummaryData;
+  positiveSymptoms?: string[];
+  negativeFindings?: string[];
+  context?: string[];
+  duration?: string;
+  severity?: SeverityLevel | null;
 }
 
 export interface SymptomSummaryData {
@@ -120,6 +131,10 @@ export interface SymptomSummaryData {
 export interface SymptomFollowUpResponseData {
   status: 'ask' | 'complete' | 'emergency';
   question?: string;
+  displayQuestion?: string;
+  canonicalQuestion?: string;
+  clinicalConcept?: string;
+  canonicalCase?: SymptomSummaryData;
   field?: string;
   quickOptions?: string[];
   summary?: SymptomSummaryData;
