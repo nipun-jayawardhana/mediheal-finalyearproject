@@ -14,12 +14,14 @@ import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { addMedicationForPatient } from '../../services/caregiverService';
 
 export default function CaregiverAddMedicationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ patientId?: string }>();
   const { isDark, colors: themeColors } = useTheme();
+  const { t } = useLanguage();
 
   // Default dates
   const defaultToday = useMemo(() => {
@@ -47,7 +49,7 @@ export default function CaregiverAddMedicationScreen() {
     const clean = newTimeInput.trim();
     if (!clean) return;
     if (timeSlots.includes(clean)) {
-      Alert.alert('Duplicate Time', 'This time slot is already in the schedule.');
+      Alert.alert(t('duplicateTimeTitle'), t('duplicateTimeMsg'));
       return;
     }
     setTimeSlots((prev) => [...prev, clean]);
@@ -56,7 +58,7 @@ export default function CaregiverAddMedicationScreen() {
 
   const handleRemoveTimeSlot = (slotToRemove: string) => {
     if (timeSlots.length <= 1) {
-      Alert.alert('Validation Error', 'At least one time slot is required.');
+      Alert.alert(t('error'), t('atLeastOneTimeSlot'));
       return;
     }
     setTimeSlots((prev) => prev.filter((s) => s !== slotToRemove));
@@ -64,7 +66,7 @@ export default function CaregiverAddMedicationScreen() {
 
   const handleSubmit = async () => {
     if (!params.patientId) {
-      Alert.alert('Error', 'Patient ID reference is missing.');
+      Alert.alert(t('error'), t('patientIdMissing'));
       return;
     }
 
@@ -73,27 +75,27 @@ export default function CaregiverAddMedicationScreen() {
     const cleanFreq = frequency.trim();
 
     if (!cleanName) {
-      Alert.alert('Validation Error', 'Medicine name is required.');
+      Alert.alert(t('error'), t('medNameRequired'));
       return;
     }
     if (!cleanDosage) {
-      Alert.alert('Validation Error', 'Dosage is required.');
+      Alert.alert(t('error'), t('dosageRequired'));
       return;
     }
     if (!cleanFreq) {
-      Alert.alert('Validation Error', 'Frequency is required.');
+      Alert.alert(t('error'), t('frequencyRequired'));
       return;
     }
     if (timeSlots.length === 0) {
-      Alert.alert('Validation Error', 'At least one time slot is required.');
+      Alert.alert(t('error'), t('atLeastOneTimeSlot'));
       return;
     }
     if (!startDate) {
-      Alert.alert('Validation Error', 'Start date is required.');
+      Alert.alert(t('error'), t('startDateRequired'));
       return;
     }
     if (!endDate) {
-      Alert.alert('Validation Error', 'End date is required by backend contract.');
+      Alert.alert(t('error'), t('endDateRequired'));
       return;
     }
 
@@ -112,13 +114,13 @@ export default function CaregiverAddMedicationScreen() {
       });
 
       if (res && res.success) {
-        Alert.alert('Medication Saved', `Prescription for ${cleanName} has been added successfully.`);
+        Alert.alert(t('medicationSavedTitle'), t('medicationSavedSuccess').replace('{name}', cleanName));
         router.back();
       } else {
-        Alert.alert('Error', res.message || 'Failed to add medication.');
+        Alert.alert(t('error'), res.message || 'Failed to add medication.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to save medication record.');
+      Alert.alert(t('error'), err.message || 'Unable to save medication record.');
     } finally {
       setSubmitting(false);
     }
@@ -127,15 +129,15 @@ export default function CaregiverAddMedicationScreen() {
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Add Medication"
-        subtitle="Prescription & Dose Schedule"
+        title={t('addMedicationTitle')}
+        subtitle={t('prescriptionDoseSchedule')}
         onBackPress={() => router.back()}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Medicine Name */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Medication Name *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('medicationNameLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -145,7 +147,7 @@ export default function CaregiverAddMedicationScreen() {
                 borderColor: themeColors.border,
               },
             ]}
-            placeholder="e.g. Amlodipine or Lisinopril"
+            placeholder={t('medNamePlaceholder')}
             placeholderTextColor={themeColors.textMuted}
             value={medicineName}
             onChangeText={setMedicineName}
@@ -154,7 +156,7 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Dosage */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dosage *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('dosageLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -164,7 +166,7 @@ export default function CaregiverAddMedicationScreen() {
                 borderColor: themeColors.border,
               },
             ]}
-            placeholder="e.g. 5mg - 1 Tablet"
+            placeholder={t('dosagePlaceholder')}
             placeholderTextColor={themeColors.textMuted}
             value={dosage}
             onChangeText={setDosage}
@@ -173,7 +175,7 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Frequency */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Frequency / Schedule *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('frequencyScheduleLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -183,7 +185,7 @@ export default function CaregiverAddMedicationScreen() {
                 borderColor: themeColors.border,
               },
             ]}
-            placeholder="e.g. Daily / Twice Daily"
+            placeholder={t('freqPlaceholder')}
             placeholderTextColor={themeColors.textMuted}
             value={frequency}
             onChangeText={setFrequency}
@@ -192,7 +194,7 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Time Slots Section */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dose Schedule Times (24h format) *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('doseScheduleTimesLabel')}</Text>
           
           <View style={styles.timeSlotsRow}>
             {timeSlots.map((slot) => (
@@ -227,7 +229,7 @@ export default function CaregiverAddMedicationScreen() {
                   borderColor: themeColors.border,
                 },
               ]}
-              placeholder="e.g. 14:00"
+              placeholder={t('timePlaceholder')}
               placeholderTextColor={themeColors.textMuted}
               value={newTimeInput}
               onChangeText={setNewTimeInput}
@@ -236,7 +238,7 @@ export default function CaregiverAddMedicationScreen() {
               style={[styles.addTimeBtn, { backgroundColor: themeColors.primary }]}
               onPress={handleAddTimeSlot}
             >
-              <Text style={styles.addTimeBtnText}>+ Add Time</Text>
+              <Text style={styles.addTimeBtnText}>{t('addTimeBtn')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -244,7 +246,7 @@ export default function CaregiverAddMedicationScreen() {
         {/* Start & End Dates */}
         <View style={styles.datesRow}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Start Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('startDateLabel')}</Text>
             <TextInput
               style={[
                 styles.textInput,
@@ -262,7 +264,7 @@ export default function CaregiverAddMedicationScreen() {
           </View>
 
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>End Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('endDateLabel')}</Text>
             <TextInput
               style={[
                 styles.textInput,
@@ -282,7 +284,7 @@ export default function CaregiverAddMedicationScreen() {
 
         {/* Instructions */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Special Instructions</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('specialInstructionsLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -293,7 +295,7 @@ export default function CaregiverAddMedicationScreen() {
                 borderColor: themeColors.border,
               },
             ]}
-            placeholder="e.g. Blood Pressure - Take after breakfast with warm water"
+            placeholder={t('instructionsPlaceholder')}
             placeholderTextColor={themeColors.textMuted}
             value={instructions}
             onChangeText={setInstructions}
@@ -306,13 +308,13 @@ export default function CaregiverAddMedicationScreen() {
         {/* Form Action Buttons */}
         <View style={styles.actionRow}>
           <AppButton
-            title="Cancel"
+            title={t('cancel')}
             onPress={() => router.back()}
             variant="outline"
             style={styles.cancelBtn}
           />
           <AppButton
-            title={submitting ? 'Saving...' : 'Save Medication'}
+            title={submitting ? t('saving') : t('saveMedicationBtn')}
             onPress={handleSubmit}
             variant="primary"
             disabled={submitting}

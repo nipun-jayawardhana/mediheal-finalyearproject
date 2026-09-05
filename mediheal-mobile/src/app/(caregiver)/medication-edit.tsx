@@ -16,6 +16,7 @@ import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   getPatientMedications,
   updateMedication,
@@ -26,6 +27,7 @@ export default function CaregiverEditMedicationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; patientId?: string }>();
   const { isDark, colors: themeColors } = useTheme();
+  const { t } = useLanguage();
 
   const [medicineName, setMedicineName] = useState<string>('');
   const [dosage, setDosage] = useState<string>('');
@@ -42,7 +44,7 @@ export default function CaregiverEditMedicationScreen() {
 
   const fetchMedication = useCallback(async () => {
     if (!params.id || !params.patientId) {
-      setErrorMsg('Medication ID or Patient ID is missing.');
+      setErrorMsg(t('patientIdMissing'));
       setLoading(false);
       return;
     }
@@ -63,7 +65,7 @@ export default function CaregiverEditMedicationScreen() {
           setEndDate(med.endDate ? med.endDate.split('T')[0] : '');
           setInstructions(med.instructions || '');
         } else {
-          setErrorMsg('Medication record not found.');
+          setErrorMsg(t('patientDetailsUnavailable'));
         }
       } else {
         setErrorMsg('Failed to load medication details.');
@@ -73,7 +75,7 @@ export default function CaregiverEditMedicationScreen() {
     } finally {
       setLoading(false);
     }
-  }, [params.id, params.patientId]);
+  }, [params.id, params.patientId, t]);
 
   useEffect(() => {
     fetchMedication();
@@ -83,7 +85,7 @@ export default function CaregiverEditMedicationScreen() {
     const clean = newTimeInput.trim();
     if (!clean) return;
     if (timeSlots.includes(clean)) {
-      Alert.alert('Duplicate Time', 'This time slot is already in the schedule.');
+      Alert.alert(t('duplicateTimeTitle'), t('duplicateTimeMsg'));
       return;
     }
     setTimeSlots((prev) => [...prev, clean]);
@@ -92,7 +94,7 @@ export default function CaregiverEditMedicationScreen() {
 
   const handleRemoveTimeSlot = (slotToRemove: string) => {
     if (timeSlots.length <= 1) {
-      Alert.alert('Validation Error', 'At least one time slot is required.');
+      Alert.alert(t('error'), t('atLeastOneTimeSlot'));
       return;
     }
     setTimeSlots((prev) => prev.filter((s) => s !== slotToRemove));
@@ -106,7 +108,7 @@ export default function CaregiverEditMedicationScreen() {
     const cleanFreq = frequency.trim();
 
     if (!cleanName || !cleanDosage || !cleanFreq || timeSlots.length === 0) {
-      Alert.alert('Validation Error', 'Please complete all required fields.');
+      Alert.alert(t('error'), t('completeRequiredFields'));
       return;
     }
 
@@ -124,13 +126,13 @@ export default function CaregiverEditMedicationScreen() {
       });
 
       if (res && res.success) {
-        Alert.alert('Medication Updated', 'Medication details saved successfully.');
+        Alert.alert(t('medicationUpdatedTitle'), t('medicationUpdatedSuccess'));
         router.back();
       } else {
-        Alert.alert('Error', res.message || 'Failed to update medication.');
+        Alert.alert(t('error'), res.message || 'Failed to update medication.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to update medication record.');
+      Alert.alert(t('error'), err.message || 'Unable to update medication record.');
     } finally {
       setSubmitting(false);
     }
@@ -140,12 +142,12 @@ export default function CaregiverEditMedicationScreen() {
     if (!params.id) return;
 
     Alert.alert(
-      'Deactivate Medication',
-      `Deactivate prescription schedule for ${medicineName}? This marks the medication inactive.`,
+      t('deactivateMedicationTitle'),
+      t('deactivateMedicationConfirm').replace('{name}', medicineName),
       [
-        { text: 'Keep Active', style: 'cancel' },
+        { text: t('keepActive'), style: 'cancel' },
         {
-          text: 'Deactivate',
+          text: t('deactivate'),
           style: 'destructive',
           onPress: performDeactivate,
         },
@@ -160,26 +162,26 @@ export default function CaregiverEditMedicationScreen() {
     try {
       const res = await deactivateMedication(params.id);
       if (res && res.success) {
-        Alert.alert('Schedule Deactivated', 'Medication schedule deactivated successfully.');
+        Alert.alert(t('scheduleDeactivatedTitle'), t('scheduleDeactivatedSuccess'));
         router.back();
       } else {
-        Alert.alert('Error', res.message || 'Failed to deactivate schedule.');
+        Alert.alert(t('error'), res.message || 'Failed to deactivate schedule.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to deactivate schedule.');
+      Alert.alert(t('error'), err.message || 'Unable to deactivate schedule.');
     } finally {
       setDeactivating(false);
     }
   };
 
   if (loading) {
-    return <LoadingView message="Loading medication details..." />;
+    return <LoadingView message={t('loadingMedicationDetails')} />;
   }
 
   if (errorMsg) {
     return (
       <ScreenContainer backgroundColor={themeColors.background}>
-        <AppHeader title="Edit Medication" onBackPress={() => router.back()} />
+        <AppHeader title={t('editMedicationTitle')} onBackPress={() => router.back()} />
         <ErrorView message={errorMsg} onRetry={fetchMedication} />
       </ScreenContainer>
     );
@@ -188,15 +190,15 @@ export default function CaregiverEditMedicationScreen() {
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Edit Medication"
-        subtitle="Modify Prescription Schedule"
+        title={t('editMedicationTitle')}
+        subtitle={t('modifyPrescriptionSchedule')}
         onBackPress={() => router.back()}
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Medicine Name */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Medication Name *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('medicationNameLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -214,7 +216,7 @@ export default function CaregiverEditMedicationScreen() {
 
         {/* Dosage */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dosage *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('dosageLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -232,7 +234,7 @@ export default function CaregiverEditMedicationScreen() {
 
         {/* Frequency */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Frequency / Schedule *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('frequencyScheduleLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -250,7 +252,7 @@ export default function CaregiverEditMedicationScreen() {
 
         {/* Time Slots Section */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Dose Schedule Times (24h format) *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('doseScheduleTimesLabel')}</Text>
           
           <View style={styles.timeSlotsRow}>
             {timeSlots.map((slot) => (
@@ -285,7 +287,7 @@ export default function CaregiverEditMedicationScreen() {
                   borderColor: themeColors.border,
                 },
               ]}
-              placeholder="e.g. 14:00"
+              placeholder={t('timePlaceholder')}
               placeholderTextColor={themeColors.textMuted}
               value={newTimeInput}
               onChangeText={setNewTimeInput}
@@ -294,7 +296,7 @@ export default function CaregiverEditMedicationScreen() {
               style={[styles.addTimeBtn, { backgroundColor: themeColors.primary }]}
               onPress={handleAddTimeSlot}
             >
-              <Text style={styles.addTimeBtnText}>+ Add Time</Text>
+              <Text style={styles.addTimeBtnText}>{t('addTimeBtn')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -302,7 +304,7 @@ export default function CaregiverEditMedicationScreen() {
         {/* Start & End Dates */}
         <View style={styles.datesRow}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Start Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('startDateLabel')}</Text>
             <TextInput
               style={[
                 styles.textInput,
@@ -319,7 +321,7 @@ export default function CaregiverEditMedicationScreen() {
           </View>
 
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>End Date *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('endDateLabel')}</Text>
             <TextInput
               style={[
                 styles.textInput,
@@ -338,7 +340,7 @@ export default function CaregiverEditMedicationScreen() {
 
         {/* Instructions */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Special Instructions</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('specialInstructionsLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -361,7 +363,7 @@ export default function CaregiverEditMedicationScreen() {
         {/* Form Action Buttons */}
         <View style={styles.actionRow}>
           <AppButton
-            title={submitting ? 'Saving...' : 'Save Changes'}
+            title={submitting ? t('saving') : t('saveChanges')}
             onPress={handleSubmit}
             variant="primary"
             disabled={submitting || deactivating}
@@ -382,7 +384,7 @@ export default function CaregiverEditMedicationScreen() {
           disabled={deactivating || submitting}
         >
           <Text style={[styles.deactivateBtnText, { color: themeColors.danger }]}>
-            {deactivating ? 'Deactivating...' : '⛔ Deactivate Medication Schedule'}
+            {deactivating ? t('deactivating') : t('deactivateMedicationBtn')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

@@ -13,11 +13,13 @@ import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { linkPatient } from '../../services/caregiverService';
 
 export default function LinkPatientScreen() {
   const router = useRouter();
   const { isDark, colors: themeColors } = useTheme();
+  const { t } = useLanguage();
 
   const [linkCode, setLinkCode] = useState<string>('');
   const [relationship, setRelationship] = useState<string>('Family Caregiver');
@@ -28,12 +30,12 @@ export default function LinkPatientScreen() {
     const cleanRel = relationship.trim();
 
     if (!cleanCode) {
-      Alert.alert('Validation Error', 'Please enter a valid caregiver link code.');
+      Alert.alert(t('error'), t('enterValidLinkCode'));
       return;
     }
 
     if (!cleanRel) {
-      Alert.alert('Validation Error', 'Please specify your relationship to the patient.');
+      Alert.alert(t('error'), t('specifyRelationship'));
       return;
     }
 
@@ -47,27 +49,27 @@ export default function LinkPatientScreen() {
 
       if (res && res.success) {
         Alert.alert(
-          'Patient Linked Successfully',
-          `You are now linked to ${res.data?.patient?.fullName || 'the patient'}. You can now view care plans and emergency alerts.`
+          t('patientLinkedSuccessTitle'),
+          t('patientLinkedSuccessMsg').replace('{name}', res.data?.patient?.fullName || 'the patient')
         );
         router.replace('/(caregiver)' as any);
       } else {
-        Alert.alert('Link Error', res.message || 'Unable to link patient.');
+        Alert.alert(t('error'), res.message || 'Unable to link patient.');
       }
     } catch (err: any) {
       const errMsg = err.message || 'Failed to process patient link.';
       if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('invalid')) {
         Alert.alert(
-          'Invalid Link Code',
-          'We couldn\'t find a patient with this link code. Please verify the code from the patient\'s profile screen.'
+          t('invalidLinkCodeTitle'),
+          t('invalidLinkCodeMsg')
         );
       } else if (errMsg.toLowerCase().includes('already exists')) {
         Alert.alert(
-          'Already Linked',
-          'An active caregiver link already exists for this patient.'
+          t('alreadyLinkedTitle'),
+          t('alreadyLinkedMsg')
         );
       } else {
-        Alert.alert('Linking Failed', errMsg);
+        Alert.alert(t('error'), errMsg);
       }
     } finally {
       setSubmitting(false);
@@ -77,8 +79,8 @@ export default function LinkPatientScreen() {
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Link Patient"
-        subtitle="Connect Care Recipient"
+        title={t('linkPatientTitle')}
+        subtitle={t('connectCareRecipient')}
         onBackPress={() => router.back()}
       />
 
@@ -86,15 +88,15 @@ export default function LinkPatientScreen() {
         {/* Info Card */}
         <View style={[styles.infoCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <Text style={styles.infoIcon}>🤝</Text>
-          <Text style={[styles.infoTitle, { color: themeColors.textPrimary }]}>Caregiver Linking</Text>
+          <Text style={[styles.infoTitle, { color: themeColors.textPrimary }]}>{t('caregiverLinking')}</Text>
           <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
-            Ask the patient or elder for their 6-character MediHeal Link Code found on their Patient Profile (e.g. MH-8573).
+            {t('caregiverLinkingDesc')}
           </Text>
         </View>
 
         {/* Link Code Field */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Caregiver Link Code *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('caregiverLinkCodeLabel')}</Text>
           <TextInput
             style={[
               styles.codeInput,
@@ -104,7 +106,7 @@ export default function LinkPatientScreen() {
                 borderColor: themeColors.primary,
               },
             ]}
-            placeholder="e.g. MH-8573"
+            placeholder={t('linkCodePlaceholder')}
             placeholderTextColor={themeColors.textMuted}
             value={linkCode}
             onChangeText={(val) => setLinkCode(val.toUpperCase())}
@@ -115,7 +117,7 @@ export default function LinkPatientScreen() {
 
         {/* Relationship Field */}
         <View style={styles.fieldGroup}>
-          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Relationship to Patient *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>{t('relationshipToPatientLabel')}</Text>
           <TextInput
             style={[
               styles.textInput,
@@ -125,7 +127,7 @@ export default function LinkPatientScreen() {
                 borderColor: themeColors.border,
               },
             ]}
-            placeholder="e.g. Son, Daughter, Spouse, Relative"
+            placeholder={t('relationshipPlaceholder')}
             placeholderTextColor={themeColors.textMuted}
             value={relationship}
             onChangeText={setRelationship}
@@ -134,7 +136,7 @@ export default function LinkPatientScreen() {
 
         {/* Submit Action */}
         <AppButton
-          title={submitting ? 'Linking Patient...' : 'Link Patient'}
+          title={submitting ? t('linkingPatient') : t('linkPatientActionBtn')}
           onPress={handleLink}
           variant="primary"
           disabled={submitting}

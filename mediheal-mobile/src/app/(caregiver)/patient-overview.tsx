@@ -15,6 +15,7 @@ import { ErrorView } from '../../components/ErrorView';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   getPatientDetailsForCaregiver,
   removeCaregiverLink,
@@ -25,6 +26,7 @@ export default function PatientOverviewScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
   const { isDark, colors: themeColors } = useTheme();
+  const { t } = useLanguage();
 
   const [overview, setOverview] = useState<CaregiverPatientOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -33,7 +35,7 @@ export default function PatientOverviewScreen() {
 
   const fetchOverview = useCallback(async () => {
     if (!params.id) {
-      setErrorMsg('Patient ID is missing.');
+      setErrorMsg(t('patientIdMissing'));
       setLoading(false);
       return;
     }
@@ -46,14 +48,14 @@ export default function PatientOverviewScreen() {
       if (res && res.success && res.data) {
         setOverview(res.data);
       } else {
-        setErrorMsg('Failed to load patient overview.');
+        setErrorMsg(t('failedToLoadPatientOverview'));
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Unable to retrieve patient overview.');
+      setErrorMsg(err.message || t('failedToLoadPatientOverview'));
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [params.id, t]);
 
   useEffect(() => {
     fetchOverview();
@@ -63,12 +65,12 @@ export default function PatientOverviewScreen() {
     if (!params.id || !overview) return;
 
     Alert.alert(
-      'Remove Patient Link',
-      `Are you sure you want to unlink ${overview.patient.fullName}? You will no longer be able to view their care plan or medication records.`,
+      t('removePatientLinkTitle'),
+      t('removePatientLinkConfirm').replace('{name}', overview.patient.fullName),
       [
-        { text: 'Keep Link', style: 'cancel' },
+        { text: t('keepLink'), style: 'cancel' },
         {
-          text: 'Remove Link',
+          text: t('removeLink'),
           style: 'destructive',
           onPress: performUnlink,
         },
@@ -83,7 +85,7 @@ export default function PatientOverviewScreen() {
     try {
       const res = await removeCaregiverLink(params.id);
       if (res && res.success) {
-        Alert.alert('Link Removed', 'The patient link has been removed successfully.');
+        Alert.alert(t('linkRemovedTitle'), t('linkRemovedSuccess'));
         router.replace('/(caregiver)' as any);
       } else {
         Alert.alert('Error', res.message || 'Failed to remove link.');
@@ -96,14 +98,14 @@ export default function PatientOverviewScreen() {
   };
 
   if (loading) {
-    return <LoadingView message="Loading patient overview..." />;
+    return <LoadingView message={t('loadingPatientOverview')} />;
   }
 
   if (errorMsg || !overview) {
     return (
       <ScreenContainer backgroundColor={themeColors.background}>
-        <AppHeader title="Patient Overview" onBackPress={() => router.back()} />
-        <ErrorView message={errorMsg || 'Patient details unavailable.'} onRetry={fetchOverview} />
+        <AppHeader title={t('patientOverviewTitle')} onBackPress={() => router.back()} />
+        <ErrorView message={errorMsg || t('patientDetailsUnavailable')} onRetry={fetchOverview} />
       </ScreenContainer>
     );
   }
@@ -121,8 +123,8 @@ export default function PatientOverviewScreen() {
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Patient Overview"
-        subtitle={overview.relationship ? `Relationship: ${overview.relationship}` : undefined}
+        title={t('patientOverviewTitle')}
+        subtitle={overview.relationship ? `${t('relationship')}: ${overview.relationship}` : undefined}
         onBackPress={() => router.back()}
       />
 
@@ -142,8 +144,8 @@ export default function PatientOverviewScreen() {
           </View>
           <Text style={[styles.patientName, { color: themeColors.textPrimary }]}>{patient.fullName}</Text>
           <Text style={[styles.patientSub, { color: themeColors.textSecondary }]}>
-            {patientProfile?.gender ? `${patientProfile.gender.toUpperCase()} • ` : ''}
-            {patientProfile?.bloodGroup ? `Blood: ${patientProfile.bloodGroup}` : ''}
+            {patientProfile?.gender ? `${patientProfile.gender.toLowerCase() === 'male' ? t('male').toUpperCase() : patientProfile.gender.toLowerCase() === 'female' ? t('female').toUpperCase() : t('other').toUpperCase()} • ` : ''}
+            {patientProfile?.bloodGroup ? `${t('blood')}: ${patientProfile.bloodGroup}` : ''}
           </Text>
 
           {patientProfile?.address ? (
@@ -161,7 +163,7 @@ export default function PatientOverviewScreen() {
                 },
               ]}
             >
-              <Text style={[styles.contactTitle, { color: themeColors.textMuted }]}>Emergency Contact:</Text>
+              <Text style={[styles.contactTitle, { color: themeColors.textMuted }]}>{t('emergencyContact')}:</Text>
               <Text style={[styles.contactDetail, { color: themeColors.textPrimary }]}>
                 👤 {patientProfile.emergencyContactName} ({patientProfile.emergencyContactPhone || 'N/A'})
               </Text>
@@ -173,22 +175,22 @@ export default function PatientOverviewScreen() {
         {adherenceSummary ? (
           <View style={[styles.adherenceCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
             <View style={styles.adherenceTextCol}>
-              <Text style={[styles.adherenceTitle, { color: themeColors.textMuted }]}>Medication Compliance</Text>
+              <Text style={[styles.adherenceTitle, { color: themeColors.textMuted }]}>{t('medicationCompliance')}</Text>
               <Text style={[styles.adherenceVal, { color: themeColors.success }]}>
-                {adherenceSummary.adherencePercentage}% Adherence Rate
+                {adherenceSummary.adherencePercentage}% {t('adherenceRate')}
               </Text>
             </View>
             <View style={styles.adherenceStatsRow}>
               <View style={[styles.statPill, { backgroundColor: themeColors.successLight }]}>
                 <Text style={[styles.statVal, { color: themeColors.success }]}>{adherenceSummary.totalTaken}</Text>
-                <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Taken</Text>
+                <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>{t('taken')}</Text>
               </View>
               {adherenceSummary.totalMissed > 0 && (
                 <View style={[styles.statPill, styles.statPillMissed, { backgroundColor: themeColors.dangerLight }]}>
                   <Text style={[styles.statVal, { color: themeColors.danger }]}>
                     {adherenceSummary.totalMissed}
                   </Text>
-                  <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Missed</Text>
+                  <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>{t('missed')}</Text>
                 </View>
               )}
             </View>
@@ -199,7 +201,7 @@ export default function PatientOverviewScreen() {
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
-              Active Medications ({overview.activeMedications?.length || 0})
+              {t('activeMedicationsTitle')} ({overview.activeMedications?.length || 0})
             </Text>
             <TouchableOpacity
               style={[styles.addMedBtn, { backgroundColor: themeColors.primary }]}
@@ -210,7 +212,7 @@ export default function PatientOverviewScreen() {
                 })
               }
             >
-              <Text style={styles.addMedText}>+ Add Medication</Text>
+              <Text style={styles.addMedText}>+ {t('addMedication')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -233,15 +235,15 @@ export default function PatientOverviewScreen() {
                       })
                     }
                   >
-                    <Text style={[styles.editMedText, { color: themeColors.primary }]}>Edit</Text>
+                    <Text style={[styles.editMedText, { color: themeColors.primary }]}>{t('edit')}</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={[styles.medDetail, { color: themeColors.textSecondary }]}>
-                  Dosage: {med.dosage} • Frequency: {med.frequency}
+                  {t('dosage')}: {med.dosage} • {t('frequency')}: {med.frequency}
                 </Text>
-                <Text style={[styles.medTimes, { color: themeColors.primary }]}>Schedule Times: {med.timeSlots?.join(', ')}</Text>
+                <Text style={[styles.medTimes, { color: themeColors.primary }]}>{t('scheduleTimes')}: {med.timeSlots?.join(', ')}</Text>
                 {med.instructions ? (
-                  <Text style={[styles.medInstructions, { color: themeColors.textMuted }]}>Instructions: {med.instructions}</Text>
+                  <Text style={[styles.medInstructions, { color: themeColors.textMuted }]}>{t('instructionsLabel')}: {med.instructions}</Text>
                 ) : null}
               </View>
             ))
@@ -252,7 +254,7 @@ export default function PatientOverviewScreen() {
                 { backgroundColor: themeColors.card, borderColor: themeColors.border },
               ]}
             >
-              <Text style={[styles.emptyText, { color: themeColors.textMuted }]}>No active medications prescribed yet.</Text>
+              <Text style={[styles.emptyText, { color: themeColors.textMuted }]}>{t('noActiveMedicationsYet')}</Text>
             </View>
           )}
         </View>
@@ -260,7 +262,7 @@ export default function PatientOverviewScreen() {
         {/* Upcoming Appointments Section */}
         {overview.upcomingAppointments && overview.upcomingAppointments.length > 0 ? (
           <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Upcoming Doctor Appointments</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('upcomingDoctorAppointments')}</Text>
             {overview.upcomingAppointments.map((appt) => (
               <View
                 key={appt._id}
@@ -270,13 +272,13 @@ export default function PatientOverviewScreen() {
                 ]}
               >
                 <Text style={[styles.apptDoctor, { color: themeColors.textPrimary }]}>
-                  👨‍⚕️ {appt.doctorId?.fullName || 'Medical Specialist'}
+                  👨‍⚕️ {appt.doctorId?.fullName || t('specialists')}
                 </Text>
                 <Text style={[styles.apptMeta, { color: themeColors.primary }]}>
                   📅 {new Date(appt.appointmentDate).toLocaleDateString('en-GB')} at {appt.timeSlot}
                 </Text>
                 {appt.reason ? (
-                  <Text style={[styles.apptReason, { color: themeColors.textSecondary }]}>Reason: {appt.reason}</Text>
+                  <Text style={[styles.apptReason, { color: themeColors.textSecondary }]}>{t('reasonForVisit')}: {appt.reason}</Text>
                 ) : null}
               </View>
             ))}
@@ -286,7 +288,7 @@ export default function PatientOverviewScreen() {
         {/* Recent Consultations Section */}
         {overview.recentConsultations && overview.recentConsultations.length > 0 ? (
           <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>Recent Consultations</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>{t('recentConsultations')}</Text>
             {overview.recentConsultations.map((c) => (
               <View
                 key={c._id}
@@ -297,11 +299,11 @@ export default function PatientOverviewScreen() {
               >
                 <Text style={[styles.consultDiag, { color: themeColors.textPrimary }]}>🩺 {c.diagnosis}</Text>
                 <Text style={[styles.consultDoctor, { color: themeColors.textSecondary }]}>
-                  Doctor: {c.doctorId?.fullName || 'Specialist'}
+                  {t('doctor')}: {c.doctorId?.fullName || t('specialists')}
                 </Text>
                 {c.clinicalNotes ? (
                   <Text style={[styles.consultNotes, { color: themeColors.textMuted }]} numberOfLines={2}>
-                    Notes: {c.clinicalNotes}
+                    {t('notesLabel')}: {c.clinicalNotes}
                   </Text>
                 ) : null}
               </View>
@@ -322,7 +324,7 @@ export default function PatientOverviewScreen() {
           disabled={unlinking}
         >
           <Text style={[styles.unlinkBtnText, { color: themeColors.danger }]}>
-            {unlinking ? 'Unlinking Patient...' : '❌ Remove Patient Link'}
+            {unlinking ? t('unlinkingPatient') : t('removePatientLinkBtn')}
           </Text>
         </TouchableOpacity>
       </ScrollView>

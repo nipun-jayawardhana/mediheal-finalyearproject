@@ -17,6 +17,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { AppButton } from '../../components/AppButton';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   getCaregiverEmergencyAlerts,
   resolveEmergencyAlert,
@@ -26,6 +27,7 @@ import { EmergencyAlert } from '../../types/emergency';
 export default function CaregiverAlertsScreen() {
   const router = useRouter();
   const { isDark, colors: themeColors } = useTheme();
+  const { t } = useLanguage();
 
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -65,15 +67,15 @@ export default function CaregiverAlertsScreen() {
     const patientName =
       typeof alertItem.patientId === 'object' && alertItem.patientId?.fullName
         ? alertItem.patientId.fullName
-        : 'the patient';
+        : t('careRecipient');
 
     Alert.alert(
-      'Resolve Emergency Alert',
-      `Mark emergency alert for ${patientName} as resolved? This updates the MediHeal alert status.`,
+      t('resolveAlertTitle'),
+      t('resolveAlertConfirm').replace('{name}', patientName),
       [
-        { text: 'Keep Active', style: 'cancel' },
+        { text: t('keepActive'), style: 'cancel' },
         {
-          text: 'Resolve Alert',
+          text: t('resolveAlertBtn'),
           style: 'default',
           onPress: () => performResolveAlert(alertItem._id),
         },
@@ -86,13 +88,13 @@ export default function CaregiverAlertsScreen() {
     try {
       const res = await resolveEmergencyAlert(alertId);
       if (res && res.success) {
-        Alert.alert('Alert Resolved', 'The emergency alert status has been set to resolved.');
+        Alert.alert(t('alertResolvedTitle'), t('alertResolvedSuccess'));
         fetchAlerts(true);
       } else {
-        Alert.alert('Error', res.message || 'Failed to resolve emergency alert.');
+        Alert.alert(t('error'), res.message || 'Failed to resolve emergency alert.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to resolve emergency alert.');
+      Alert.alert(t('error'), err.message || 'Unable to resolve emergency alert.');
     } finally {
       setResolvingId(null);
     }
@@ -113,7 +115,7 @@ export default function CaregiverAlertsScreen() {
   };
 
   if (loading && alerts.length === 0) {
-    return <LoadingView message="Loading emergency alerts..." />;
+    return <LoadingView message={t('loadingEmergencyAlerts')} />;
   }
 
   const activeAlerts = alerts.filter((a) => a.status === 'active');
@@ -122,8 +124,8 @@ export default function CaregiverAlertsScreen() {
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Emergency Alerts"
-        subtitle="Linked Patient Safety Monitoring"
+        title={t('emergencyAlertsTitle')}
+        subtitle={t('patientSafetyMonitoring')}
         onBackPress={() => router.back()}
       />
 
@@ -135,8 +137,8 @@ export default function CaregiverAlertsScreen() {
         {!errorMsg && alerts.length === 0 && (
           <EmptyState
             icon="🚨"
-            title="No Emergency Alerts"
-            description="Your linked patients currently have no active or historical emergency alerts."
+            title={t('noEmergencyAlertsTitle')}
+            description={t('noEmergencyAlertsDesc')}
           />
         )}
 
@@ -159,13 +161,13 @@ export default function CaregiverAlertsScreen() {
                 {activeAlerts.length > 0 && (
                   <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionTitleActive, { color: themeColors.danger }]}>
-                      🚨 Active Emergency Alerts ({activeAlerts.length})
+                      🚨 {t('activeEmergencyAlertsCount').replace('{count}', String(activeAlerts.length))}
                     </Text>
                     {activeAlerts.map((alertItem) => {
                       const patientName =
                         typeof alertItem.patientId === 'object' && alertItem.patientId?.fullName
                           ? alertItem.patientId.fullName
-                          : 'Linked Patient';
+                          : t('careRecipient');
 
                       const isResolving = resolvingId === alertItem._id;
 
@@ -183,12 +185,12 @@ export default function CaregiverAlertsScreen() {
                           <View style={styles.alertHeaderRow}>
                             <Text style={[styles.patientName, { color: themeColors.danger }]}>👤 {patientName}</Text>
                             <View style={[styles.activeBadge, { backgroundColor: themeColors.danger }]}>
-                              <Text style={styles.activeBadgeText}>ACTIVE</Text>
+                              <Text style={styles.activeBadgeText}>{t('activeBadgeLabel')}</Text>
                             </View>
                           </View>
 
                           <Text style={[styles.alertTime, { color: themeColors.textSecondary }]}>
-                            ⏰ Triggered: {formatDate(alertItem.createdAt)}
+                            ⏰ {t('triggeredAt')}: {formatDate(alertItem.createdAt)}
                           </Text>
 
                           <View
@@ -200,19 +202,19 @@ export default function CaregiverAlertsScreen() {
                               },
                             ]}
                           >
-                            <Text style={[styles.messageLabel, { color: themeColors.textMuted }]}>Message:</Text>
+                            <Text style={[styles.messageLabel, { color: themeColors.textMuted }]}>{t('messageLabel')}:</Text>
                             <Text style={[styles.messageText, { color: themeColors.textPrimary }]}>{alertItem.message}</Text>
                           </View>
 
                           {alertItem.emergencyContactName ? (
                             <Text style={[styles.contactInfo, { color: themeColors.textSecondary }]}>
-                              Emergency Contact: {alertItem.emergencyContactName} (
+                              {t('emergencyContact')}: {alertItem.emergencyContactName} (
                               {alertItem.emergencyContactPhone || 'N/A'})
                             </Text>
                           ) : null}
 
                           <AppButton
-                            title={isResolving ? 'Resolving...' : 'Resolve Alert'}
+                            title={isResolving ? t('resolvingAlert') : t('resolveAlertBtn')}
                             onPress={() => handleResolveAlert(alertItem)}
                             variant="primary"
                             disabled={isResolving}
@@ -228,13 +230,13 @@ export default function CaregiverAlertsScreen() {
                 {pastAlerts.length > 0 && (
                   <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
-                      Alert History ({pastAlerts.length})
+                      {t('alertHistoryCount').replace('{count}', String(pastAlerts.length))}
                     </Text>
                     {pastAlerts.map((alertItem) => {
                       const patientName =
                         typeof alertItem.patientId === 'object' && alertItem.patientId?.fullName
                           ? alertItem.patientId.fullName
-                          : 'Linked Patient';
+                          : t('careRecipient');
 
                       return (
                         <View

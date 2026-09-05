@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,24 +19,26 @@ import { EmptyState } from '../../components/EmptyState';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getCommunityPosts, removeCommunityPost } from '../../services/communityService';
 import { CommunityPost, CommunityCategory, PaginationMetadata } from '../../types/community';
-
-const CATEGORIES: { label: string; value: CommunityCategory | 'all' }[] = [
-  { label: 'All Topics', value: 'all' },
-  { label: 'General Q&A', value: 'general' },
-  { label: 'Elderly Care', value: 'elderly-care' },
-  { label: 'Nutrition', value: 'nutrition' },
-  { label: 'Exercise', value: 'exercise' },
-  { label: 'Medication', value: 'medication' },
-  { label: 'Wellbeing', value: 'wellbeing' },
-  { label: 'Other', value: 'other' },
-];
 
 export default function CaregiverCommunityFeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDark, colors: themeColors } = useTheme();
+  const { t } = useLanguage();
+
+  const categories = useMemo<{ label: string; value: CommunityCategory | 'all' }[]>(() => [
+    { label: t('allTopics'), value: 'all' },
+    { label: t('generalQa'), value: 'general' },
+    { label: t('elderlyCare'), value: 'elderly-care' },
+    { label: t('nutrition'), value: 'nutrition' },
+    { label: t('exercise'), value: 'exercise' },
+    { label: t('medicationTopic'), value: 'medication' },
+    { label: t('wellbeingTopic'), value: 'wellbeing' },
+    { label: t('otherTopic'), value: 'other' },
+  ], [t]);
 
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CommunityCategory | 'all'>('all');
@@ -46,9 +48,7 @@ export default function CaregiverCommunityFeedScreen() {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [disclaimerText, setDisclaimerText] = useState<string>(
-    'Community content is shared by users and should not be considered professional medical advice.'
-  );
+  const [disclaimerText, setDisclaimerText] = useState<string>('');
 
   const fetchPosts = useCallback(
     async (targetPage: number = 1, cat: CommunityCategory | 'all' = selectedCategory, isRefresh: boolean = false) => {
@@ -119,12 +119,12 @@ export default function CaregiverCommunityFeedScreen() {
 
   const handleRemovePost = (post: CommunityPost) => {
     Alert.alert(
-      'Remove Community Post',
-      'Are you sure you want to remove your post from the community feed?',
+      t('removeCommunityPostTitle'),
+      t('removeCommunityPostConfirm'),
       [
-        { text: 'Keep Post', style: 'cancel' },
+        { text: t('keepPost'), style: 'cancel' },
         {
-          text: 'Remove Post',
+          text: t('removePost'),
           style: 'destructive',
           onPress: () => performRemovePost(post._id),
         },
@@ -136,25 +136,25 @@ export default function CaregiverCommunityFeedScreen() {
     try {
       const res = await removeCommunityPost(postId);
       if (res && res.success) {
-        Alert.alert('Post Removed', 'Your post has been removed successfully.');
+        Alert.alert(t('postRemovedTitle'), t('postRemovedSuccess'));
         setPosts((prev) => prev.filter((p) => p._id !== postId));
       } else {
-        Alert.alert('Error', res.message || 'Failed to remove post.');
+        Alert.alert(t('error'), res.message || 'Failed to remove post.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to remove post.');
+      Alert.alert(t('error'), err.message || 'Unable to remove post.');
     }
   };
 
   if (loading && posts.length === 0) {
-    return <LoadingView message="Loading caregiver community feed..." />;
+    return <LoadingView message={t('loadingCommunityFeed')} />;
   }
 
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Community Health"
-        subtitle="Caregiver Forum & Support Feed"
+        title={t('communityHealthTitle')}
+        subtitle={t('caregiverForumSub')}
         onBackPress={() => router.back()}
       />
 
@@ -176,7 +176,7 @@ export default function CaregiverCommunityFeedScreen() {
               { color: isDark ? themeColors.warning : '#92400E' },
             ]}
           >
-            {disclaimerText}
+            {disclaimerText || t('communityDisclaimer')}
           </Text>
         </View>
 
@@ -187,7 +187,7 @@ export default function CaregiverCommunityFeedScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}
           >
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isSelected = selectedCategory === cat.value;
               return (
                 <TouchableOpacity
@@ -229,8 +229,8 @@ export default function CaregiverCommunityFeedScreen() {
         {!errorMsg && posts.length === 0 && (
           <EmptyState
             icon="💬"
-            title="No Community Posts Yet"
-            description="No community discussions found in this topic."
+            title={t('noCommunityPostsTitle')}
+            description={t('noCommunityPostsDesc')}
           />
         )}
 
@@ -270,7 +270,7 @@ export default function CaregiverCommunityFeedScreen() {
                   disabled={loadingMore}
                 >
                   <Text style={[styles.loadMoreText, { color: themeColors.primary }]}>
-                    {loadingMore ? 'Loading More...' : 'Load More Posts'}
+                    {loadingMore ? t('loadingMore') : t('loadMorePosts')}
                   </Text>
                 </TouchableOpacity>
               ) : null

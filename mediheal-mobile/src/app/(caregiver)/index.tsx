@@ -8,6 +8,8 @@ import {
   RefreshControl,
   Alert,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -18,6 +20,8 @@ import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { SUPPORTED_LANGUAGES, LanguageCode } from '../../utils/languageStorage';
 import {
   getLinkedPatients,
   getCaregiverEmergencyAlerts,
@@ -29,6 +33,7 @@ export default function CaregiverDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isDark, toggleTheme, colors: themeColors } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
 
   const [patients, setPatients] = useState<LinkedPatientItem[]>([]);
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
@@ -36,6 +41,22 @@ export default function CaregiverDashboardScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [langModalVisible, setLangModalVisible] = useState<boolean>(false);
+  const [accountMenuVisible, setAccountMenuVisible] = useState<boolean>(false);
+
+  const currentLangOption =
+    SUPPORTED_LANGUAGES.find((l) => l.code === language) || SUPPORTED_LANGUAGES[0];
+
+  const HEADER_LANGUAGE_LABELS: Record<LanguageCode, string> = {
+    en: 'EN',
+    si: 'සිං',
+    ta: 'TA',
+  };
+
+  const handleSelectLanguage = async (code: LanguageCode) => {
+    setLangModalVisible(false);
+    await setLanguage(code);
+  };
 
   const fetchDashboardData = useCallback(async (isRefresh: boolean = false) => {
     if (!isRefresh) setLoading(true);
@@ -58,12 +79,12 @@ export default function CaregiverDashboardScreen() {
         setAlerts(alertsRes.data || []);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Unable to load caregiver dashboard.');
+      setErrorMsg(err.message || t('unableToLoadCaregiverDashboard'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedPatientId]);
+  }, [selectedPatientId, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -84,7 +105,7 @@ export default function CaregiverDashboardScreen() {
   const handleLogout = async () => {
     if (Platform.OS === 'web') {
       const confirmed = typeof window !== 'undefined' && window.confirm(
-        'Are you sure you want to sign out?'
+        t('signOutConfirmMsg')
       );
       if (confirmed) {
         await performSignOut();
@@ -93,15 +114,15 @@ export default function CaregiverDashboardScreen() {
     }
 
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('signOutConfirmTitle'),
+      t('signOutConfirmMsg'),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Sign Out',
+          text: t('signOut'),
           style: 'destructive',
           onPress: performSignOut,
         },
@@ -110,7 +131,7 @@ export default function CaregiverDashboardScreen() {
   };
 
   if (loading && patients.length === 0) {
-    return <LoadingView message="Loading caregiver dashboard..." />;
+    return <LoadingView message={t('loadingCaregiverDashboard')} />;
   }
 
   const activeAlerts = alerts.filter((a) => a.status === 'active');
@@ -119,10 +140,26 @@ export default function CaregiverDashboardScreen() {
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="MediHeal Caregiver"
-        subtitle={`Welcome, ${user?.fullName || 'Caregiver'}`}
+        title={t('caregiverDashboardTitle')}
+        subtitle={`${t('welcomeCaregiver')}, ${user?.fullName || t('caregiver')}`}
         rightComponent={
           <View style={styles.headerRightRow}>
+            <TouchableOpacity
+              style={[
+                styles.langBtnCompact,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={() => setLangModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Current language ${currentLangOption.name}. Tap to change language`}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.langTextCompact, { color: themeColors.primary }]} numberOfLines={1}>
+                {HEADER_LANGUAGE_LABELS[language] || 'EN'}
+              </Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[
                 styles.themeToggleBtn,
@@ -141,20 +178,147 @@ export default function CaregiverDashboardScreen() {
 
             <TouchableOpacity
               style={[
-                styles.logoutHeaderBtn,
+                styles.userIconBtn,
                 { backgroundColor: themeColors.card, borderColor: themeColors.border },
               ]}
-              onPress={handleLogout}
+              onPress={() => setAccountMenuVisible(true)}
               accessibilityRole="button"
-              accessibilityLabel="Sign Out"
+              accessibilityLabel={t('caregiverAccount')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               activeOpacity={0.7}
             >
-              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Sign Out</Text>
+              <Text style={[styles.userIcon, { color: themeColors.textPrimary }]}>👤</Text>
             </TouchableOpacity>
           </View>
         }
       />
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={langModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setLangModalVisible(false)}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.modalTitle, { color: themeColors.textPrimary }]}>{t('selectLanguageTitle')}</Text>
+              <TouchableOpacity
+                style={[styles.modalCloseBtn, { backgroundColor: themeColors.background }]}
+                onPress={() => setLangModalVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close language selection"
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={[styles.modalCloseText, { color: themeColors.textSecondary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalOptionsList}>
+              {SUPPORTED_LANGUAGES.map((item) => {
+                const isSelected = language === item.code;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    activeOpacity={0.8}
+                    onPress={() => handleSelectLanguage(item.code)}
+                    style={[
+                      styles.langOptionCard,
+                      { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                      isSelected && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select ${item.nativeName}`}
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <View style={styles.langOptionLeft}>
+                      <Text style={styles.langOptionFlag}>{item.flag}</Text>
+                      <View style={styles.langOptionTextCol}>
+                        <Text
+                          style={[
+                            styles.langOptionNative,
+                            { color: themeColors.textPrimary },
+                            isSelected && { color: themeColors.primaryDark },
+                          ]}
+                        >
+                          {item.nativeName}
+                        </Text>
+                        <Text style={[styles.langOptionEnglish, { color: themeColors.textSecondary }]}>{item.name}</Text>
+                      </View>
+                    </View>
+                    {isSelected ? (
+                      <View style={[styles.checkBadge, { backgroundColor: themeColors.primary }]}>
+                        <Text style={styles.checkBadgeText}>✓</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Account Menu Dropdown / Popover Modal */}
+      <Modal
+        visible={accountMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAccountMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.accountMenuOverlay}
+          onPress={() => setAccountMenuVisible(false)}
+        >
+          <Pressable
+            style={[
+              styles.accountMenuDropdown,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.accountMenuHeader}>
+              <Text style={[styles.accountMenuName, { color: themeColors.textPrimary }]} numberOfLines={1}>
+                {user?.fullName || t('caregiver')}
+              </Text>
+              <Text style={[styles.accountMenuRole, { color: themeColors.textMuted }]} numberOfLines={1}>
+                {t('caregiverAccount')}
+              </Text>
+              {user?.email ? (
+                <Text style={[styles.accountMenuEmail, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                  {user.email}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={[styles.accountMenuDivider, { backgroundColor: themeColors.border }]} />
+
+            <TouchableOpacity
+              style={styles.accountMenuItem}
+              onPress={() => {
+                setAccountMenuVisible(false);
+                setTimeout(() => {
+                  void handleLogout();
+                }, 50);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('signOut')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.accountMenuLogoutText, { color: themeColors.danger }]}>
+                🚪 {t('signOut')}
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -188,11 +352,11 @@ export default function CaregiverDashboardScreen() {
             <View style={styles.sosBadgeRow}>
               <Text style={styles.sosIconText}>🚨</Text>
               <Text style={[styles.sosBannerTitle, { color: themeColors.danger }]}>
-                ACTIVE EMERGENCY ALERT ({activeAlerts.length})
+                {t('activeEmergencyAlert')} ({activeAlerts.length})
               </Text>
             </View>
             <Text style={[styles.sosBannerSub, { color: themeColors.textSecondary }]}>
-              Tap to view and resolve active emergency alert for linked patient.
+              {t('activeEmergencyAlertSub')}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -207,8 +371,8 @@ export default function CaregiverDashboardScreen() {
           >
             <Text style={styles.safeIcon}>🛡️</Text>
             <View style={styles.safeTextCol}>
-              <Text style={[styles.safeTitle, { color: themeColors.success }]}>No Active Emergency Alerts</Text>
-              <Text style={[styles.safeSub, { color: themeColors.textSecondary }]}>All linked patients are currently clear.</Text>
+              <Text style={[styles.safeTitle, { color: themeColors.success }]}>{t('noActiveEmergencyAlerts')}</Text>
+              <Text style={[styles.safeSub, { color: themeColors.textSecondary }]}>{t('allLinkedPatientsClear')}</Text>
             </View>
           </View>
         )}
@@ -223,12 +387,12 @@ export default function CaregiverDashboardScreen() {
             ]}
           >
             <Text style={styles.emptyIcon}>🤝</Text>
-            <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>No Patients Linked Yet</Text>
+            <Text style={[styles.emptyTitle, { color: themeColors.textPrimary }]}>{t('noPatientsLinkedYet')}</Text>
             <Text style={[styles.emptyDesc, { color: themeColors.textSecondary }]}>
-              Link your family member or patient using their MediHeal caregiver link code to monitor care plans and emergency alerts.
+              {t('noPatientsLinkedDesc')}
             </Text>
             <AppButton
-              title="🔗 Link a Patient"
+              title={t('linkPatientBtn')}
               onPress={() => router.push('/(caregiver)/link-patient' as any)}
               variant="primary"
               style={styles.linkBtn}
@@ -262,7 +426,7 @@ export default function CaregiverDashboardScreen() {
                           isSelected && styles.patientTabTextSelected,
                         ]}
                       >
-                        {item.patient?.fullName || 'Patient'}
+                        {item.patient?.fullName || t('careRecipient')}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -303,7 +467,7 @@ export default function CaregiverDashboardScreen() {
                       {activePatientItem.patient.fullName}
                     </Text>
                     <Text style={[styles.patientRel, { color: themeColors.textMuted }]}>
-                      {activePatientItem.relationship || 'Care Recipient'} • Linked
+                      {activePatientItem.relationship || t('familyCaregiver')} • {t('linked')}
                     </Text>
                   </View>
                 </View>
@@ -327,8 +491,8 @@ export default function CaregiverDashboardScreen() {
                     }
                   >
                     <Text style={styles.actionIcon}>📋</Text>
-                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>Care Overview</Text>
-                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>Vitals, Consults & Notes</Text>
+                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('careOverview')}</Text>
+                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>{t('careOverviewSub')}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -348,8 +512,8 @@ export default function CaregiverDashboardScreen() {
                     }
                   >
                     <Text style={styles.actionIcon}>💊</Text>
-                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>Add Medication</Text>
-                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>Prescribe & Schedule</Text>
+                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('addMedication')}</Text>
+                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>{t('addMedicationSub')}</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -357,7 +521,7 @@ export default function CaregiverDashboardScreen() {
                 {activePatientItem.patientProfile?.caregiverLinkCode ? (
                   <View style={styles.linkCodeFooter}>
                     <Text style={[styles.linkCodeLabel, { color: themeColors.textMuted }]}>
-                      Link Code: {activePatientItem.patientProfile.caregiverLinkCode}
+                      {t('linkCode')}: {activePatientItem.patientProfile.caregiverLinkCode}
                     </Text>
                   </View>
                 ) : null}
@@ -372,7 +536,7 @@ export default function CaregiverDashboardScreen() {
               ]}
               onPress={() => router.push('/(caregiver)/link-patient' as any)}
             >
-              <Text style={[styles.linkAnotherText, { color: themeColors.primary }]}>+ Link Another Patient</Text>
+              <Text style={[styles.linkAnotherText, { color: themeColors.primary }]}>{t('linkAnotherPatient')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -388,8 +552,8 @@ export default function CaregiverDashboardScreen() {
         >
           <Text style={styles.menuIcon}>🚨</Text>
           <View style={styles.menuTextCol}>
-            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>Emergency Safety Alerts</Text>
-            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>View and resolve active emergency signals</Text>
+            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{t('emergencySafetyAlerts')}</Text>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>{t('emergencySafetyAlertsSub')}</Text>
           </View>
           <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
@@ -405,8 +569,8 @@ export default function CaregiverDashboardScreen() {
         >
           <Text style={styles.menuIcon}>💬</Text>
           <View style={styles.menuTextCol}>
-            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>Community Health Forum</Text>
-            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>Ask questions & share caregiving support</Text>
+            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{t('communityHealthForum')}</Text>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>{t('communityHealthForumSub')}</Text>
           </View>
           <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
@@ -418,9 +582,9 @@ export default function CaregiverDashboardScreen() {
             { backgroundColor: themeColors.card, borderColor: themeColors.border },
           ]}
         >
-          <Text style={[styles.accountTitle, { color: themeColors.textMuted }]}>Caregiver Account</Text>
-          <Text style={[styles.accountDetail, { color: themeColors.textSecondary }]}>Email: {user?.email}</Text>
-          <Text style={[styles.accountDetail, { color: themeColors.textSecondary }]}>Phone: {user?.phoneNumber || 'N/A'}</Text>
+          <Text style={[styles.accountTitle, { color: themeColors.textMuted }]}>{t('caregiverAccount')}</Text>
+          <Text style={[styles.accountDetail, { color: themeColors.textSecondary }]}>{t('email')}: {user?.email}</Text>
+          <Text style={[styles.accountDetail, { color: themeColors.textSecondary }]}>{t('phone')}: {user?.phoneNumber || 'N/A'}</Text>
         </View>
       </ScrollView>
     </ScreenContainer>
@@ -449,16 +613,67 @@ const styles = StyleSheet.create({
   themeToggleIcon: {
     fontSize: 18,
   },
-  logoutHeaderBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.pill,
+  userIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...shadows.card,
   },
-  logoutHeaderText: {
+  userIcon: {
+    fontSize: 18,
+  },
+  accountMenuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: Platform.OS === 'web' ? 70 : 85,
+    paddingRight: spacing.md,
+  },
+  accountMenuDropdown: {
+    width: 230,
+    maxWidth: '85%',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: spacing.md,
+    ...shadows.card,
+    elevation: 8,
+  },
+  accountMenuHeader: {
+    marginBottom: spacing.xs,
+  },
+  accountMenuName: {
+    ...typography.bodyBold,
+    fontSize: 15,
+  },
+  accountMenuRole: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  accountMenuEmail: {
     ...typography.caption,
     fontSize: 12,
-    fontWeight: '800',
+    marginTop: 2,
+  },
+  accountMenuDivider: {
+    height: 1,
+    marginVertical: spacing.sm,
+  },
+  accountMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  accountMenuLogoutText: {
+    ...typography.bodyBold,
+    fontSize: 14,
+    fontWeight: '700',
   },
   sosAlertBanner: {
     backgroundColor: '#FEF2F2',
@@ -734,5 +949,118 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  langBtnCompact: {
+    height: 36,
+    minWidth: 42,
+    maxWidth: 48,
+    paddingHorizontal: 8,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
+  },
+  langTextCompact: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    ...shadows.card,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    ...typography.subheader,
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.textPrimary,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  modalOptionsList: {
+    gap: spacing.sm,
+  },
+  langOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.border,
+    minHeight: 60,
+  },
+  langOptionCardSelected: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  langOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  langOptionFlag: {
+    fontSize: 28,
+  },
+  langOptionTextCol: {},
+  langOptionNative: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  langOptionEnglish: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  checkBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkBadgeText: {
+    color: colors.textWhite,
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
