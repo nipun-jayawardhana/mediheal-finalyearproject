@@ -804,7 +804,7 @@ export default function SymptomCheckerScreen() {
           <View style={[styles.summaryCard, { backgroundColor: themeColors.card, borderColor: themeColors.primary }]}>
             <View style={[styles.summaryHeader, { borderBottomColor: themeColors.border }]}>
               <Text style={styles.summaryHeaderIcon}>📋</Text>
-              <View>
+              <View style={styles.summaryHeaderTextContainer}>
                 <Text style={[styles.summaryHeaderTitle, { color: themeColors.textPrimary }]}>{t('assessmentSummary')}</Text>
                 <Text style={[styles.summaryHeaderSub, { color: themeColors.textSecondary }]}>{t('reviewBeforeAnalysis')}</Text>
               </View>
@@ -1497,14 +1497,23 @@ const styles = StyleSheet.create({
   summaryHeaderIcon: {
     fontSize: 28,
     marginRight: spacing.sm,
+    flexShrink: 0,
+  },
+  summaryHeaderTextContainer: {
+    flex: 1,
+    minWidth: 0,
   },
   summaryHeaderTitle: {
     ...typography.subheader,
     color: colors.textPrimary,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   summaryHeaderSub: {
     ...typography.caption,
     color: colors.textSecondary,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   summarySection: {
     marginBottom: spacing.md,
@@ -1585,12 +1594,16 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     fontSize: 16,
     color: colors.textPrimary,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   summaryNoteText: {
     ...typography.body,
     color: colors.textSecondary,
     fontSize: 14,
     marginTop: 2,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   fieldLabel: {
     ...typography.bodyBold,
