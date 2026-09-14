@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CommunityPost } from '../types/community';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface CommunityPostCardProps {
   post: CommunityPost;
@@ -20,11 +21,12 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
   onRemove,
 }) => {
   const { colors: themeColors } = useTheme();
+  const { t } = useLanguage();
 
   const authorName =
     typeof post.authorId === 'object' && post.authorId?.fullName
       ? post.authorId.fullName
-      : 'Community Member';
+      : t('communityMember');
 
   const authorRole =
     typeof post.authorId === 'object' && post.authorId?.role
@@ -62,11 +64,23 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
     }
   };
 
-  // Capitalize category badge
-  const formatCategory = (cat: string) => {
+  // Localized category badge label
+  const getCategoryLabel = (cat: string) => {
     switch (cat) {
+      case 'general':
+        return t('generalQa');
+      case 'nutrition':
+        return t('nutrition');
+      case 'exercise':
+        return t('exercise');
+      case 'medication':
+        return t('medicationTopic');
       case 'elderly-care':
-        return 'Elderly Care';
+        return t('elderlyCare');
+      case 'wellbeing':
+        return t('wellbeingTopic');
+      case 'other':
+        return t('otherTopic');
       default:
         return cat.charAt(0).toUpperCase() + cat.slice(1);
     }
@@ -89,13 +103,13 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
             {authorName}
           </Text>
           <Text style={[styles.authorSub, { color: themeColors.textMuted }]}>
-            {authorRole === 'caregiver' ? 'Caregiver • ' : ''}
+            {authorRole === 'caregiver' ? `${t('caregiverRole')} • ` : ''}
             {formatDate(post.createdAt)}
           </Text>
         </View>
 
         <View style={[styles.categoryBadge, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}>
-          <Text style={[styles.categoryText, { color: themeColors.primary }]}>{formatCategory(post.category)}</Text>
+          <Text style={[styles.categoryText, { color: themeColors.primary }]}>{getCategoryLabel(post.category)}</Text>
         </View>
       </View>
 
@@ -111,7 +125,7 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
 
       {/* Footer Row */}
       <View style={[styles.footerRow, { borderTopColor: themeColors.border }]}>
-        <Text style={[styles.viewDiscussionText, { color: themeColors.primary }]}>💬 View Discussion & Comments →</Text>
+        <Text style={[styles.viewDiscussionText, { color: themeColors.primary }]}>{t('viewDiscussionComments')}</Text>
 
         {isOwner && (
           <View style={styles.ownerActions}>
@@ -121,7 +135,7 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
                 style={styles.ownerBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={[styles.editBtnText, { color: themeColors.primary }]}>Edit</Text>
+                <Text style={[styles.editBtnText, { color: themeColors.primary }]}>{t('edit')}</Text>
               </TouchableOpacity>
             )}
             {onRemove && (
@@ -130,7 +144,7 @@ export const CommunityPostCard: React.FC<CommunityPostCardProps> = ({
                 style={styles.ownerBtn}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={[styles.removeBtnText, { color: themeColors.danger }]}>Delete</Text>
+                <Text style={[styles.removeBtnText, { color: themeColors.danger }]}>{t('delete')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -230,6 +244,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.primary,
+    flex: 1,
+    marginRight: spacing.xs,
   },
   ownerActions: {
     flexDirection: 'row',

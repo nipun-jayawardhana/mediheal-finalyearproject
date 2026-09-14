@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,22 +21,24 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../consta
 import { getCommunityPosts, removeCommunityPost } from '../../services/communityService';
 import { CommunityPost, CommunityCategory, PaginationMetadata } from '../../types/community';
 import { useTheme } from '../../context/ThemeContext';
-
-const CATEGORIES: { label: string; value: CommunityCategory | 'all' }[] = [
-  { label: 'All Topics', value: 'all' },
-  { label: 'General Q&A', value: 'general' },
-  { label: 'Nutrition', value: 'nutrition' },
-  { label: 'Exercise', value: 'exercise' },
-  { label: 'Medication', value: 'medication' },
-  { label: 'Elderly Care', value: 'elderly-care' },
-  { label: 'Wellbeing', value: 'wellbeing' },
-  { label: 'Other', value: 'other' },
-];
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function CommunityFeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { colors: themeColors } = useTheme();
+  const { t } = useLanguage();
+
+  const categories = useMemo<{ label: string; value: CommunityCategory | 'all' }[]>(() => [
+    { label: t('allTopics'), value: 'all' },
+    { label: t('generalQa'), value: 'general' },
+    { label: t('nutrition'), value: 'nutrition' },
+    { label: t('exercise'), value: 'exercise' },
+    { label: t('medicationTopic'), value: 'medication' },
+    { label: t('elderlyCare'), value: 'elderly-care' },
+    { label: t('wellbeingTopic'), value: 'wellbeing' },
+    { label: t('otherTopic'), value: 'other' },
+  ], [t]);
 
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CommunityCategory | 'all'>('all');
@@ -46,9 +48,6 @@ export default function CommunityFeedScreen() {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
-  const [disclaimerText, setDisclaimerText] = useState<string>(
-    'Community content is shared by users and should not be considered professional medical advice.'
-  );
 
   const fetchPosts = useCallback(
     async (targetPage: number = 1, cat: CommunityCategory | 'all' = selectedCategory, isRefresh: boolean = false) => {
@@ -71,19 +70,18 @@ export default function CommunityFeedScreen() {
             setPosts((prev) => [...prev, ...(res.data || [])]);
           }
           if (res.pagination) setPagination(res.pagination);
-          if (res.disclaimer) setDisclaimerText(res.disclaimer);
         } else {
-          setErrorMsg(res.message || 'Failed to load community feed.');
+          setErrorMsg(res.message || t('failedToLoadCommunityFeed'));
         }
       } catch (err: any) {
-        setErrorMsg(err.message || 'Unable to fetch community posts.');
+        setErrorMsg(err.message || t('unableToLoadCommunityPosts'));
       } finally {
         setLoading(false);
         setLoadingMore(false);
         setRefreshing(false);
       }
     },
-    [selectedCategory]
+    [selectedCategory, t]
   );
 
   useFocusEffect(
@@ -128,12 +126,12 @@ export default function CommunityFeedScreen() {
 
   const handleRemovePost = (post: CommunityPost) => {
     Alert.alert(
-      'Remove Community Post',
-      'Are you sure you want to remove this post from the community feed?',
+      t('removeCommunityPostTitle'),
+      t('removeCommunityPostConfirm'),
       [
-        { text: 'Keep Post', style: 'cancel' },
+        { text: t('keepPost'), style: 'cancel' },
         {
-          text: 'Remove Post',
+          text: t('removePost'),
           style: 'destructive',
           onPress: () => performRemovePost(post._id),
         },
@@ -145,32 +143,32 @@ export default function CommunityFeedScreen() {
     try {
       const res = await removeCommunityPost(postId);
       if (res && res.success) {
-        Alert.alert('Post Removed', 'Your post has been removed successfully.');
+        Alert.alert(t('postRemovedTitle'), t('postRemovedSuccess'));
         setPosts((prev) => prev.filter((p) => p._id !== postId));
       } else {
-        Alert.alert('Error', res.message || 'Failed to remove post.');
+        Alert.alert(t('error'), res.message || t('failedToRemovePost'));
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to remove post.');
+      Alert.alert(t('error'), err.message || t('unableToRemovePost'));
     }
   };
 
   if (loading && posts.length === 0) {
-    return <LoadingView message="Loading community feed..." />;
+    return <LoadingView message={t('loadingCommunityPosts')} />;
   }
 
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
-        title="Community Health"
-        subtitle="Q&A & Peer Support Feed"
+        title={t('communityHealthTitle')}
+        subtitle={t('communitySubtitle')}
         onBackPress={() => router.back()}
         rightComponent={
           <TouchableOpacity
             style={[styles.headerAddBtn, { backgroundColor: themeColors.primary }]}
             onPress={() => router.push('/(patient)/community-create' as any)}
           >
-            <Text style={styles.headerAddText}>+ Create Post</Text>
+            <Text style={styles.headerAddText}>{t('createPostBtn')}</Text>
           </TouchableOpacity>
         }
       />
@@ -179,7 +177,7 @@ export default function CommunityFeedScreen() {
         {/* Medical Disclaimer Banner */}
         <View style={styles.disclaimerBanner}>
           <Text style={styles.disclaimerIcon}>ℹ️</Text>
-          <Text style={styles.disclaimerText}>{disclaimerText}</Text>
+          <Text style={styles.disclaimerText}>{t('communityDisclaimer')}</Text>
         </View>
 
         {/* Category Selector Chips */}
@@ -189,7 +187,7 @@ export default function CommunityFeedScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoriesScroll}
           >
-            {CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const isSelected = selectedCategory === cat.value;
               return (
                 <TouchableOpacity
@@ -219,15 +217,19 @@ export default function CommunityFeedScreen() {
 
         {/* Main Feed Content */}
         {errorMsg ? (
-          <ErrorView message={errorMsg} onRetry={() => fetchPosts(1, selectedCategory, true)} />
+          <ErrorView
+            message={errorMsg}
+            retryText={t('tryAgain')}
+            onRetry={() => fetchPosts(1, selectedCategory, true)}
+          />
         ) : null}
 
         {!errorMsg && posts.length === 0 && (
           <EmptyState
             icon="💬"
-            title="No Community Posts Yet"
-            description="Be the first to ask a question or share health insights in this category!"
-            actionText="Create a Post"
+            title={t('noCommunityPostsTitle')}
+            description={t('communityEmptyDesc')}
+            actionText={t('createAPostAction')}
             onAction={() => router.push('/(patient)/community-create' as any)}
           />
         )}
@@ -262,7 +264,7 @@ export default function CommunityFeedScreen() {
                   disabled={loadingMore}
                 >
                   <Text style={[styles.loadMoreText, { color: themeColors.primary }]}>
-                    {loadingMore ? 'Loading More...' : 'Load More Posts'}
+                    {loadingMore ? t('loadingMore') : t('loadMorePosts')}
                   </Text>
                 </TouchableOpacity>
               ) : null
