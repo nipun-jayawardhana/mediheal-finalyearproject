@@ -18,8 +18,16 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
-// Enable Cross-Origin Resource Sharing (CORS)
-app.use(cors());
+// Enable Cross-Origin Resource Sharing (CORS) - permissive for local / mobile dev
+app.use(
+  cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning', 'Accept'],
+    credentials: false,
+  })
+);
+app.options('*', cors());
 
 // Enable JSON body parsing for incoming requests
 app.use(express.json());

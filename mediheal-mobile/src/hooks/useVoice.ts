@@ -1,9 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Platform } from 'react-native';
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition';
+let ExpoSpeechRecognitionModule: any = null;
+let useSpeechRecognitionEvent: any = (_event: string, _callback: any) => {};
+
+try {
+  const speechModule = require('expo-speech-recognition');
+  ExpoSpeechRecognitionModule = speechModule?.ExpoSpeechRecognitionModule || null;
+  if (typeof speechModule?.useSpeechRecognitionEvent === 'function') {
+    useSpeechRecognitionEvent = speechModule.useSpeechRecognitionEvent;
+  }
+} catch (e) {
+  ExpoSpeechRecognitionModule = null;
+}
 import {
   VoiceLanguage,
   VoiceState,
@@ -98,54 +106,60 @@ export const useVoice = (options: UseVoiceOptions = {}) => {
     [language, onSpeechEnd]
   );
 
-  // Native ExpoSpeechRecognition event listeners
-  useSpeechRecognitionEvent('start', () => {
-    setIsListening(true);
-    setVoiceState('listening');
-  });
+  // Native ExpoSpeechRecognition event listeners (only active if native module is present)
+  if (ExpoSpeechRecognitionModule && typeof useSpeechRecognitionEvent === 'function') {
+    try {
+      useSpeechRecognitionEvent('start', () => {
+        setIsListening(true);
+        setVoiceState('listening');
+      });
 
-  useSpeechRecognitionEvent('result', (event: any) => {
-    clearSilenceTimer();
-    const results = event.results || [];
-    if (results.length > 0) {
-      const bestTranscript = results[0]?.transcript || '';
-      const isFinal = Boolean(event.isFinal || results[0]?.isFinal);
+      useSpeechRecognitionEvent('result', (event: any) => {
+        clearSilenceTimer();
+        const results = event.results || [];
+        if (results.length > 0) {
+          const bestTranscript = results[0]?.transcript || '';
+          const isFinal = Boolean(event.isFinal || results[0]?.isFinal);
 
-      if (bestTranscript) {
-        setTranscript(bestTranscript);
-        setVoiceState(isFinal ? 'recognized' : 'listening');
+          if (bestTranscript) {
+            setTranscript(bestTranscript);
+            setVoiceState(isFinal ? 'recognized' : 'listening');
 
-        if (onTranscript) {
-          onTranscript(bestTranscript, isFinal);
+            if (onTranscript) {
+              onTranscript(bestTranscript, isFinal);
+            }
+          }
         }
-      }
+      });
+
+      useSpeechRecognitionEvent('end', () => {
+        clearSilenceTimer();
+        setIsListening(false);
+        setVoiceState((prev) => {
+          if (prev === 'listening' || prev === 'processing') {
+            return transcript ? 'recognized' : 'no_speech';
+          }
+          return prev;
+        });
+      });
+
+      useSpeechRecognitionEvent('error', (event: any) => {
+        clearSilenceTimer();
+        setIsListening(false);
+
+        const errStr = event.error || event.message || '';
+        if (errStr.includes('no-speech') || errStr.includes('7')) {
+          setVoiceState('no_speech');
+          setErrorMessage("We didn't hear anything. Please try again or type your symptoms.");
+        } else {
+          setVoiceState('error');
+          setErrorMessage(errStr || 'Speech recognition encountered an error. You can still type your symptoms.');
+        }
+      });
+    } catch (e) {
+      // Ignore native listener registration error if module not present in Expo Go
     }
-  });
-
-  useSpeechRecognitionEvent('end', () => {
-    clearSilenceTimer();
-    setIsListening(false);
-    setVoiceState((prev) => {
-      if (prev === 'listening' || prev === 'processing') {
-        return transcript ? 'recognized' : 'no_speech';
-      }
-      return prev;
-    });
-  });
-
-  useSpeechRecognitionEvent('error', (event: any) => {
-    clearSilenceTimer();
-    setIsListening(false);
-
-    const errStr = event.error || event.message || '';
-    if (errStr.includes('no-speech') || errStr.includes('7')) {
-      setVoiceState('no_speech');
-      setErrorMessage("We didn't hear anything. Please try again or type your symptoms.");
-    } else {
-      setVoiceState('error');
-      setErrorMessage(errStr || 'Speech recognition encountered an error. You can still type your symptoms.');
-    }
-  });
+  }
 
   // Start Speech-to-Text
   const startListening = useCallback(

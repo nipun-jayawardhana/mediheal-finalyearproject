@@ -64,7 +64,9 @@
         {
           "locationWhenInUsePermission": "MediHeal uses your location to show nearby doctors and hospitals."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

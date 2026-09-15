@@ -1,6 +1,12 @@
 import * as Speech from 'expo-speech';
 import { Platform } from 'react-native';
-import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+let ExpoSpeechRecognitionModule: any = null;
+try {
+  const speechModule = require('expo-speech-recognition');
+  ExpoSpeechRecognitionModule = speechModule?.ExpoSpeechRecognitionModule || null;
+} catch (e) {
+  ExpoSpeechRecognitionModule = null;
+}
 import { apiClient } from '../api/apiClient';
 
 export type VoiceLanguage = 'en' | 'si' | 'ta' | string;
