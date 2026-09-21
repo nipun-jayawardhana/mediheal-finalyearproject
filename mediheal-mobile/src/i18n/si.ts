@@ -451,4 +451,13 @@ export const si: Record<TranslationKeys, string> = {
   noMedicationScheduledToday: 'අද දිනට සැලසුම් කළ ඖෂධ නොමැත',
   doseMarkedTakenSuccess: 'ඖෂධ මාත්‍රාව සාර්ථකව සලකුණු කරන ලදී.',
   adherenceCompliance: 'පිළිපැදීම',
+
+  // Missed Medication Alerts & Monitoring (Phase 3)
+  missedMedication: 'මඟහැරුණු ඖෂධ',
+  medicationMissed: 'ඔබට මඟහැරී ඇත',
+  contactPatient: 'රෝගියා අමතන්න',
+  medicationAlert: 'ඖෂධ ඇඟවීම',
+  patientMedicationMonitoring: 'ඖෂධ භාවිතය අධීක්ෂණය',
+  noMissedMedications: 'මඟහැරුණු ඖෂධ නොමැත',
+  allDosesOnTrack: 'නියමිත සියලු ඖෂධ නියමිත පරිදි ලබාගෙන ඇත',
 };

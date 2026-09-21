@@ -20,12 +20,28 @@ import { getPatientDashboardApi } from '../../services/patientService';
 import { PatientDashboardData } from '../../types/patient';
 import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { getMyTodayMedicationSchedules } from '../../services/medicationScheduleService';
+import { getMyMissedMedications } from '../../services/medicationReminderService';
+import { MissedMedicationItem } from '../../types/medicationReminder';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
 import { getLocaleForLanguage } from '../../services/voiceService';
 import { useLanguage } from '../../context/LanguageContext';
 import { SUPPORTED_LANGUAGES, LanguageCode } from '../../utils/languageStorage';
 import { useTheme } from '../../context/ThemeContext';
+
+const formatTimeAmPm = (time24?: string): string => {
+  if (!time24) return '';
+  const parts = time24.split(':');
+  if (parts.length < 2) return time24;
+  let hours = parseInt(parts[0], 10);
+  const minutes = parts[1];
+  if (isNaN(hours)) return time24;
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const hoursStr = String(hours).padStart(2, '0');
+  return `${hoursStr}:${minutes} ${ampm}`;
+};
 
 export default function PatientHomeScreen() {
   const router = useRouter();
@@ -38,6 +54,7 @@ export default function PatientHomeScreen() {
     total: 0,
     pending: 0,
   });
+  const [missedMeds, setMissedMeds] = useState<MissedMedicationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [langModalVisible, setLangModalVisible] = useState(false);
@@ -65,9 +82,10 @@ export default function PatientHomeScreen() {
     setErrorMsg('');
 
     try {
-      const [res, todayMedRes] = await Promise.all([
+      const [res, todayMedRes, missedRes] = await Promise.all([
         getPatientDashboardApi(),
         getMyTodayMedicationSchedules().catch(() => null),
+        getMyMissedMedications().catch(() => null),
       ]);
 
       if (res && res.success) {
@@ -78,6 +96,10 @@ export default function PatientHomeScreen() {
         const total = todayMedRes.data.length;
         const pending = todayMedRes.data.filter((task: any) => task.status === 'PENDING').length;
         setTodayMedSummary({ total, pending });
+      }
+
+      if (missedRes && missedRes.success && Array.isArray(missedRes.data)) {
+        setMissedMeds(missedRes.data);
       }
     } catch (err: any) {
       if (err.statusCode === 404) {
@@ -422,6 +444,51 @@ export default function PatientHomeScreen() {
               <Text style={styles.sosTitle}>{t('emergencySos')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Missed Medication Alert Banner (Phase 3) */}
+          {missedMeds.length > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.missedMedCard,
+                {
+                  backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                  borderColor: themeColors.danger,
+                },
+              ]}
+              activeOpacity={0.8}
+              onPress={() => {
+                stopSpeech();
+                router.push('/(patient)/today-medication' as any);
+              }}
+            >
+              <View style={styles.missedMedHeaderRow}>
+                <View
+                  style={[
+                    styles.missedMedIconBox,
+                    { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.25)' : '#FEE2E2' },
+                  ]}
+                >
+                  <Text style={styles.missedMedIcon}>⚠️</Text>
+                </View>
+                <View style={styles.missedMedTextCol}>
+                  <Text style={[styles.missedMedTitle, { color: themeColors.danger }]}>
+                    {t('missedMedication')}
+                  </Text>
+                  <Text style={[styles.missedMedSub, { color: themeColors.textPrimary }]}>
+                    {t('medicationMissed')}:{' '}
+                    <Text style={{ fontWeight: '700' }}>{missedMeds[0].medicineName}</Text>
+                  </Text>
+                  <Text style={[styles.missedMedTime, { color: themeColors.textSecondary }]}>
+                    Scheduled: {formatTimeAmPm(missedMeds[0].scheduledTime)}
+                    {missedMeds.length > 1 ? ` (+${missedMeds.length - 1} more)` : ''}
+                  </Text>
+                </View>
+                <View style={[styles.viewMissedBtn, { backgroundColor: themeColors.danger }]}>
+                  <Text style={styles.viewMissedBtnText}>{t('viewMedication')}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* Today's Medicines Card (Phase 2) */}
           <TouchableOpacity
@@ -928,6 +995,57 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   viewMedBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  missedMedCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    ...shadows.card,
+  },
+  missedMedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  missedMedIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  missedMedIcon: {
+    fontSize: 22,
+  },
+  missedMedTextCol: {
+    flex: 1,
+    paddingRight: spacing.xs,
+  },
+  missedMedTitle: {
+    ...typography.subheader,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  missedMedSub: {
+    ...typography.caption,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  missedMedTime: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  viewMissedBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+  },
+  viewMissedBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,

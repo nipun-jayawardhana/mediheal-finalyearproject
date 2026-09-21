@@ -20,7 +20,9 @@ import {
   getPatientDetailsForCaregiver,
   removeCaregiverLink,
 } from '../../services/caregiverService';
+import { getCaregiverPatientTodayMedications } from '../../services/medicationReminderService';
 import { CaregiverPatientOverview } from '../../types/caregiver';
+import { CaregiverPatientTodayMedicationTask } from '../../types/medicationReminder';
 
 export default function PatientOverviewScreen() {
   const router = useRouter();
@@ -29,6 +31,7 @@ export default function PatientOverviewScreen() {
   const { t } = useLanguage();
 
   const [overview, setOverview] = useState<CaregiverPatientOverview | null>(null);
+  const [todaySchedules, setTodaySchedules] = useState<CaregiverPatientTodayMedicationTask[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [unlinking, setUnlinking] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -44,11 +47,17 @@ export default function PatientOverviewScreen() {
     setErrorMsg('');
 
     try {
-      const res = await getPatientDetailsForCaregiver(params.id);
+      const [res, todayRes] = await Promise.all([
+        getPatientDetailsForCaregiver(params.id),
+        getCaregiverPatientTodayMedications(params.id).catch(() => ({ success: false, data: [] })),
+      ]);
       if (res && res.success && res.data) {
         setOverview(res.data);
       } else {
         setErrorMsg(t('failedToLoadPatientOverview'));
+      }
+      if (todayRes && todayRes.success && todayRes.data) {
+        setTodaySchedules(todayRes.data);
       }
     } catch (err: any) {
       setErrorMsg(err.message || t('failedToLoadPatientOverview'));
@@ -196,6 +205,76 @@ export default function PatientOverviewScreen() {
             </View>
           </View>
         ) : null}
+
+        {/* Today's Prescribed Medication Tasks */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
+              {t('todayMedication')} ({todaySchedules.length})
+            </Text>
+            {todaySchedules.some((s) => s.status === 'MISSED') && (
+              <View style={[styles.missedAlertPill, { backgroundColor: themeColors.dangerLight }]}>
+                <Text style={[styles.missedAlertPillText, { color: colors.danger }]}>
+                  ⚠️ {todaySchedules.filter((s) => s.status === 'MISSED').length} {t('missed')}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {todaySchedules.length > 0 ? (
+            todaySchedules.map((item) => (
+              <View
+                key={item._id}
+                style={[
+                  styles.todaySchedCard,
+                  { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                  item.status === 'MISSED' && { borderColor: colors.danger, borderWidth: 1.5 },
+                ]}
+              >
+                <View style={styles.todaySchedRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.todaySchedMed, { color: themeColors.textPrimary }]}>
+                      💊 {item.medicineName}
+                    </Text>
+                    <Text style={[styles.todaySchedMeta, { color: themeColors.textSecondary }]}>
+                      {item.dosage} • ⏰ {item.scheduledTimeFormatted || item.scheduledTime}
+                    </Text>
+                    {item.instructions ? (
+                      <Text style={[styles.todaySchedNotes, { color: themeColors.textMuted }]}>
+                        {item.instructions}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View
+                    style={[
+                      styles.statusPill,
+                      item.status === 'TAKEN' && { backgroundColor: themeColors.successLight },
+                      item.status === 'MISSED' && { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2' },
+                      item.status === 'PENDING' && { backgroundColor: themeColors.warningLight || '#FEF3C7' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        item.status === 'TAKEN' && { color: themeColors.success },
+                        item.status === 'MISSED' && { color: colors.danger },
+                        item.status === 'PENDING' && { color: '#D97706' },
+                      ]}
+                    >
+                      {item.status === 'TAKEN' ? `✓ ${t('taken')}` : item.status === 'MISSED' ? `⚠️ ${t('missed')}` : `⏳ ${t('pending')}`}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={[styles.emptyBox, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+              <Text style={[styles.emptyText, { color: themeColors.textMuted }]}>
+                {t('allDosesOnTrack')}
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Active Medications Section */}
         <View style={styles.sectionContainer}>
@@ -603,5 +682,50 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     color: colors.danger,
     fontSize: 14,
+  },
+  missedAlertPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.pill,
+  },
+  missedAlertPillText: {
+    fontWeight: '800',
+    fontSize: 12,
+  },
+  todaySchedCard: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.xs,
+    borderWidth: 1,
+  },
+  todaySchedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  todaySchedMed: {
+    ...typography.bodyBold,
+    fontSize: 15,
+  },
+  todaySchedMeta: {
+    ...typography.caption,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  todaySchedNotes: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  statusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: borderRadius.pill,
+  },
+  statusPillText: {
+    fontWeight: '800',
+    fontSize: 12,
   },
 });

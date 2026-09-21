@@ -357,6 +357,7 @@ export default function TodayMedicationScreen() {
             }
             renderItem={({ item }) => {
               const isTaken = item.status === 'TAKEN';
+              const isMissed = item.status === 'MISSED';
               const isMarking = markingId === item._id;
 
               return (
@@ -365,7 +366,11 @@ export default function TodayMedicationScreen() {
                     styles.medCard,
                     {
                       backgroundColor: themeColors.card,
-                      borderColor: isTaken ? themeColors.success : themeColors.border,
+                      borderColor: isTaken
+                        ? themeColors.success
+                        : isMissed
+                        ? themeColors.danger
+                        : themeColors.border,
                     },
                   ]}
                 >
@@ -377,11 +382,15 @@ export default function TodayMedicationScreen() {
                         {
                           backgroundColor: isTaken
                             ? themeColors.successLight
+                            : isMissed
+                            ? themeColors.dangerLight
                             : themeColors.primaryLight,
                         },
                       ]}
                     >
-                      <Text style={styles.medIcon}>{isTaken ? '✓' : '💊'}</Text>
+                      <Text style={styles.medIcon}>
+                        {isTaken ? '✓' : isMissed ? '⚠️' : '💊'}
+                      </Text>
                     </View>
 
                     <View style={styles.medNameCol}>
@@ -410,6 +419,8 @@ export default function TodayMedicationScreen() {
                         {
                           backgroundColor: isTaken
                             ? themeColors.successLight
+                            : isMissed
+                            ? themeColors.dangerLight
                             : isDark
                             ? 'rgba(234, 179, 8, 0.2)'
                             : '#FEF3C7',
@@ -422,13 +433,19 @@ export default function TodayMedicationScreen() {
                           {
                             color: isTaken
                               ? themeColors.success
+                              : isMissed
+                              ? themeColors.danger
                               : isDark
                               ? '#FDE047'
                               : '#B45309',
                           },
                         ]}
                       >
-                        {isTaken ? `✓ ${t('taken')}` : t('pending')}
+                        {isTaken
+                          ? `✓ ${t('taken')}`
+                          : isMissed
+                          ? `⚠️ ${t('missed')}`
+                          : t('pending')}
                       </Text>
                     </View>
                   </View>
@@ -483,6 +500,20 @@ export default function TodayMedicationScreen() {
                           ]}
                         >
                           {item.instructions}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    {isMissed ? (
+                      <View style={[styles.detailRow, { marginTop: 4 }]}>
+                        <Text style={styles.detailIcon}>⚠️</Text>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: themeColors.danger, fontWeight: '700' },
+                          ]}
+                        >
+                          Dose Missed (Past grace period)
                         </Text>
                       </View>
                     ) : null}

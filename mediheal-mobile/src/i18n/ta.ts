@@ -451,4 +451,13 @@ export const ta: Record<TranslationKeys, string> = {
   noMedicationScheduledToday: 'இன்று திட்டமிடப்பட்ட மருந்துகள் எதுவும் இல்லை',
   doseMarkedTakenSuccess: 'மருந்து அளவு வெற்றிகரமாக குறிக்கப்பட்டது.',
   adherenceCompliance: 'இணக்கம்',
+
+  // Missed Medication Alerts & Monitoring (Phase 3)
+  missedMedication: 'தவறிய மருந்துகள்',
+  medicationMissed: 'நீங்கள் தவறவிட்டீர்கள்',
+  contactPatient: 'நோயாளியைத் தொடர்பு கொள்ளவும்',
+  medicationAlert: 'மருந்து எச்சரிக்கை',
+  patientMedicationMonitoring: 'நோயாளி மருந்து கண்காணிப்பு',
+  noMissedMedications: 'தவறிய மருந்துகள் எதுவும் இல்லை',
+  allDosesOnTrack: 'பரிந்துரைக்கப்பட்ட அனைத்து மருந்துகளும் சரியான பாதையில் உள்ளன',
 };

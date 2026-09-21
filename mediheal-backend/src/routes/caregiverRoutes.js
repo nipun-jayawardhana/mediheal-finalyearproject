@@ -6,6 +6,10 @@ const {
   removeCaregiverLink,
 } = require('../controllers/caregiverController');
 const { getCaregiverEmergencyAlerts } = require('../controllers/emergencyController');
+const {
+  getCaregiverMissedMedications,
+  getCaregiverPatientTodayMedications,
+} = require('../controllers/caregiverMedicationController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 
@@ -21,5 +25,9 @@ router.get('/patients', getLinkedPatients);
 router.get('/emergency-alerts', getCaregiverEmergencyAlerts);
 router.get('/patients/:patientId', getPatientDetailsForCaregiver);
 router.delete('/patients/:patientId/link', removeCaregiverLink);
+
+// Medication Monitoring (Phase 3)
+router.get('/medications/missed', getCaregiverMissedMedications);
+router.get('/medications/patient/:patientId/today', getCaregiverPatientTodayMedications);
 
 module.exports = router;

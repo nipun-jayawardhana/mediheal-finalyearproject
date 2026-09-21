@@ -45,6 +45,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/caregivers', caregiverRoutes);
+app.use('/api/caregiver', caregiverRoutes);
 app.use('/api/symptoms', symptomRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/community', communityRoutes);

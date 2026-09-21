@@ -449,6 +449,15 @@ export const en = {
   noMedicationScheduledToday: 'No medications scheduled for today',
   doseMarkedTakenSuccess: 'Medication dose marked as taken successfully.',
   adherenceCompliance: 'Compliance',
+
+  // Missed Medication Alerts & Monitoring (Phase 3)
+  missedMedication: 'Missed Medication',
+  medicationMissed: 'You missed',
+  contactPatient: 'Contact Patient',
+  medicationAlert: 'Medication Alert',
+  patientMedicationMonitoring: 'Medication Monitoring',
+  noMissedMedications: 'No Missed Medications',
+  allDosesOnTrack: 'All prescribed doses are on track',
 };
 
 export type TranslationKeys = keyof typeof en;

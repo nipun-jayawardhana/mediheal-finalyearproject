@@ -5,6 +5,7 @@ const {
   formatDateKey,
   generateSchedulesForPrescription,
 } = require('../services/medicationScheduleService');
+const { checkMissedMedications } = require('../services/medicationReminderService');
 
 /**
  * @desc    Get today's medication schedule for logged-in patient
@@ -32,6 +33,13 @@ const getMyTodayMedicationSchedules = async (req, res, next) => {
       }
     } catch (syncErr) {
       console.warn('Prescription-schedule sync warning:', syncErr);
+    }
+
+    // Run automatic missed medication detection for this patient
+    try {
+      await checkMissedMedications(patientId);
+    } catch (missedErr) {
+      console.warn('Missed medication check warning:', missedErr);
     }
 
     // Determine target date string (client date or server local date)
@@ -249,8 +257,69 @@ const getMedicationHistory = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get missed medications for logged-in patient
+ * @route   GET /api/medication-schedules/missed
+ * @access  Private / Patient
+ */
+const getPatientMissedMedications = async (req, res, next) => {
+  try {
+    const patientId = req.user._id;
+
+    // Trigger detection
+    try {
+      await checkMissedMedications(patientId);
+    } catch (missedErr) {
+      console.warn('Missed medication check warning:', missedErr);
+    }
+
+    // Query schedules containing MISSED records
+    const schedules = await MedicationSchedule.find({
+      patientId,
+      'adherenceRecords.status': 'MISSED',
+    }).lean();
+
+    const missedItems = [];
+
+    for (const schedule of schedules) {
+      if (!Array.isArray(schedule.adherenceRecords)) continue;
+
+      for (const rec of schedule.adherenceRecords) {
+        if (rec.status === 'MISSED') {
+          missedItems.push({
+            _id: rec._id,
+            scheduleId: schedule._id,
+            medicineName: schedule.medicineName,
+            dosage: schedule.dosage,
+            scheduledTime: rec.scheduledTime,
+            status: 'MISSED',
+            scheduledDate: rec.scheduledDateStr,
+            instructions: schedule.instructions || '',
+          });
+        }
+      }
+    }
+
+    // Sort by scheduledDate desc, scheduledTime desc
+    missedItems.sort((a, b) => {
+      const dateCmp = b.scheduledDate.localeCompare(a.scheduledDate);
+      if (dateCmp !== 0) return dateCmp;
+      return b.scheduledTime.localeCompare(a.scheduledTime);
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: missedItems.length,
+      data: missedItems,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getMyTodayMedicationSchedules,
   markScheduleDoseTaken,
   getMedicationHistory,
+  getPatientMissedMedications,
 };

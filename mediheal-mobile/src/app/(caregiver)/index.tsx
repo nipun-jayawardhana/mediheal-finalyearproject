@@ -26,8 +26,10 @@ import {
   getLinkedPatients,
   getCaregiverEmergencyAlerts,
 } from '../../services/caregiverService';
+import { getCaregiverMissedMedications } from '../../services/medicationReminderService';
 import { LinkedPatientItem } from '../../types/caregiver';
 import { EmergencyAlert } from '../../types/emergency';
+import { CaregiverMissedMedicationItem } from '../../types/medicationReminder';
 
 export default function CaregiverDashboardScreen() {
   const router = useRouter();
@@ -37,6 +39,7 @@ export default function CaregiverDashboardScreen() {
 
   const [patients, setPatients] = useState<LinkedPatientItem[]>([]);
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
+  const [missedMeds, setMissedMeds] = useState<CaregiverMissedMedicationItem[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -63,9 +66,10 @@ export default function CaregiverDashboardScreen() {
     setErrorMsg('');
 
     try {
-      const [patientsRes, alertsRes] = await Promise.all([
+      const [patientsRes, alertsRes, missedRes] = await Promise.all([
         getLinkedPatients(),
         getCaregiverEmergencyAlerts(),
+        getCaregiverMissedMedications().catch(() => ({ success: false, data: [] })),
       ]);
 
       if (patientsRes && patientsRes.success) {
@@ -77,6 +81,10 @@ export default function CaregiverDashboardScreen() {
 
       if (alertsRes && alertsRes.success) {
         setAlerts(alertsRes.data || []);
+      }
+
+      if (missedRes && missedRes.success && missedRes.data) {
+        setMissedMeds(missedRes.data);
       }
     } catch (err: any) {
       setErrorMsg(err.message || t('unableToLoadCaregiverDashboard'));
@@ -336,6 +344,36 @@ export default function CaregiverDashboardScreen() {
           <ErrorView message={errorMsg} onRetry={() => fetchDashboardData(true)} />
         ) : null}
 
+        {/* Missed Medication Alert Banner */}
+        {missedMeds.length > 0 && (
+          <TouchableOpacity
+            style={[
+              styles.missedMedsBanner,
+              {
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                borderColor: colors.danger,
+              },
+            ]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/(caregiver)/medication-monitoring' as any)}
+          >
+            <View style={styles.missedMedsHeaderRow}>
+              <Text style={styles.missedMedsIcon}>⚠️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.missedMedsTitle, { color: colors.danger }]}>
+                  {t('missedMedication')} ({missedMeds.length})
+                </Text>
+                <Text style={[styles.missedMedsSub, { color: themeColors.textSecondary }]}>
+                  {missedMeds[0].patientName} {t('medicationMissed')}
+                </Text>
+              </View>
+              <View style={[styles.viewMedBadge, { backgroundColor: colors.danger }]}>
+                <Text style={styles.viewMedBadgeText}>{t('viewMedication')} →</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Emergency SOS Banner (Rule 37) */}
         {activeAlerts.length > 0 ? (
           <TouchableOpacity
@@ -541,6 +579,30 @@ export default function CaregiverDashboardScreen() {
           </View>
         )}
 
+        {/* Patient Medication Monitoring Quick Access */}
+        <TouchableOpacity
+          style={[
+            styles.menuCard,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(caregiver)/medication-monitoring' as any)}
+        >
+          <Text style={styles.menuIcon}>💊</Text>
+          <View style={styles.menuTextCol}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>{t('patientMedicationMonitoring')}</Text>
+              {missedMeds.length > 0 && (
+                <View style={[styles.missedBadgePill, { backgroundColor: colors.danger }]}>
+                  <Text style={styles.missedBadgePillText}>{missedMeds.length}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>{t('medicationAlert')} & tracking</Text>
+          </View>
+          <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
+        </TouchableOpacity>
+
         {/* Safety & Alerts Quick Access */}
         <TouchableOpacity
           style={[
@@ -683,6 +745,52 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.danger,
     ...shadows.card,
+  },
+  missedMedsBanner: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    ...shadows.card,
+  },
+  missedMedsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  missedMedsIcon: {
+    fontSize: 22,
+    marginRight: spacing.sm,
+  },
+  missedMedsTitle: {
+    ...typography.subheader,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  missedMedsSub: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  viewMedBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    marginLeft: spacing.xs,
+  },
+  viewMedBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  missedBadgePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: 10,
+  },
+  missedBadgePillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   sosBadgeRow: {
     flexDirection: 'row',
