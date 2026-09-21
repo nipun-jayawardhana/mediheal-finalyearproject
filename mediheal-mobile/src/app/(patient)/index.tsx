@@ -436,6 +436,20 @@ export default function PatientHomeScreen() {
             <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
 
+          {/* Doctor Prescriptions Banner */}
+          <TouchableOpacity
+            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.primary, marginTop: spacing.sm }]}
+            activeOpacity={0.8}
+            onPress={() => { stopSpeech(); router.push('/(patient)/prescriptions' as any); }}
+          >
+            <Text style={styles.appointmentsIcon}>📋</Text>
+            <View style={styles.appointmentsTextCol}>
+              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>Doctor Prescriptions</Text>
+              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>View official medications & dosages from your doctor</Text>
+            </View>
+            <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
+          </TouchableOpacity>
+
           {/* Community Health Banner */}
           <TouchableOpacity
             style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border, marginTop: spacing.sm }]}

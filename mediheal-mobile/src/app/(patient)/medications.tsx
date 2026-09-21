@@ -214,6 +214,27 @@ export default function PatientMedicationsScreen() {
       />
 
       <View style={styles.container}>
+        {/* Quick Link to Doctor Prescriptions */}
+        <TouchableOpacity
+          style={[
+            styles.prescriptionsBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.primary },
+          ]}
+          onPress={() => router.push('/(patient)/prescriptions' as any)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.prescriptionsBannerIcon}>📋</Text>
+          <View style={styles.prescriptionsBannerTextCol}>
+            <Text style={[styles.prescriptionsBannerTitle, { color: themeColors.primary }]}>
+              View Doctor Prescriptions
+            </Text>
+            <Text style={[styles.prescriptionsBannerSub, { color: themeColors.textSecondary }]}>
+              Official treatment orders prescribed by your doctors
+            </Text>
+          </View>
+          <Text style={[styles.prescriptionsBannerArrow, { color: themeColors.primary }]}>→</Text>
+        </TouchableOpacity>
+
         {errorMsg ? (
           <ErrorView message={errorMsg} onRetry={fetchData} />
         ) : null}
@@ -408,5 +429,35 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: spacing.xl,
+  },
+  prescriptionsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  prescriptionsBannerIcon: {
+    fontSize: 22,
+    marginRight: spacing.sm,
+  },
+  prescriptionsBannerTextCol: {
+    flex: 1,
+  },
+  prescriptionsBannerTitle: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  prescriptionsBannerSub: {
+    ...typography.caption,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  prescriptionsBannerArrow: {
+    ...typography.bodyBold,
+    fontSize: 18,
+    marginLeft: spacing.xs,
   },
 });
