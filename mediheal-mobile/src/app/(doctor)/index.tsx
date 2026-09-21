@@ -147,6 +147,19 @@ export default function DoctorDashboardScreen() {
 
             <TouchableOpacity
               style={[
+                styles.profileHeaderBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={() => router.push('/(doctor)/profile' as any)}
+              accessibilityRole="button"
+              accessibilityLabel="View doctor profile"
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 16 }}>👤</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
                 styles.logoutHeaderBtn,
                 { backgroundColor: themeColors.card, borderColor: themeColors.border },
               ]}
@@ -175,11 +188,15 @@ export default function DoctorDashboardScreen() {
         ) : null}
 
         {/* Doctor Summary Header Card */}
-        <View
+        <TouchableOpacity
           style={[
             styles.doctorHeaderCard,
             { backgroundColor: themeColors.card, borderColor: themeColors.border },
           ]}
+          onPress={() => router.push('/(doctor)/profile' as any)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Doctor profile card. Tap to view profile"
         >
           <View
             style={[
@@ -200,7 +217,8 @@ export default function DoctorDashboardScreen() {
               {user?.email}
             </Text>
           </View>
-        </View>
+          <Text style={[styles.doctorCardArrow, { color: themeColors.primary }]}>→</Text>
+        </TouchableOpacity>
 
         {/* Dashboard Real Stat Counters */}
         <View style={styles.statsGrid}>
@@ -348,6 +366,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  profileHeaderBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   logoutHeaderBtn: {
     backgroundColor: colors.card,
     paddingHorizontal: spacing.sm,
@@ -401,6 +428,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  doctorCardArrow: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginLeft: spacing.xs,
   },
   statsGrid: {
     flexDirection: 'row',
