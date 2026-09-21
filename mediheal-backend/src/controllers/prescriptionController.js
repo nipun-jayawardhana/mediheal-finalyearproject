@@ -3,6 +3,7 @@ const Prescription = require('../models/Prescription');
 const Consultation = require('../models/Consultation');
 const User = require('../models/User');
 const DoctorProfile = require('../models/DoctorProfile');
+const { generateSchedulesForPrescription } = require('../services/medicationScheduleService');
 
 /**
  * Helper to populate doctor details and attach specialization & hospital
@@ -139,6 +140,13 @@ const createPrescription = async (req, res, next) => {
       medications: validatedMedications,
       status: 'active',
     });
+
+    // Automatically generate day-by-day medication schedules for the patient
+    try {
+      await generateSchedulesForPrescription(prescription);
+    } catch (schedErr) {
+      console.warn('Auto-schedule generation warning:', schedErr);
+    }
 
     const populated = await Prescription.findById(prescription._id)
       .populate('doctorId', 'fullName email phoneNumber')

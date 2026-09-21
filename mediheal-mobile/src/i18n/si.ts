@@ -437,4 +437,18 @@ export const si: Record<TranslationKeys, string> = {
   triggeredAt: 'ක්‍රියාත්මක වූයේ',
   messageLabel: 'පණිවිඩය',
   loadingEmergencyAlerts: 'හදිසි ඇඟවීම් පූරණය වෙමින් පවතී...',
+
+  // Medication Tracking & Schedule (Phase 2)
+  todayMedication: 'අද දින ඖෂධ',
+  medication: 'ඖෂධය',
+  markAsTaken: 'ලබාගත් බව සලකුණු කරන්න',
+  takenAt: 'ලබාගත් වේලාව',
+  medicationHistory: 'ඖෂධ භාවිත ඉතිහාසය',
+  todaysMedicines: 'අද දින ඖෂධ',
+  medicinesRemaining: 'ඖෂධ මාත්‍රා ඉතිරිව ඇත',
+  allMedicinesTaken: 'අද දින සියලු ඖෂධ ලබාගෙන ඇත!',
+  viewMedication: 'ඖෂධ බලන්න',
+  noMedicationScheduledToday: 'අද දිනට සැලසුම් කළ ඖෂධ නොමැත',
+  doseMarkedTakenSuccess: 'ඖෂධ මාත්‍රාව සාර්ථකව සලකුණු කරන ලදී.',
+  adherenceCompliance: 'පිළිපැදීම',
 };

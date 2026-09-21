@@ -214,6 +214,27 @@ export default function PatientMedicationsScreen() {
       />
 
       <View style={styles.container}>
+        {/* Quick Link to Today's Medication Tracking (Phase 2) */}
+        <TouchableOpacity
+          style={[
+            styles.prescriptionsBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.success, marginBottom: spacing.xs },
+          ]}
+          onPress={() => router.push('/(patient)/today-medication' as any)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.prescriptionsBannerIcon}>💊</Text>
+          <View style={styles.prescriptionsBannerTextCol}>
+            <Text style={[styles.prescriptionsBannerTitle, { color: themeColors.success }]}>
+              Today's Prescribed Medication
+            </Text>
+            <Text style={[styles.prescriptionsBannerSub, { color: themeColors.textSecondary }]}>
+              View today's doses, mark as taken & track adherence
+            </Text>
+          </View>
+          <Text style={[styles.prescriptionsBannerArrow, { color: themeColors.success }]}>→</Text>
+        </TouchableOpacity>
+
         {/* Quick Link to Doctor Prescriptions */}
         <TouchableOpacity
           style={[

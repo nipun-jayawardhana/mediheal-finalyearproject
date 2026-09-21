@@ -437,4 +437,18 @@ export const ta: Record<TranslationKeys, string> = {
   triggeredAt: 'தூண்டப்பட்டது',
   messageLabel: 'செய்தி',
   loadingEmergencyAlerts: 'அவசர எச்சரிக்கைகள் ஏற்றப்படுகின்றன...',
+
+  // Medication Tracking & Schedule (Phase 2)
+  todayMedication: 'இன்றைய மருந்துகள்',
+  medication: 'மருந்து',
+  markAsTaken: 'எடுக்கப்பட்டதாகக் குறிக்கவும்',
+  takenAt: 'எடுக்கப்பட்ட நேரம்',
+  medicationHistory: 'மருந்து பயன்பாட்டு வரலாறு',
+  todaysMedicines: 'இன்றைய மருந்துகள்',
+  medicinesRemaining: 'மருந்துகள் மீதமுள்ளன',
+  allMedicinesTaken: 'இன்றைய அனைத்து மருந்துகளும் எடுக்கப்பட்டுவிட்டன!',
+  viewMedication: 'மருந்துகளைப் பார்க்கவும்',
+  noMedicationScheduledToday: 'இன்று திட்டமிடப்பட்ட மருந்துகள் எதுவும் இல்லை',
+  doseMarkedTakenSuccess: 'மருந்து அளவு வெற்றிகரமாக குறிக்கப்பட்டது.',
+  adherenceCompliance: 'இணக்கம்',
 };

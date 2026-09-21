@@ -10,6 +10,7 @@ const consultationRoutes = require('./routes/consultationRoutes');
 const caregiverRoutes = require('./routes/caregiverRoutes');
 const medicationRoutes = require('./routes/medicationRoutes');
 const prescriptionRoutes = require('./routes/prescriptionRoutes');
+const medicationScheduleRoutes = require('./routes/medicationScheduleRoutes');
 const symptomRoutes = require('./routes/symptomRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const communityRoutes = require('./routes/communityRoutes');
@@ -51,6 +52,7 @@ app.use('/api', appointmentRoutes);
 app.use('/api', consultationRoutes);
 app.use('/api', medicationRoutes);
 app.use('/api', prescriptionRoutes);
+app.use('/api', medicationScheduleRoutes);
 
 // Centralized 404 handler for undefined routes
 app.use(notFoundHandler);

@@ -19,6 +19,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../../consta
 import { getPatientDashboardApi } from '../../services/patientService';
 import { PatientDashboardData } from '../../types/patient';
 import { getActiveEmergencyAlert } from '../../services/emergencyService';
+import { getMyTodayMedicationSchedules } from '../../services/medicationScheduleService';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
 import { getLocaleForLanguage } from '../../services/voiceService';
@@ -33,6 +34,10 @@ export default function PatientHomeScreen() {
   const { isDark, toggleTheme, colors: themeColors } = useTheme();
 
   const [dashboardData, setDashboardData] = useState<PatientDashboardData | null>(null);
+  const [todayMedSummary, setTodayMedSummary] = useState<{ total: number; pending: number }>({
+    total: 0,
+    pending: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [langModalVisible, setLangModalVisible] = useState(false);
@@ -60,9 +65,19 @@ export default function PatientHomeScreen() {
     setErrorMsg('');
 
     try {
-      const res = await getPatientDashboardApi();
+      const [res, todayMedRes] = await Promise.all([
+        getPatientDashboardApi(),
+        getMyTodayMedicationSchedules().catch(() => null),
+      ]);
+
       if (res && res.success) {
         setDashboardData(res.data);
+      }
+
+      if (todayMedRes && todayMedRes.success && Array.isArray(todayMedRes.data)) {
+        const total = todayMedRes.data.length;
+        const pending = todayMedRes.data.filter((task: any) => task.status === 'PENDING').length;
+        setTodayMedSummary({ total, pending });
       }
     } catch (err: any) {
       if (err.statusCode === 404) {
@@ -387,7 +402,7 @@ export default function PatientHomeScreen() {
             <TouchableOpacity
               style={[styles.actionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
               activeOpacity={0.8}
-              onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
+              onPress={() => { stopSpeech(); router.push('/(patient)/today-medication' as any); }}
             >
               <View style={[styles.actionIconCircle, { backgroundColor: themeColors.success }]}>
                 <Text style={styles.actionIconText}>💊</Text>
@@ -407,6 +422,40 @@ export default function PatientHomeScreen() {
               <Text style={styles.sosTitle}>{t('emergencySos')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Today's Medicines Card (Phase 2) */}
+          <TouchableOpacity
+            style={[
+              styles.todayMedCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.primary },
+            ]}
+            activeOpacity={0.8}
+            onPress={() => {
+              stopSpeech();
+              router.push('/(patient)/today-medication' as any);
+            }}
+          >
+            <View style={styles.todayMedHeaderRow}>
+              <View style={[styles.todayMedIconBox, { backgroundColor: themeColors.primaryLight }]}>
+                <Text style={styles.todayMedIcon}>💊</Text>
+              </View>
+              <View style={styles.todayMedTextCol}>
+                <Text style={[styles.todayMedTitle, { color: themeColors.textPrimary }]}>
+                  {t('todaysMedicines')}
+                </Text>
+                <Text style={[styles.todayMedRemaining, { color: themeColors.primary }]}>
+                  {todayMedSummary.total > 0
+                    ? todayMedSummary.pending > 0
+                      ? `${todayMedSummary.pending} ${t('medicinesRemaining')}`
+                      : t('allMedicinesTaken')
+                    : t('noMedicationScheduledToday')}
+                </Text>
+              </View>
+              <View style={[styles.viewMedBtn, { backgroundColor: themeColors.primary }]}>
+                <Text style={styles.viewMedBtnText}>{t('viewMedication')}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
 
           {/* My Appointments Quick Action Banner */}
           <TouchableOpacity
@@ -835,5 +884,52 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
     marginLeft: spacing.xs,
+  },
+  todayMedCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    ...shadows.card,
+  },
+  todayMedHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  todayMedIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  todayMedIcon: {
+    fontSize: 22,
+  },
+  todayMedTextCol: {
+    flex: 1,
+    paddingRight: spacing.xs,
+  },
+  todayMedTitle: {
+    ...typography.subheader,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  todayMedRemaining: {
+    ...typography.caption,
+    fontWeight: '600',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  viewMedBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: borderRadius.md,
+  },
+  viewMedBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

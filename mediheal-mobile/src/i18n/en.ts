@@ -435,6 +435,20 @@ export const en = {
   triggeredAt: 'Triggered',
   messageLabel: 'Message',
   loadingEmergencyAlerts: 'Loading emergency alerts...',
+
+  // Medication Tracking & Schedule (Phase 2)
+  todayMedication: "Today's Medication",
+  medication: 'Medication',
+  markAsTaken: 'Mark as Taken',
+  takenAt: 'Taken at',
+  medicationHistory: 'Medication History',
+  todaysMedicines: "Today's Medicines",
+  medicinesRemaining: 'medicines remaining',
+  allMedicinesTaken: 'All medicines taken for today!',
+  viewMedication: 'View Medication',
+  noMedicationScheduledToday: 'No medications scheduled for today',
+  doseMarkedTakenSuccess: 'Medication dose marked as taken successfully.',
+  adherenceCompliance: 'Compliance',
 };
 
 export type TranslationKeys = keyof typeof en;

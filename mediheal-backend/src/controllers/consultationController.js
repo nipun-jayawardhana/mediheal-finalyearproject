@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const Consultation = require('../models/Consultation');
 const Prescription = require('../models/Prescription');
+const { generateSchedulesForPrescription } = require('../services/medicationScheduleService');
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 
@@ -120,10 +121,10 @@ const createConsultation = async (req, res, next) => {
     appointment.status = 'completed';
     await appointment.save();
 
-    // 10. Automatically sync prescription record for patient viewing
+    // 10. Automatically sync prescription record & medication schedules for patient
     if (formattedPrescriptions.length > 0) {
       try {
-        await Prescription.create({
+        const newPrescription = await Prescription.create({
           patientId: appointment.patientId,
           doctorId: req.user._id,
           appointmentId,
@@ -133,6 +134,7 @@ const createConsultation = async (req, res, next) => {
           medications: formattedPrescriptions,
           status: 'active',
         });
+        await generateSchedulesForPrescription(newPrescription);
       } catch (prescErr) {
         console.warn('Auto-prescription sync warning:', prescErr);
       }

@@ -291,7 +291,21 @@ export default function PatientPrescriptionsScreen() {
                     )}
                   </View>
 
-                  {/* Consultation Link (if linked) */}
+                  {/* Track Today's Doses Action (Phase 2) */}
+                  <TouchableOpacity
+                    style={[
+                      styles.trackScheduleBtn,
+                      { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
+                    ]}
+                    onPress={() => router.push('/(patient)/today-medication' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.trackScheduleBtnText, { color: themeColors.primaryDark }]}>
+                      💊 Track Medication Schedule & Doses →
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Consultation Details Link (if linked) */}
                   {item.consultationId ? (
                     <TouchableOpacity
                       style={[
@@ -498,5 +512,18 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '700',
     fontSize: 12,
+  },
+  trackScheduleBtn: {
+    marginTop: spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  trackScheduleBtnText: {
+    ...typography.body,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });
