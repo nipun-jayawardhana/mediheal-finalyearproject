@@ -157,16 +157,6 @@ export default function DoctorDashboardScreen() {
             >
               <Text style={{ fontSize: 16 }}>👤</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.logoutHeaderBtn,
-                { backgroundColor: themeColors.card, borderColor: themeColors.border },
-              ]}
-              onPress={handleLogout}
-            >
-              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Logout</Text>
-            </TouchableOpacity>
           </View>
         }
       />
