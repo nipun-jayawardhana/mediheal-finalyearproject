@@ -161,7 +161,7 @@ export default function SpecialistListScreen() {
             style={[styles.mapChip, { backgroundColor: themeColors.primary }]}
             onPress={() =>
               router.push({
-                pathname: '/(patient)/doctor-map' as any,
+                pathname: '/(patient)/specialists-map' as any,
                 params: selectedSpecialization ? { specialization: selectedSpecialization } : undefined,
               })
             }
