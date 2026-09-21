@@ -15,6 +15,7 @@ import { AdminDoctorCard } from '../../components/AdminDoctorCard';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getAdminDoctors, updateDoctorStatus } from '../../services/adminService';
 import { AdminDoctor } from '../../types/admin';
@@ -22,6 +23,7 @@ import { AdminDoctor } from '../../types/admin';
 export default function AdminDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { colors: themeColors, isDark, toggleTheme } = useTheme();
 
   const [doctors, setDoctors] = useState<AdminDoctor[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -126,14 +128,35 @@ export default function AdminDashboardScreen() {
   const distinctSpecializations = new Set(doctors.map((d) => d.specialization)).size;
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Admin Portal"
         subtitle="Healthcare Network Control"
         rightComponent={
-          <TouchableOpacity style={styles.logoutHeaderBtn} onPress={handleLogout}>
-            <Text style={styles.logoutHeaderText}>Logout</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <TouchableOpacity
+              style={[
+                styles.themeToggleBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={() => void toggleTheme()}
+              accessibilityRole="button"
+              accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.logoutHeaderBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={handleLogout}
+            >
+              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -144,7 +167,8 @@ export default function AdminDashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
+            colors={[themeColors.primary]}
+            tintColor={themeColors.primary}
           />
         }
       >
@@ -153,14 +177,31 @@ export default function AdminDashboardScreen() {
         ) : null}
 
         {/* Admin Profile Header Banner */}
-        <View style={styles.adminBanner}>
-          <View style={styles.avatarCircle}>
+        <View
+          style={[
+            styles.adminBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.avatarCircle,
+              {
+                backgroundColor: themeColors.primaryLight,
+                borderColor: themeColors.primary,
+              },
+            ]}
+          >
             <Text style={styles.avatarText}>🛡️</Text>
           </View>
           <View style={styles.adminInfoCol}>
-            <Text style={styles.adminName}>{user?.fullName || 'System Administrator'}</Text>
-            <Text style={styles.adminEmail}>{user?.email}</Text>
-            <View style={styles.roleTag}>
+            <Text style={[styles.adminName, { color: themeColors.textPrimary }]}>
+              {user?.fullName || 'System Administrator'}
+            </Text>
+            <Text style={[styles.adminEmail, { color: themeColors.textMuted }]}>
+              {user?.email}
+            </Text>
+            <View style={[styles.roleTag, { backgroundColor: themeColors.primaryDark }]}>
               <Text style={styles.roleTagText}>SYSTEM ADMIN</Text>
             </View>
           </View>
@@ -169,76 +210,113 @@ export default function AdminDashboardScreen() {
         {/* Real Network Stat Cards */}
         <View style={styles.statsGrid}>
           <TouchableOpacity
-            style={styles.statCard}
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
             onPress={() => router.push('/(admin)/doctors' as any)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.statVal, { color: colors.primary }]}>{totalDoctors}</Text>
-            <Text style={styles.statLbl}>Total Doctors</Text>
+            <Text style={[styles.statVal, { color: themeColors.primary }]}>{totalDoctors}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Total Doctors</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statCard}
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
             onPress={() => router.push('/(admin)/doctors' as any)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.statVal, { color: colors.success }]}>{activeDoctors}</Text>
-            <Text style={styles.statLbl}>Active Doctors</Text>
+            <Text style={[styles.statVal, { color: themeColors.success }]}>{activeDoctors}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Active Doctors</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statCard}
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
             onPress={() => router.push('/(admin)/doctors' as any)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.statVal, { color: colors.danger }]}>{inactiveDoctors}</Text>
-            <Text style={styles.statLbl}>Inactive</Text>
+            <Text style={[styles.statVal, { color: themeColors.danger }]}>{inactiveDoctors}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Inactive</Text>
           </TouchableOpacity>
 
-          <View style={styles.statCard}>
-            <Text style={[styles.statVal, { color: colors.accent }]}>{distinctSpecializations}</Text>
-            <Text style={styles.statLbl}>Specialties</Text>
+          <View
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+          >
+            <Text style={[styles.statVal, { color: themeColors.accent }]}>{distinctSpecializations}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Specialties</Text>
           </View>
         </View>
 
         {/* Quick Action Navigation Buttons */}
         <TouchableOpacity
-          style={styles.actionBanner}
+          style={[
+            styles.actionBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
           activeOpacity={0.8}
           onPress={() => router.push('/(admin)/doctors' as any)}
         >
           <Text style={styles.actionIcon}>🩺</Text>
           <View style={styles.actionTextCol}>
-            <Text style={styles.actionTitle}>Manage Specialist Directory</Text>
-            <Text style={styles.actionSub}>View all registered doctors, edit profiles, toggle active status</Text>
+            <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>
+              Manage Specialist Directory
+            </Text>
+            <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>
+              View all registered doctors, edit profiles, toggle active status
+            </Text>
           </View>
-          <Text style={styles.actionArrow}>→</Text>
+          <Text style={[styles.actionArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionBanner}
+          style={[
+            styles.actionBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
           activeOpacity={0.8}
           onPress={() => router.push('/(admin)/doctor-add' as any)}
         >
           <Text style={styles.actionIcon}>➕</Text>
           <View style={styles.actionTextCol}>
-            <Text style={styles.actionTitle}>Register New Doctor Account</Text>
-            <Text style={styles.actionSub}>Create doctor user credentials and SLMC medical profile</Text>
+            <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>
+              Register New Doctor Account
+            </Text>
+            <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>
+              Create doctor user credentials and SLMC medical profile
+            </Text>
           </View>
-          <Text style={styles.actionArrow}>→</Text>
+          <Text style={[styles.actionArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         {/* Recent Registered Doctors Queue */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Registered Specialists ({totalDoctors})</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
+            Registered Specialists ({totalDoctors})
+          </Text>
           <TouchableOpacity onPress={() => router.push('/(admin)/doctors' as any)}>
-            <Text style={styles.viewAllText}>View All →</Text>
+            <Text style={[styles.viewAllText, { color: themeColors.primary }]}>View All →</Text>
           </TouchableOpacity>
         </View>
 
         {doctors.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>No doctors registered in the network yet.</Text>
+          <View
+            style={[
+              styles.emptyBox,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+          >
+            <Text style={[styles.emptyText, { color: themeColors.textMuted }]}>
+              No doctors registered in the network yet.
+            </Text>
           </View>
         ) : (
           doctors.slice(0, 5).map((doc) => (
@@ -259,6 +337,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+  themeToggleBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutHeaderBtn: {
     backgroundColor: colors.card,

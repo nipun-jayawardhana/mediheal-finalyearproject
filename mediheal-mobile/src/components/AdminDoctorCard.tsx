@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { AdminDoctor } from '../types/admin';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface AdminDoctorCardProps {
   doctor: AdminDoctor;
@@ -14,6 +15,7 @@ export const AdminDoctorCard: React.FC<AdminDoctorCardProps> = ({
   onEdit,
   onToggleStatus,
 }) => {
+  const { colors: themeColors, isDark } = useTheme();
   const doctorName = doctor.userId?.fullName
     ? doctor.userId.fullName.startsWith('Dr.')
       ? doctor.userId.fullName
@@ -33,63 +35,131 @@ export const AdminDoctorCard: React.FC<AdminDoctorCardProps> = ({
   const isUserActive = doctor.userId?.isActive !== false;
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: themeColors.card, borderColor: themeColors.border },
+      ]}
+    >
       {/* Top Doctor Info Row */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View
+          style={[
+            styles.avatarCircle,
+            {
+              backgroundColor: themeColors.primaryLight,
+              borderColor: themeColors.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.avatarText, { color: themeColors.primaryDark }]}>{initials}</Text>
         </View>
 
         <View style={styles.infoCol}>
-          <Text style={styles.doctorName}>{doctorName}</Text>
-          <Text style={styles.specializationText}>🩺 {doctor.specialization}</Text>
-          <Text style={styles.hospitalText}>🏥 {doctor.hospital}</Text>
+          <Text style={[styles.doctorName, { color: themeColors.textPrimary }]}>{doctorName}</Text>
+          <Text style={[styles.specializationText, { color: themeColors.primary }]}>
+            🩺 {doctor.specialization}
+          </Text>
+          <Text style={[styles.hospitalText, { color: themeColors.textSecondary }]}>
+            🏥 {doctor.hospital}
+          </Text>
         </View>
 
         {/* Status Badges */}
         <View style={styles.badgesCol}>
-          <View style={[styles.badgePill, isUserActive ? styles.activeBadge : styles.inactiveBadge]}>
-            <Text style={[styles.badgeText, isUserActive ? styles.activeText : styles.inactiveText]}>
+          <View
+            style={[
+              styles.badgePill,
+              {
+                backgroundColor: isUserActive ? themeColors.successLight : themeColors.dangerLight,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.badgeText,
+                { color: isUserActive ? themeColors.success : themeColors.danger },
+              ]}
+            >
               {isUserActive ? 'ACTIVE' : 'INACTIVE'}
             </Text>
           </View>
           {doctor.isAvailable ? (
-            <View style={styles.availBadge}>
-              <Text style={styles.availText}>AVAILABLE</Text>
+            <View
+              style={[
+                styles.availBadge,
+                {
+                  backgroundColor: themeColors.primaryLight,
+                },
+              ]}
+            >
+              <Text style={[styles.availText, { color: themeColors.primaryDark }]}>AVAILABLE</Text>
             </View>
           ) : null}
         </View>
       </View>
 
       {/* Meta Details Row */}
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>SLMC: {doctor.slmcNumber}</Text>
+      <View
+        style={[
+          styles.metaRow,
+          {
+            backgroundColor: themeColors.surfaceSecondary,
+            borderColor: themeColors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+          SLMC: {doctor.slmcNumber}
+        </Text>
 
         {doctor.consultationFee ? (
-          <Text style={styles.metaText}>Fee: LKR {doctor.consultationFee.toLocaleString()}</Text>
+          <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+            Fee: LKR {doctor.consultationFee.toLocaleString()}
+          </Text>
         ) : null}
 
         {doctor.yearsOfExperience !== undefined ? (
-          <Text style={styles.metaText}>{doctor.yearsOfExperience} Yrs Exp</Text>
+          <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
+            {doctor.yearsOfExperience} Yrs Exp
+          </Text>
         ) : null}
       </View>
 
       {/* Actions Row */}
-      <View style={styles.actionsRow}>
+      <View style={[styles.actionsRow, { borderTopColor: themeColors.border }]}>
         <TouchableOpacity
-          style={styles.editBtn}
+          style={[
+            styles.editBtn,
+            {
+              backgroundColor: themeColors.card,
+              borderColor: themeColors.border,
+            },
+          ]}
           onPress={() => onEdit(doctor)}
           activeOpacity={0.8}
         >
-          <Text style={styles.editBtnText}>✏️ Edit Details</Text>
+          <Text style={[styles.editBtnText, { color: themeColors.primary }]}>✏️ Edit Details</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.statusBtn, isUserActive ? styles.deactBtn : styles.reactBtn]}
+          style={[
+            styles.statusBtn,
+            {
+              backgroundColor: isUserActive ? themeColors.dangerLight : themeColors.successLight,
+              borderColor: isUserActive ? themeColors.danger : themeColors.success,
+              borderWidth: 1,
+            },
+          ]}
           onPress={() => onToggleStatus(doctor)}
           activeOpacity={0.8}
         >
-          <Text style={[styles.statusBtnText, isUserActive ? styles.deactBtnText : styles.reactBtnText]}>
+          <Text
+            style={[
+              styles.statusBtnText,
+              { color: isUserActive ? themeColors.danger : themeColors.success },
+            ]}
+          >
             {isUserActive ? '⛔ Deactivate' : '✅ Reactivate'}
           </Text>
         </TouchableOpacity>

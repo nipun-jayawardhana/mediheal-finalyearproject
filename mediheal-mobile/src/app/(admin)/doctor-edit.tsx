@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,8 @@ import { AppHeader } from '../../components/AppHeader';
 import { AppButton } from '../../components/AppButton';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
-import { colors, spacing, borderRadius, typography } from '../../constants/theme';
+import { spacing, borderRadius, typography, lightColors } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { getAdminDoctorById, updateDoctor } from '../../services/adminService';
 import { AdminDoctor } from '../../types/admin';
 
@@ -35,6 +36,8 @@ const DAY_OPTIONS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sa
 export default function AdminEditDoctorScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
+  const { colors: themeColors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(themeColors, isDark), [themeColors, isDark]);
 
   const [doctor, setDoctor] = useState<AdminDoctor | null>(null);
   const [fullName, setFullName] = useState<string>('');
@@ -225,7 +228,7 @@ export default function AdminEditDoctorScreen() {
 
   if (errorMsg || !doctor) {
     return (
-      <ScreenContainer backgroundColor={colors.background}>
+      <ScreenContainer backgroundColor={themeColors.background}>
         <AppHeader title="Edit Doctor" onBackPress={() => router.back()} />
         <ErrorView message={errorMsg || 'Doctor details unavailable.'} onRetry={fetchDoctorDetails} />
       </ScreenContainer>
@@ -233,7 +236,7 @@ export default function AdminEditDoctorScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Edit Doctor Profile"
         subtitle={`Updating Dr. ${doctor.userId?.fullName || 'Specialist'}`}
@@ -323,7 +326,7 @@ export default function AdminEditDoctorScreen() {
           <TextInput
             style={styles.textInput}
             placeholder="e.g. Colombo 10"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={location}
             onChangeText={setLocation}
           />
@@ -336,7 +339,7 @@ export default function AdminEditDoctorScreen() {
             <TextInput
               style={styles.textInput}
               placeholder="e.g. 6.9271"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={latitude}
               onChangeText={setLatitude}
               keyboardType="numeric"
@@ -348,7 +351,7 @@ export default function AdminEditDoctorScreen() {
             <TextInput
               style={styles.textInput}
               placeholder="e.g. 79.8612"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={longitude}
               onChangeText={setLongitude}
               keyboardType="numeric"
@@ -441,7 +444,7 @@ export default function AdminEditDoctorScreen() {
             <TextInput
               style={styles.timeInput}
               placeholder="e.g. 09:00 AM - 01:00 PM"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={newSlotInput}
               onChangeText={setNewSlotInput}
             />
@@ -485,130 +488,132 @@ export default function AdminEditDoctorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  scrollContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xxl,
-  },
-  fieldGroup: {
-    marginBottom: spacing.md,
-  },
-  fieldLabel: {
-    ...typography.bodyBold,
-    fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  textInput: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...typography.body,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  multilineInput: {
-    minHeight: 80,
-  },
-  datesRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  chipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  chipOption: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipOptionSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    ...typography.caption,
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-  },
-  timeChipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  timeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    gap: spacing.xs,
-  },
-  timeChipText: {
-    ...typography.caption,
-    fontWeight: '800',
-    color: colors.primaryDark,
-    fontSize: 12,
-  },
-  removeChipIcon: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: colors.danger,
-  },
-  addTimeRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: 4,
-  },
-  timeInput: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...typography.body,
-    fontSize: 14,
-  },
-  addTimeBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addTimeBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 13,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.md,
-  },
-  cancelBtn: {
-    flex: 1,
-    minHeight: 46,
-  },
-  saveBtn: {
-    flex: 1,
-    minHeight: 46,
-  },
-});
+const createStyles = (colors: typeof lightColors, isDark: boolean) =>
+  StyleSheet.create({
+    scrollContent: {
+      padding: spacing.md,
+      paddingBottom: spacing.xxl,
+    },
+    fieldGroup: {
+      marginBottom: spacing.md,
+    },
+    fieldLabel: {
+      ...typography.bodyBold,
+      fontSize: 14,
+      color: colors.textPrimary,
+      marginBottom: spacing.xs,
+    },
+    textInput: {
+      backgroundColor: colors.card,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...typography.body,
+      fontSize: 15,
+      color: colors.textPrimary,
+    },
+    multilineInput: {
+      minHeight: 80,
+    },
+    datesRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+    },
+    chipsWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    chipOption: {
+      backgroundColor: colors.card,
+      borderRadius: borderRadius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    chipOptionSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    chipText: {
+      ...typography.caption,
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textSecondary,
+    },
+    chipTextSelected: {
+      color: '#FFFFFF',
+    },
+    timeChipsWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      marginBottom: spacing.xs,
+    },
+    timeChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isDark ? colors.surfaceSecondary : colors.primaryLight,
+      borderRadius: borderRadius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderWidth: 1,
+      borderColor: isDark ? colors.border : '#BFDBFE',
+      gap: spacing.xs,
+    },
+    timeChipText: {
+      ...typography.caption,
+      fontWeight: '800',
+      color: isDark ? colors.textPrimary : colors.primaryDark,
+      fontSize: 12,
+    },
+    removeChipIcon: {
+      fontSize: 12,
+      fontWeight: '900',
+      color: colors.danger,
+    },
+    addTimeRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+      marginTop: 4,
+    },
+    timeInput: {
+      flex: 1,
+      backgroundColor: colors.card,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...typography.body,
+      fontSize: 14,
+      color: colors.textPrimary,
+    },
+    addTimeBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: borderRadius.md,
+      paddingHorizontal: spacing.md,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    addTimeBtnText: {
+      color: '#FFFFFF',
+      fontWeight: '800',
+      fontSize: 13,
+    },
+    actionRow: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginTop: spacing.md,
+    },
+    cancelBtn: {
+      flex: 1,
+      minHeight: 46,
+    },
+    saveBtn: {
+      flex: 1,
+      minHeight: 46,
+    },
+  });

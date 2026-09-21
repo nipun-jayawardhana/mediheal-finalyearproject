@@ -18,6 +18,7 @@ import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getAdminDoctors,
   updateDoctorStatus,
@@ -32,6 +33,7 @@ const STATUS_FILTERS = [
 
 export default function AdminDoctorsScreen() {
   const router = useRouter();
+  const { colors: themeColors, isDark } = useTheme();
 
   const [doctors, setDoctors] = useState<AdminDoctor[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -138,14 +140,14 @@ export default function AdminDoctorsScreen() {
   });
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Specialist Management"
         subtitle="Doctor Accounts & Profiles"
         onBackPress={() => router.back()}
         rightComponent={
           <TouchableOpacity
-            style={styles.headerAddBtn}
+            style={[styles.headerAddBtn, { backgroundColor: themeColors.primary }]}
             onPress={() => router.push('/(admin)/doctor-add' as any)}
           >
             <Text style={styles.headerAddText}>+ Add Doctor</Text>
@@ -155,18 +157,26 @@ export default function AdminDoctorsScreen() {
 
       <View style={styles.container}>
         {/* Search Input Bar */}
-        <View style={styles.searchBar}>
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: themeColors.card,
+              borderColor: themeColors.border,
+            },
+          ]}
+        >
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: themeColors.textPrimary }]}
             placeholder="Search by name, specialization, or SLMC number..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={themeColors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Text style={styles.clearSearchIcon}>✕</Text>
+              <Text style={[styles.clearSearchIcon, { color: themeColors.textMuted }]}>✕</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -183,13 +193,24 @@ export default function AdminDoctorsScreen() {
               return (
                 <TouchableOpacity
                   key={tab.value}
-                  style={[styles.filterChip, isSelected && styles.filterChipSelected]}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: themeColors.card,
+                      borderColor: themeColors.border,
+                    },
+                    isSelected && {
+                      backgroundColor: themeColors.primary,
+                      borderColor: themeColors.primary,
+                    },
+                  ]}
                   onPress={() => setStatusFilter(tab.value)}
                   activeOpacity={0.8}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
+                      { color: isSelected ? '#FFFFFF' : themeColors.textSecondary },
                       isSelected && styles.filterChipTextSelected,
                     ]}
                   >
@@ -233,7 +254,8 @@ export default function AdminDoctorsScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[colors.primary]}
+                colors={[themeColors.primary]}
+                tintColor={themeColors.primary}
               />
             }
           />
