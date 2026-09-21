@@ -460,4 +460,22 @@ export const si: Record<TranslationKeys, string> = {
   patientMedicationMonitoring: 'ඖෂධ භාවිතය අධීක්ෂණය',
   noMissedMedications: 'මඟහැරුණු ඖෂධ නොමැත',
   allDosesOnTrack: 'නියමිත සියලු ඖෂධ නියමිත පරිදි ලබාගෙන ඇත',
+
+  // Medication Reminders & Notification Center (Phase 4)
+  medicationReminder: 'ඖෂධ මතක්කිරීම',
+  notifications: 'දැනුම්දීම්',
+  notificationCenter: 'දැනුම්දීම් මධ්‍යස්ථානය',
+  unread: 'නොකියවූ',
+  all: 'සියල්ල',
+  markAsRead: 'කියවූ බව සලකුණු කරන්න',
+  markAllAsRead: 'සියල්ල කියවූ බව සලකුණු කරන්න',
+  timeToTakeMedication: 'ඖෂධ ගැනීමට වේලාවයි',
+  openMedication: 'ඖෂධය විවෘත කරන්න',
+  reminderActive: 'මතක්කිරීම සක්‍රියයි',
+  reminder15MinNotice: 'නියමිත වේලාවට මිනිත්තු 15 කට පෙර',
+  noNotifications: 'දැනුම්දීම් නොමැත',
+  noNotificationsDesc: 'ඔබට මෙම අවස්ථාවේ ඖෂධ මතක්කිරීම් නොමැත.',
+  scheduledAt: 'නියමිත වේලාව',
+  minRemaining: 'මිනිත්තු ඉතිරියි',
+  allCaughtUp: 'සියල්ල යාවත්කාලීනයි!',
 };

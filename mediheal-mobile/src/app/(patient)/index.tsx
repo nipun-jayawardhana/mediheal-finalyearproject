@@ -21,6 +21,7 @@ import { PatientDashboardData } from '../../types/patient';
 import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { getMyTodayMedicationSchedules } from '../../services/medicationScheduleService';
 import { getMyMissedMedications } from '../../services/medicationReminderService';
+import { getUnreadNotificationCount } from '../../services/notificationService';
 import { MissedMedicationItem } from '../../types/medicationReminder';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
@@ -55,6 +56,7 @@ export default function PatientHomeScreen() {
     pending: 0,
   });
   const [missedMeds, setMissedMeds] = useState<MissedMedicationItem[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [langModalVisible, setLangModalVisible] = useState(false);
@@ -82,10 +84,11 @@ export default function PatientHomeScreen() {
     setErrorMsg('');
 
     try {
-      const [res, todayMedRes, missedRes] = await Promise.all([
+      const [res, todayMedRes, missedRes, notifCountRes] = await Promise.all([
         getPatientDashboardApi(),
         getMyTodayMedicationSchedules().catch(() => null),
         getMyMissedMedications().catch(() => null),
+        getUnreadNotificationCount().catch(() => null),
       ]);
 
       if (res && res.success) {
@@ -100,6 +103,10 @@ export default function PatientHomeScreen() {
 
       if (missedRes && missedRes.success && Array.isArray(missedRes.data)) {
         setMissedMeds(missedRes.data);
+      }
+
+      if (notifCountRes && notifCountRes.success && typeof notifCountRes.unreadCount === 'number') {
+        setUnreadNotifCount(notifCountRes.unreadCount);
       }
     } catch (err: any) {
       if (err.statusCode === 404) {
@@ -237,6 +244,23 @@ export default function PatientHomeScreen() {
               <Text style={[styles.langTextCompact, { color: themeColors.primary }]} numberOfLines={1}>
                 {HEADER_LANGUAGE_LABELS[language] || 'EN'}
               </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.headerIconBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+              onPress={() => { stopSpeech(); router.push('/(patient)/notifications' as any); }}
+              accessibilityRole="button"
+              accessibilityLabel={`Notifications. ${unreadNotifCount} unread`}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text style={[styles.headerIcon, { color: themeColors.textPrimary }]}>🔔</Text>
+              {unreadNotifCount > 0 && (
+                <View style={[styles.notifBadgePill, { backgroundColor: colors.danger }]}>
+                  <Text style={styles.notifBadgePillText}>
+                    {unreadNotifCount > 9 ? '9+' : unreadNotifCount}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -639,6 +663,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     zIndex: 1,
+  },
+  notifBadgePill: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  notifBadgePillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   headerIcon: {
     fontSize: 20,

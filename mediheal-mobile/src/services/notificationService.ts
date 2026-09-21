@@ -2,6 +2,12 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Medication } from '../types/medication';
+import { apiClient } from '../api/apiClient';
+import {
+  NotificationListResponse,
+  UnreadCountResponse,
+  NotificationItem,
+} from '../types/notification';
 
 export const REMINDERS_ENABLED_KEY = '@mediheal_medication_reminders_enabled';
 export const NOTIFICATION_IDS_KEY = '@mediheal_medication_notification_ids';
@@ -293,3 +299,53 @@ export const setupNotificationResponseListener = (
     subscription.remove();
   };
 };
+
+// ==========================================
+// Phase 4: In-App Patient Notification APIs
+// ==========================================
+
+/**
+ * Fetch all notifications for the authenticated patient
+ * GET /api/notifications/my
+ */
+export const getMyNotifications = async (): Promise<NotificationListResponse> => {
+  const response = await apiClient.get<NotificationListResponse>('/notifications/my');
+  return response.data;
+};
+
+/**
+ * Get unread notification count for the dashboard badge
+ * GET /api/notifications/unread-count
+ */
+export const getUnreadNotificationCount = async (): Promise<UnreadCountResponse> => {
+  const response = await apiClient.get<UnreadCountResponse>('/notifications/unread-count');
+  return response.data;
+};
+
+/**
+ * Mark a single notification as read
+ * PATCH /api/notifications/:id/read
+ */
+export const markNotificationAsRead = async (
+  id: string
+): Promise<{ success: boolean; data: NotificationItem }> => {
+  const response = await apiClient.patch<{ success: boolean; data: NotificationItem }>(
+    `/notifications/${id}/read`
+  );
+  return response.data;
+};
+
+/**
+ * Mark all notifications as read for the authenticated patient
+ * PATCH /api/notifications/read-all
+ */
+export const markAllNotificationsAsRead = async (): Promise<{
+  success: boolean;
+  message: string;
+}> => {
+  const response = await apiClient.patch<{ success: boolean; message: string }>(
+    '/notifications/read-all'
+  );
+  return response.data;
+};
+

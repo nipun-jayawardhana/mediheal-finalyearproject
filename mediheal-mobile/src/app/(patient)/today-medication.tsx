@@ -518,6 +518,28 @@ export default function TodayMedicationScreen() {
                       </View>
                     ) : null}
 
+                    {!isTaken && !isMissed ? (
+                      <View style={[styles.detailRow, { marginTop: 4 }]}>
+                        <Text style={styles.detailIcon}>⏰</Text>
+                        <Text
+                          style={[
+                            styles.detailLabel,
+                            { color: themeColors.primary, fontWeight: '700' },
+                          ]}
+                        >
+                          {t('reminderActive')}:
+                        </Text>
+                        <Text
+                          style={[
+                            styles.detailValue,
+                            { color: themeColors.primary, flex: 1, fontWeight: '600' },
+                          ]}
+                        >
+                          {t('reminder15MinNotice')}
+                        </Text>
+                      </View>
+                    ) : null}
+
                     {isTaken && item.takenAt ? (
                       <View style={[styles.detailRow, { marginTop: 4 }]}>
                         <Text style={styles.detailIcon}>⏱️</Text>

@@ -458,6 +458,24 @@ export const en = {
   patientMedicationMonitoring: 'Medication Monitoring',
   noMissedMedications: 'No Missed Medications',
   allDosesOnTrack: 'All prescribed doses are on track',
+
+  // Medication Reminders & Notification Center (Phase 4)
+  medicationReminder: 'Medication Reminder',
+  notifications: 'Notifications',
+  notificationCenter: 'Notification Center',
+  unread: 'Unread',
+  all: 'All',
+  markAsRead: 'Mark as Read',
+  markAllAsRead: 'Mark all as read',
+  timeToTakeMedication: 'Time to take medication',
+  openMedication: 'Open Medication',
+  reminderActive: 'Reminder Active',
+  reminder15MinNotice: '15 mins before scheduled time',
+  noNotifications: 'No notifications',
+  noNotificationsDesc: 'You have no medication reminders at this time.',
+  scheduledAt: 'Scheduled at',
+  minRemaining: 'min remaining',
+  allCaughtUp: 'All caught up!',
 };
 
 export type TranslationKeys = keyof typeof en;

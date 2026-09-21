@@ -68,6 +68,7 @@ export default function PatientLayout() {
       <Stack.Screen name="doctor-map" options={{ headerShown: false }} />
       <Stack.Screen name="prescriptions" options={{ headerShown: false }} />
       <Stack.Screen name="today-medication" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
     </Stack>
   );
 }

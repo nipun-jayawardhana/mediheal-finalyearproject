@@ -460,4 +460,22 @@ export const ta: Record<TranslationKeys, string> = {
   patientMedicationMonitoring: 'நோயாளி மருந்து கண்காணிப்பு',
   noMissedMedications: 'தவறிய மருந்துகள் எதுவும் இல்லை',
   allDosesOnTrack: 'பரிந்துரைக்கப்பட்ட அனைத்து மருந்துகளும் சரியான பாதையில் உள்ளன',
+
+  // Medication Reminders & Notification Center (Phase 4)
+  medicationReminder: 'மருந்து நினைவூட்டல்',
+  notifications: 'அறிவிப்புகள்',
+  notificationCenter: 'அறிவிப்பு மையம்',
+  unread: 'படிக்காதவை',
+  all: 'அனைத்தும்',
+  markAsRead: 'படித்ததாகக் குறிக்கவும்',
+  markAllAsRead: 'அனைத்தையும் படித்ததாகக் குறிக்கவும்',
+  timeToTakeMedication: 'மருந்து உட்கொள்ளும் நேரம்',
+  openMedication: 'மருந்தை திறக்கவும்',
+  reminderActive: 'நினைவூட்டல் செயலில் உள்ளது',
+  reminder15MinNotice: 'திட்டமிடப்பட்ட நேரத்திற்கு 15 நிமிடங்கள் முன்பு',
+  noNotifications: 'அறிவிப்புகள் எதுவும் இல்லை',
+  noNotificationsDesc: 'இந்த நேரத்தில் உங்களுக்கு மருந்து நினைவூட்டல்கள் எதுவும் இல்லை.',
+  scheduledAt: 'திட்டமிடப்பட்ட நேரம்',
+  minRemaining: 'நிமிடங்கள் மீதமுள்ளன',
+  allCaughtUp: 'அனைத்தும் புதுப்பிக்கப்பட்டது!',
 };

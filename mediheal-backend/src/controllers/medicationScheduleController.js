@@ -6,6 +6,7 @@ const {
   generateSchedulesForPrescription,
 } = require('../services/medicationScheduleService');
 const { checkMissedMedications } = require('../services/medicationReminderService');
+const { markReminderReadOnDoseTaken } = require('../services/medicationNotificationService');
 
 /**
  * @desc    Get today's medication schedule for logged-in patient
@@ -169,6 +170,9 @@ const markScheduleDoseTaken = async (req, res, next) => {
     targetRecord.takenAt = new Date();
 
     await schedule.save();
+
+    // Auto-mark any active reminder for this dose as read
+    await markReminderReadOnDoseTaken(schedule._id, targetRecord._id);
 
     return res.status(200).json({
       success: true,
