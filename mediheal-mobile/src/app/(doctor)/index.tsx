@@ -15,6 +15,7 @@ import { DoctorAppointmentCard } from '../../components/DoctorAppointmentCard';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import {
   getDoctorAppointments,
@@ -25,6 +26,7 @@ import { DoctorAppointment } from '../../types/doctorPortal';
 export default function DoctorDashboardScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { colors: themeColors, isDark, toggleTheme } = useTheme();
 
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -124,14 +126,35 @@ export default function DoctorDashboardScreen() {
   });
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Doctor Portal"
         subtitle={`Welcome, Dr. ${user?.fullName || 'Doctor'}`}
         rightComponent={
-          <TouchableOpacity style={styles.logoutHeaderBtn} onPress={handleLogout}>
-            <Text style={styles.logoutHeaderText}>Logout</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <TouchableOpacity
+              style={[
+                styles.themeToggleBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={() => void toggleTheme()}
+              accessibilityRole="button"
+              accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              activeOpacity={0.7}
+            >
+              <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.logoutHeaderBtn,
+                { backgroundColor: themeColors.card, borderColor: themeColors.border },
+              ]}
+              onPress={handleLogout}
+            >
+              <Text style={[styles.logoutHeaderText, { color: themeColors.danger }]}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -142,7 +165,8 @@ export default function DoctorDashboardScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[colors.primary]}
+            colors={[themeColors.primary]}
+            tintColor={themeColors.primary}
           />
         }
       >
@@ -151,20 +175,40 @@ export default function DoctorDashboardScreen() {
         ) : null}
 
         {/* Doctor Summary Header Card */}
-        <View style={styles.doctorHeaderCard}>
-          <View style={styles.doctorAvatarCircle}>
+        <View
+          style={[
+            styles.doctorHeaderCard,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.doctorAvatarCircle,
+              {
+                backgroundColor: themeColors.primaryLight,
+                borderColor: themeColors.primary,
+              },
+            ]}
+          >
             <Text style={styles.doctorAvatarText}>🩺</Text>
           </View>
           <View style={styles.doctorInfoCol}>
-            <Text style={styles.doctorName}>Dr. {user?.fullName || 'Medical Specialist'}</Text>
-            <Text style={styles.doctorEmail}>{user?.email}</Text>
+            <Text style={[styles.doctorName, { color: themeColors.textPrimary }]}>
+              Dr. {user?.fullName || 'Medical Specialist'}
+            </Text>
+            <Text style={[styles.doctorEmail, { color: themeColors.textMuted }]}>
+              {user?.email}
+            </Text>
           </View>
         </View>
 
         {/* Dashboard Real Stat Counters */}
         <View style={styles.statsGrid}>
           <TouchableOpacity
-            style={styles.statCard}
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
             activeOpacity={0.8}
             onPress={() =>
               router.push({
@@ -173,12 +217,15 @@ export default function DoctorDashboardScreen() {
               })
             }
           >
-            <Text style={[styles.statVal, { color: colors.warning }]}>{pendingCount}</Text>
-            <Text style={styles.statLbl}>Pending</Text>
+            <Text style={[styles.statVal, { color: themeColors.warning }]}>{pendingCount}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Pending</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statCard}
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
             activeOpacity={0.8}
             onPress={() =>
               router.push({
@@ -187,12 +234,15 @@ export default function DoctorDashboardScreen() {
               })
             }
           >
-            <Text style={[styles.statVal, { color: colors.primary }]}>{confirmedCount}</Text>
-            <Text style={styles.statLbl}>Confirmed</Text>
+            <Text style={[styles.statVal, { color: themeColors.primary }]}>{confirmedCount}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Confirmed</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.statCard}
+            style={[
+              styles.statCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
             activeOpacity={0.8}
             onPress={() =>
               router.push({
@@ -201,40 +251,54 @@ export default function DoctorDashboardScreen() {
               })
             }
           >
-            <Text style={[styles.statVal, { color: colors.success }]}>{completedCount}</Text>
-            <Text style={styles.statLbl}>Completed</Text>
+            <Text style={[styles.statVal, { color: themeColors.success }]}>{completedCount}</Text>
+            <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Completed</Text>
           </TouchableOpacity>
         </View>
 
         {/* Quick Menu Button */}
         <TouchableOpacity
-          style={styles.menuBanner}
+          style={[
+            styles.menuBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.primary },
+          ]}
           activeOpacity={0.8}
           onPress={() => router.push('/(doctor)/appointments' as any)}
         >
           <Text style={styles.menuIcon}>📅</Text>
           <View style={styles.menuTextCol}>
-            <Text style={styles.menuTitle}>View All Assigned Appointments</Text>
-            <Text style={styles.menuSub}>Manage bookings, confirm, or start consultations</Text>
+            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>
+              View All Assigned Appointments
+            </Text>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>
+              Manage bookings, confirm, or start consultations
+            </Text>
           </View>
-          <Text style={styles.menuArrow}>→</Text>
+          <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
         {/* Today's Appointments Section */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
             Today's Consultations ({todayAppointments.length})
           </Text>
           <TouchableOpacity
             onPress={() => router.push('/(doctor)/appointments' as any)}
           >
-            <Text style={styles.viewAllText}>View All →</Text>
+            <Text style={[styles.viewAllText, { color: themeColors.primary }]}>View All →</Text>
           </TouchableOpacity>
         </View>
 
         {todayAppointments.length === 0 ? (
-          <View style={styles.noTodayBox}>
-            <Text style={styles.noTodayText}>No consultations scheduled for today.</Text>
+          <View
+            style={[
+              styles.noTodayBox,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+          >
+            <Text style={[styles.noTodayText, { color: themeColors.textMuted }]}>
+              No consultations scheduled for today.
+            </Text>
           </View>
         ) : (
           todayAppointments.map((appt) => (
@@ -251,7 +315,9 @@ export default function DoctorDashboardScreen() {
         {/* Recent Assigned Appointments Section */}
         {appointments.length > 0 && todayAppointments.length === 0 && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Recent Assigned Appointments</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
+              Recent Assigned Appointments
+            </Text>
             {appointments.slice(0, 5).map((appt) => (
               <DoctorAppointmentCard
                 key={appt._id}
@@ -272,6 +338,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing.md,
     paddingBottom: spacing.xxl,
+  },
+  themeToggleBtn: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutHeaderBtn: {
     backgroundColor: colors.card,

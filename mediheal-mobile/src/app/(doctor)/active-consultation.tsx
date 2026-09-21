@@ -17,6 +17,7 @@ import { AppButton } from '../../components/AppButton';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getAppointmentById,
   createConsultation,
@@ -29,6 +30,7 @@ import {
 export default function ActiveConsultationScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ appointmentId?: string }>();
+  const { colors: themeColors } = useTheme();
 
   const [appointment, setAppointment] = useState<DoctorAppointment | null>(null);
   const [diagnosis, setDiagnosis] = useState<string>('');
@@ -176,7 +178,7 @@ export default function ActiveConsultationScreen() {
 
   if (errorMsg || !appointment) {
     return (
-      <ScreenContainer backgroundColor={colors.background}>
+      <ScreenContainer backgroundColor={themeColors.background}>
         <AppHeader title="Active Consultation" onBackPress={() => router.back()} />
         <ErrorView message={errorMsg || 'Appointment details unavailable.'} onRetry={fetchAppointment} />
       </ScreenContainer>
@@ -201,7 +203,7 @@ export default function ActiveConsultationScreen() {
       .toUpperCase() || 'PT';
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Active Consultation"
         subtitle="Clinical Notes & Diagnosis"
@@ -214,21 +216,40 @@ export default function ActiveConsultationScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Patient Context Card */}
-          <View style={styles.patientCard}>
+          <View
+            style={[
+              styles.patientCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+          >
             <View style={styles.patientHeaderRow}>
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{initials}</Text>
+              <View
+                style={[
+                  styles.avatarCircle,
+                  {
+                    backgroundColor: themeColors.primaryLight,
+                    borderColor: themeColors.primary,
+                  },
+                ]}
+              >
+                <Text style={[styles.avatarText, { color: themeColors.primaryDark }]}>{initials}</Text>
               </View>
 
               <View style={styles.patientCol}>
-                <Text style={styles.patientName}>{patientName}</Text>
-                <Text style={styles.appointmentMeta}>
+                <Text style={[styles.patientName, { color: themeColors.textPrimary }]}>{patientName}</Text>
+                <Text style={[styles.appointmentMeta, { color: themeColors.textSecondary }]}>
                   Reason: {appointment.reason}
                 </Text>
               </View>
 
               <TouchableOpacity
-                style={styles.historyBtn}
+                style={[
+                  styles.historyBtn,
+                  {
+                    backgroundColor: themeColors.surfaceSecondary,
+                    borderColor: themeColors.border,
+                  },
+                ]}
                 onPress={() =>
                   router.push({
                     pathname: '/(doctor)/patient-history' as any,
@@ -236,18 +257,26 @@ export default function ActiveConsultationScreen() {
                   })
                 }
               >
-                <Text style={styles.historyBtnText}>📑 Patient History</Text>
+                <Text style={[styles.historyBtnText, { color: themeColors.primary }]}>📑 Patient History</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Diagnosis Section (Required) */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Diagnosis *</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>Diagnosis *</Text>
             <TextInput
-              style={[styles.textInput, styles.diagnosisInput]}
+              style={[
+                styles.textInput,
+                styles.diagnosisInput,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: themeColors.border,
+                  color: themeColors.textPrimary,
+                },
+              ]}
               placeholder="Enter official medical diagnosis (e.g. Acute Bronchitis)"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={diagnosis}
               onChangeText={setDiagnosis}
               multiline
@@ -257,11 +286,21 @@ export default function ActiveConsultationScreen() {
 
           {/* Clinical Notes Section */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Clinical Notes & Observations</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>
+              Clinical Notes & Observations
+            </Text>
             <TextInput
-              style={[styles.textInput, styles.notesInput]}
+              style={[
+                styles.textInput,
+                styles.notesInput,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: themeColors.border,
+                  color: themeColors.textPrimary,
+                },
+              ]}
               placeholder="Start typing clinical findings, observations, and exam notes..."
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={clinicalNotes}
               onChangeText={setClinicalNotes}
               multiline
@@ -272,46 +311,85 @@ export default function ActiveConsultationScreen() {
 
           {/* Prescriptions Section */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Prescriptions ({prescriptions.length})</Text>
-            <TouchableOpacity style={styles.addRowBtn} onPress={handleAddPrescriptionRow}>
+            <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
+              Prescriptions ({prescriptions.length})
+            </Text>
+            <TouchableOpacity
+              style={[styles.addRowBtn, { backgroundColor: themeColors.primary }]}
+              onPress={handleAddPrescriptionRow}
+            >
               <Text style={styles.addRowText}>+ Add Medication</Text>
             </TouchableOpacity>
           </View>
 
           {prescriptions.map((p, index) => (
-            <View key={index} style={styles.prescriptionBox}>
+            <View
+              key={index}
+              style={[
+                styles.prescriptionBox,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: themeColors.border,
+                },
+              ]}
+            >
               <View style={styles.pHeaderRow}>
-                <Text style={styles.pRowTitle}>Medication Item #{index + 1}</Text>
+                <Text style={[styles.pRowTitle, { color: themeColors.primaryDark }]}>
+                  Medication Item #{index + 1}
+                </Text>
                 {prescriptions.length > 1 && (
                   <TouchableOpacity
                     onPress={() => handleRemovePrescriptionRow(index)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={styles.removeRowText}>🗑️ Remove</Text>
+                    <Text style={[styles.removeRowText, { color: themeColors.danger }]}>🗑️ Remove</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
               <TextInput
-                style={styles.pInput}
+                style={[
+                  styles.pInput,
+                  {
+                    backgroundColor: themeColors.surfaceSecondary,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
                 placeholder="Medicine Name (e.g. Amoxicillin 500mg)"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={themeColors.textMuted}
                 value={p.medicineName}
                 onChangeText={(val) => handleUpdatePrescriptionField(index, 'medicineName', val)}
               />
 
               <View style={styles.pSubRow}>
                 <TextInput
-                  style={[styles.pInput, { flex: 1 }]}
+                  style={[
+                    styles.pInput,
+                    {
+                      flex: 1,
+                      backgroundColor: themeColors.surfaceSecondary,
+                      borderColor: themeColors.border,
+                      color: themeColors.textPrimary,
+                    },
+                  ]}
                   placeholder="Dosage (e.g. 500mg)"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={themeColors.textMuted}
                   value={p.dosage}
                   onChangeText={(val) => handleUpdatePrescriptionField(index, 'dosage', val)}
                 />
                 <TextInput
-                  style={[styles.pInput, { flex: 1 }]}
+                  style={[
+                    styles.pInput,
+                    {
+                      flex: 1,
+                      backgroundColor: themeColors.surfaceSecondary,
+                      borderColor: themeColors.border,
+                      color: themeColors.textPrimary,
+                    },
+                  ]}
                   placeholder="Frequency (e.g. 3x Daily)"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={themeColors.textMuted}
                   value={p.frequency}
                   onChangeText={(val) => handleUpdatePrescriptionField(index, 'frequency', val)}
                 />
@@ -319,16 +397,32 @@ export default function ActiveConsultationScreen() {
 
               <View style={styles.pSubRow}>
                 <TextInput
-                  style={[styles.pInput, { flex: 1 }]}
+                  style={[
+                    styles.pInput,
+                    {
+                      flex: 1,
+                      backgroundColor: themeColors.surfaceSecondary,
+                      borderColor: themeColors.border,
+                      color: themeColors.textPrimary,
+                    },
+                  ]}
                   placeholder="Duration (e.g. 5 days)"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={themeColors.textMuted}
                   value={p.duration}
                   onChangeText={(val) => handleUpdatePrescriptionField(index, 'duration', val)}
                 />
                 <TextInput
-                  style={[styles.pInput, { flex: 1 }]}
+                  style={[
+                    styles.pInput,
+                    {
+                      flex: 1,
+                      backgroundColor: themeColors.surfaceSecondary,
+                      borderColor: themeColors.border,
+                      color: themeColors.textPrimary,
+                    },
+                  ]}
                   placeholder="Instructions (e.g. After meals)"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={themeColors.textMuted}
                   value={p.instructions}
                   onChangeText={(val) => handleUpdatePrescriptionField(index, 'instructions', val)}
                 />
@@ -338,26 +432,47 @@ export default function ActiveConsultationScreen() {
 
           {/* Lifestyle Recommendations Section */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Lifestyle & General Recommendations</Text>
-            
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>
+              Lifestyle & General Recommendations
+            </Text>
+
             {recommendations.map((rec, i) => (
-              <View key={i} style={styles.recItem}>
-                <Text style={styles.recText}>• {rec}</Text>
+              <View
+                key={i}
+                style={[
+                  styles.recItem,
+                  {
+                    backgroundColor: themeColors.card,
+                    borderColor: themeColors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.recText, { color: themeColors.textPrimary }]}>• {rec}</Text>
                 <TouchableOpacity onPress={() => handleRemoveRecommendation(i)}>
-                  <Text style={styles.removeRecText}>✕</Text>
+                  <Text style={[styles.removeRecText, { color: themeColors.danger }]}>✕</Text>
                 </TouchableOpacity>
               </View>
             ))}
 
             <View style={styles.addRecRow}>
               <TextInput
-                style={styles.recInput}
+                style={[
+                  styles.recInput,
+                  {
+                    backgroundColor: themeColors.card,
+                    borderColor: themeColors.border,
+                    color: themeColors.textPrimary,
+                  },
+                ]}
                 placeholder="e.g. Drink 2L warm water daily, avoid cold beverages"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={themeColors.textMuted}
                 value={newRecInput}
                 onChangeText={setNewRecInput}
               />
-              <TouchableOpacity style={styles.addRecBtn} onPress={handleAddRecommendation}>
+              <TouchableOpacity
+                style={[styles.addRecBtn, { backgroundColor: themeColors.primary }]}
+                onPress={handleAddRecommendation}
+              >
                 <Text style={styles.addRecBtnText}>+ Add Advice</Text>
               </TouchableOpacity>
             </View>
@@ -365,11 +480,20 @@ export default function ActiveConsultationScreen() {
 
           {/* Follow-up Date */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Follow-up Date (Optional)</Text>
+            <Text style={[styles.fieldLabel, { color: themeColors.textPrimary }]}>
+              Follow-up Date (Optional)
+            </Text>
             <TextInput
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: themeColors.border,
+                  color: themeColors.textPrimary,
+                },
+              ]}
               placeholder="YYYY-MM-DD (e.g. 2026-08-22)"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={themeColors.textMuted}
               value={followUpDate}
               onChangeText={setFollowUpDate}
             />

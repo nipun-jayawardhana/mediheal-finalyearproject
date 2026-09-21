@@ -13,12 +13,14 @@ import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import { getDoctorPatientHistory } from '../../services/doctorPortalService';
 import { DoctorConsultationRecord } from '../../types/doctorPortal';
 
 export default function DoctorPatientHistoryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ patientId?: string }>();
+  const { colors: themeColors } = useTheme();
 
   const [consultations, setConsultations] = useState<DoctorConsultationRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -91,7 +93,7 @@ export default function DoctorPatientHistoryScreen() {
       : 'Patient';
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Patient History"
         subtitle={patientName ? `Medical History for ${patientName}` : 'Consultation Records'}
@@ -120,34 +122,70 @@ export default function DoctorPatientHistoryScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[colors.primary]}
+                colors={[themeColors.primary]}
+                tintColor={themeColors.primary}
               />
             }
             contentContainerStyle={styles.listContent}
             renderItem={({ item }) => (
-              <View style={styles.historyCard}>
+              <View
+                style={[
+                  styles.historyCard,
+                  {
+                    backgroundColor: themeColors.card,
+                    borderColor: themeColors.border,
+                  },
+                ]}
+              >
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.diagTitle}>🩺 {item.diagnosis}</Text>
-                  <Text style={styles.dateText}>{formatDate(item.createdAt || item.completedAt)}</Text>
+                  <Text style={[styles.diagTitle, { color: themeColors.primaryDark }]}>
+                    🩺 {item.diagnosis}
+                  </Text>
+                  <Text style={[styles.dateText, { color: themeColors.textMuted }]}>
+                    {formatDate(item.createdAt || item.completedAt)}
+                  </Text>
                 </View>
 
                 {item.clinicalNotes ? (
-                  <View style={styles.notesBox}>
-                    <Text style={styles.notesLabel}>Clinical Notes:</Text>
-                    <Text style={styles.notesText}>{item.clinicalNotes}</Text>
+                  <View
+                    style={[
+                      styles.notesBox,
+                      {
+                        backgroundColor: themeColors.surfaceSecondary,
+                        borderColor: themeColors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.notesLabel, { color: themeColors.textMuted }]}>
+                      Clinical Notes:
+                    </Text>
+                    <Text style={[styles.notesText, { color: themeColors.textPrimary }]}>
+                      {item.clinicalNotes}
+                    </Text>
                   </View>
                 ) : null}
 
                 {/* Prescriptions */}
                 {item.prescriptions && item.prescriptions.length > 0 && (
                   <View style={styles.sectionWrap}>
-                    <Text style={styles.sectionLabel}>Prescribed Medications:</Text>
+                    <Text style={[styles.sectionLabel, { color: themeColors.textPrimary }]}>
+                      Prescribed Medications:
+                    </Text>
                     {item.prescriptions.map((p, idx) => (
-                      <View key={idx} style={styles.pItem}>
-                        <Text style={styles.pName}>
+                      <View
+                        key={idx}
+                        style={[
+                          styles.pItem,
+                          {
+                            backgroundColor: themeColors.card,
+                            borderColor: themeColors.border,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.pName, { color: themeColors.primaryDark }]}>
                           💊 {p.medicineName} ({p.dosage})
                         </Text>
-                        <Text style={styles.pSub}>
+                        <Text style={[styles.pSub, { color: themeColors.textSecondary }]}>
                           {p.frequency} • Duration: {p.duration}
                           {p.instructions ? ` • Instructions: ${p.instructions}` : ''}
                         </Text>
@@ -159,9 +197,14 @@ export default function DoctorPatientHistoryScreen() {
                 {/* Recommendations */}
                 {item.recommendations && item.recommendations.length > 0 && (
                   <View style={styles.sectionWrap}>
-                    <Text style={styles.sectionLabel}>Doctor Recommendations:</Text>
+                    <Text style={[styles.sectionLabel, { color: themeColors.textPrimary }]}>
+                      Doctor Recommendations:
+                    </Text>
                     {item.recommendations.map((r, idx) => (
-                      <Text key={idx} style={styles.recItem}>
+                      <Text
+                        key={idx}
+                        style={[styles.recItem, { color: themeColors.textSecondary }]}
+                      >
                         • {r}
                       </Text>
                     ))}
@@ -169,7 +212,7 @@ export default function DoctorPatientHistoryScreen() {
                 )}
 
                 {item.followUpDate ? (
-                  <Text style={styles.followUpText}>
+                  <Text style={[styles.followUpText, { color: themeColors.accent }]}>
                     📅 Follow-up Scheduled: {formatDate(item.followUpDate)}
                   </Text>
                 ) : null}

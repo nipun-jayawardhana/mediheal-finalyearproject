@@ -17,6 +17,7 @@ import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 import {
   getDoctorAppointments,
   updateAppointmentStatusByDoctor,
@@ -34,6 +35,7 @@ const FILTER_TABS: { label: string; value: string }[] = [
 export default function DoctorAppointmentsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ filter?: string }>();
+  const { colors: themeColors } = useTheme();
 
   const [appointments, setAppointments] = useState<DoctorAppointment[]>([]);
   const [selectedFilter, setSelectedFilter] = useState<string>(params.filter || 'all');
@@ -127,7 +129,7 @@ export default function DoctorAppointmentsScreen() {
   }
 
   return (
-    <ScreenContainer backgroundColor={colors.background}>
+    <ScreenContainer backgroundColor={themeColors.background}>
       <AppHeader
         title="Assigned Appointments"
         subtitle="Doctor Consultation Schedule"
@@ -147,14 +149,22 @@ export default function DoctorAppointmentsScreen() {
               return (
                 <TouchableOpacity
                   key={tab.value}
-                  style={[styles.filterChip, isSelected && styles.filterChipSelected]}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: isSelected ? themeColors.primary : themeColors.card,
+                      borderColor: isSelected ? themeColors.primary : themeColors.border,
+                    },
+                  ]}
                   onPress={() => handleFilterSelect(tab.value)}
                   activeOpacity={0.8}
                 >
                   <Text
                     style={[
                       styles.filterChipText,
-                      isSelected && styles.filterChipTextSelected,
+                      {
+                        color: isSelected ? '#FFFFFF' : themeColors.textSecondary,
+                      },
                     ]}
                   >
                     {tab.label}
@@ -196,7 +206,8 @@ export default function DoctorAppointmentsScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                colors={[colors.primary]}
+                colors={[themeColors.primary]}
+                tintColor={themeColors.primary}
               />
             }
           />

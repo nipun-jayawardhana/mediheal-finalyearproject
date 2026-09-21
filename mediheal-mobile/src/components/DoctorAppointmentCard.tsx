@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { DoctorAppointment } from '../types/doctorPortal';
 import { StatusBadge } from './StatusBadge';
 import { colors, spacing, borderRadius, typography, shadows } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface DoctorAppointmentCardProps {
   appointment: DoctorAppointment;
@@ -17,6 +18,7 @@ export const DoctorAppointmentCard: React.FC<DoctorAppointmentCardProps> = ({
   onStartConsultation,
   onViewHistory,
 }) => {
+  const { colors: themeColors } = useTheme();
   const patientName =
     typeof appointment.patientId === 'object' && appointment.patientId?.fullName
       ? appointment.patientId.fullName
@@ -47,16 +49,29 @@ export const DoctorAppointmentCard: React.FC<DoctorAppointmentCardProps> = ({
   };
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: themeColors.card, borderColor: themeColors.border },
+      ]}
+    >
       {/* Top Header Row */}
       <View style={styles.headerRow}>
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarText}>{initials}</Text>
+        <View
+          style={[
+            styles.avatarCircle,
+            {
+              backgroundColor: themeColors.primaryLight,
+              borderColor: themeColors.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.avatarText, { color: themeColors.primaryDark }]}>{initials}</Text>
         </View>
 
         <View style={styles.patientCol}>
-          <Text style={styles.patientName}>{patientName}</Text>
-          <Text style={styles.timeText}>
+          <Text style={[styles.patientName, { color: themeColors.textPrimary }]}>{patientName}</Text>
+          <Text style={[styles.timeText, { color: themeColors.textSecondary }]}>
             📅 {formatDate(appointment.appointmentDate)} at {appointment.timeSlot}
           </Text>
         </View>
@@ -65,16 +80,24 @@ export const DoctorAppointmentCard: React.FC<DoctorAppointmentCardProps> = ({
       </View>
 
       {/* Reason Box */}
-      <View style={styles.reasonBox}>
-        <Text style={styles.reasonLabel}>Reason for Visit:</Text>
-        <Text style={styles.reasonText}>{appointment.reason}</Text>
+      <View
+        style={[
+          styles.reasonBox,
+          {
+            backgroundColor: themeColors.surfaceSecondary,
+            borderColor: themeColors.border,
+          },
+        ]}
+      >
+        <Text style={[styles.reasonLabel, { color: themeColors.textMuted }]}>Reason for Visit:</Text>
+        <Text style={[styles.reasonText, { color: themeColors.textPrimary }]}>{appointment.reason}</Text>
       </View>
 
       {/* Dynamic Actions Row */}
-      <View style={styles.actionsRow}>
+      <View style={[styles.actionsRow, { borderTopColor: themeColors.border }]}>
         {appointment.status === 'pending' && onConfirm && (
           <TouchableOpacity
-            style={styles.confirmBtn}
+            style={[styles.confirmBtn, { backgroundColor: themeColors.accent }]}
             onPress={() => onConfirm(appointment)}
             activeOpacity={0.8}
           >
@@ -84,7 +107,7 @@ export const DoctorAppointmentCard: React.FC<DoctorAppointmentCardProps> = ({
 
         {appointment.status === 'confirmed' && onStartConsultation && (
           <TouchableOpacity
-            style={styles.startBtn}
+            style={[styles.startBtn, { backgroundColor: themeColors.primary }]}
             onPress={() => onStartConsultation(appointment)}
             activeOpacity={0.85}
           >
@@ -95,11 +118,17 @@ export const DoctorAppointmentCard: React.FC<DoctorAppointmentCardProps> = ({
         {(appointment.status === 'completed' || appointment.status === 'confirmed') &&
           onViewHistory && (
             <TouchableOpacity
-              style={styles.historyBtn}
+              style={[
+                styles.historyBtn,
+                {
+                  backgroundColor: themeColors.card,
+                  borderColor: themeColors.border,
+                },
+              ]}
               onPress={() => onViewHistory(appointment)}
               activeOpacity={0.8}
             >
-              <Text style={styles.historyBtnText}>📑 View Patient History</Text>
+              <Text style={[styles.historyBtnText, { color: themeColors.primary }]}>📑 View Patient History</Text>
             </TouchableOpacity>
           )}
       </View>
