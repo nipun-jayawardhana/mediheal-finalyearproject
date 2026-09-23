@@ -21,8 +21,10 @@ import {
   removeCaregiverLink,
 } from '../../services/caregiverService';
 import { getCaregiverPatientTodayMedications } from '../../services/medicationReminderService';
+import { getCaregiverPatientMedicationAnalytics } from '../../services/medicationAnalyticsService';
 import { CaregiverPatientOverview } from '../../types/caregiver';
 import { CaregiverPatientTodayMedicationTask } from '../../types/medicationReminder';
+import { MedicationAnalyticsResponse } from '../../types/medicationAnalytics';
 
 export default function PatientOverviewScreen() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function PatientOverviewScreen() {
 
   const [overview, setOverview] = useState<CaregiverPatientOverview | null>(null);
   const [todaySchedules, setTodaySchedules] = useState<CaregiverPatientTodayMedicationTask[]>([]);
+  const [phase6Analytics, setPhase6Analytics] = useState<MedicationAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [unlinking, setUnlinking] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -47,9 +50,10 @@ export default function PatientOverviewScreen() {
     setErrorMsg('');
 
     try {
-      const [res, todayRes] = await Promise.all([
+      const [res, todayRes, analyticsRes] = await Promise.all([
         getPatientDetailsForCaregiver(params.id),
         getCaregiverPatientTodayMedications(params.id).catch(() => ({ success: false, data: [] })),
+        getCaregiverPatientMedicationAnalytics(params.id, '30d').catch(() => null),
       ]);
       if (res && res.success && res.data) {
         setOverview(res.data);
@@ -58,6 +62,9 @@ export default function PatientOverviewScreen() {
       }
       if (todayRes && todayRes.success && todayRes.data) {
         setTodaySchedules(todayRes.data);
+      }
+      if (analyticsRes && analyticsRes.success) {
+        setPhase6Analytics(analyticsRes);
       }
     } catch (err: any) {
       setErrorMsg(err.message || t('failedToLoadPatientOverview'));
@@ -180,31 +187,53 @@ export default function PatientOverviewScreen() {
           ) : null}
         </View>
 
-        {/* Adherence Summary Card */}
-        {adherenceSummary ? (
-          <View style={[styles.adherenceCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+        {/* Adherence Summary Card (Phase 6) */}
+        <TouchableOpacity
+          style={[styles.adherenceCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+          activeOpacity={0.8}
+          onPress={() => {
+            router.push({
+              pathname: '/(caregiver)/medication-analytics' as any,
+              params: { patientId: patient._id, patientName: patient.fullName },
+            });
+          }}
+        >
+          <View style={styles.adherenceHeaderRow}>
             <View style={styles.adherenceTextCol}>
-              <Text style={[styles.adherenceTitle, { color: themeColors.textMuted }]}>{t('medicationCompliance')}</Text>
-              <Text style={[styles.adherenceVal, { color: themeColors.success }]}>
-                {adherenceSummary.adherencePercentage}% {t('adherenceRate')}
-              </Text>
-            </View>
-            <View style={styles.adherenceStatsRow}>
-              <View style={[styles.statPill, { backgroundColor: themeColors.successLight }]}>
-                <Text style={[styles.statVal, { color: themeColors.success }]}>{adherenceSummary.totalTaken}</Text>
-                <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>{t('taken')}</Text>
-              </View>
-              {adherenceSummary.totalMissed > 0 && (
-                <View style={[styles.statPill, styles.statPillMissed, { backgroundColor: themeColors.dangerLight }]}>
-                  <Text style={[styles.statVal, { color: themeColors.danger }]}>
-                    {adherenceSummary.totalMissed}
-                  </Text>
-                  <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>{t('missed')}</Text>
-                </View>
+              <Text style={[styles.adherenceTitle, { color: themeColors.textMuted }]}>{t('medicationAnalytics')}</Text>
+              <Text style={[styles.adherenceSubtitle, { color: themeColors.textSecondary }]}>{t('last30Days')}</Text>
+              {phase6Analytics?.summary?.hasEnoughData && phase6Analytics.summary.adherencePercentage !== null ? (
+                <Text style={[styles.adherenceVal, { color: phase6Analytics.summary.adherencePercentage >= 80 ? themeColors.success : themeColors.warning }]}>
+                  {phase6Analytics.summary.adherencePercentage}% {t('adherenceRate')}
+                </Text>
+              ) : (
+                <Text style={[styles.adherenceVal, { color: themeColors.textSecondary, fontSize: 14 }]}>
+                  {t('notEnoughAdherenceData')}
+                </Text>
               )}
             </View>
+            <View style={[styles.viewAnalyticsBtn, { backgroundColor: themeColors.primary }]}>
+              <Text style={styles.viewAnalyticsBtnText}>{t('viewAnalytics')}</Text>
+            </View>
           </View>
-        ) : null}
+
+          {phase6Analytics?.summary && (
+            <View style={styles.adherenceStatsRow}>
+              <View style={[styles.statPill, { backgroundColor: themeColors.successLight }]}>
+                <Text style={[styles.statVal, { color: themeColors.success }]}>{phase6Analytics.summary.totalTaken}</Text>
+                <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>✓ {t('taken')}</Text>
+              </View>
+              <View style={[styles.statPill, { backgroundColor: isDark ? 'rgba(239, 68, 68, 0.2)' : '#FEE2E2' }]}>
+                <Text style={[styles.statVal, { color: colors.danger }]}>{phase6Analytics.summary.totalMissed}</Text>
+                <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>⚠ {t('missed')}</Text>
+              </View>
+              <View style={[styles.statPill, { backgroundColor: isDark ? 'rgba(234, 179, 8, 0.2)' : '#FEF9C3' }]}>
+                <Text style={[styles.statVal, { color: '#D97706' }]}>{phase6Analytics.summary.totalPending}</Text>
+                <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>⏳ {t('pending')}</Text>
+              </View>
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Today's Prescribed Medication Tasks */}
         <View style={styles.sectionContainer}>
@@ -496,6 +525,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadows.card,
   },
+  adherenceHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
   adherenceTextCol: {
     flex: 1,
   },
@@ -505,6 +540,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textMuted,
   },
+  adherenceSubtitle: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
   adherenceVal: {
     ...typography.subheader,
     fontSize: 16,
@@ -512,9 +553,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 2,
   },
+  viewAnalyticsBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: borderRadius.md,
+  },
+  viewAnalyticsBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   adherenceStatsRow: {
     flexDirection: 'row',
     gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   statPill: {
     backgroundColor: colors.successLight,

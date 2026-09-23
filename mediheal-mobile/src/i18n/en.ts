@@ -507,6 +507,22 @@ export const en = {
   scheduledTimeWithMore: 'Scheduled: {time} (+{count} more)',
   scheduledTimeSingle: 'Scheduled: {time}',
   loadingDashboard: 'Loading your MediHeal dashboard...',
+
+  // Phase 6 - Medication Adherence Analytics
+  medicationAnalytics: 'Medication Analytics',
+  last7Days: 'Last 7 Days',
+  last30Days: 'Last 30 Days',
+  last90Days: 'Last 90 Days',
+  allTime: 'All Time',
+  takenDoses: 'Taken Doses',
+  missedDoses: 'Missed Doses',
+  pendingDoses: 'Pending Doses',
+  dailyTrend: 'Daily Trend',
+  medicationBreakdown: 'Medication Breakdown',
+  missedDoseTimes: 'Missed Dose Times',
+  scheduledDoses: 'Scheduled Doses',
+  viewAnalytics: 'View Analytics',
+  evaluatedDoses: 'Evaluated Doses',
 };
 
 export type TranslationKeys = keyof typeof en;

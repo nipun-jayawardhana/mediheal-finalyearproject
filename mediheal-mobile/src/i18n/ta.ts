@@ -509,4 +509,20 @@ export const ta: Record<TranslationKeys, string> = {
   scheduledTimeWithMore: 'திட்டமிடப்பட்ட நேரம்: {time} (மேலும் {count})',
   scheduledTimeSingle: 'திட்டமிடப்பட்ட நேரம்: {time}',
   loadingDashboard: 'உங்கள் MediHeal டாஷ்போர்டு ஏற்றப்படுகிறது...',
+
+  // Phase 6 - Medication Adherence Analytics
+  medicationAnalytics: 'மருந்து பகுப்பாய்வு',
+  last7Days: 'கடந்த 7 நாட்கள்',
+  last30Days: 'கடந்த 30 நாட்கள்',
+  last90Days: 'கடந்த 90 நாட்கள்',
+  allTime: 'எல்லா நேரமும்',
+  takenDoses: 'எடுக்கப்பட்ட அளவுகள்',
+  missedDoses: 'தவறிய அளவுகள்',
+  pendingDoses: 'நிலுவையில் உள்ள அளவுகள்',
+  dailyTrend: 'தினசரி போக்கு',
+  medicationBreakdown: 'மருந்து வகைப்பாடு',
+  missedDoseTimes: 'தவறிய அளவுகளின் நேரங்கள்',
+  scheduledDoses: 'திட்டமிடப்பட்ட அளவுகள்',
+  viewAnalytics: 'பகுப்பாய்வைப் பார்க்கவும்',
+  evaluatedDoses: 'மதிப்பிடப்பட்ட அளவுகள்',
 };

@@ -509,4 +509,20 @@ export const si: Record<TranslationKeys, string> = {
   scheduledTimeWithMore: 'නියමිත වේලාව: {time} (තවත් {count})',
   scheduledTimeSingle: 'නියමිත වේලාව: {time}',
   loadingDashboard: 'ඔබගේ MediHeal පුවරුව පූරණය වෙමින් පවතී...',
+
+  // Phase 6 - Medication Adherence Analytics
+  medicationAnalytics: 'ඖෂධ විශ්ලේෂණය',
+  last7Days: 'පසුගිය දින 7',
+  last30Days: 'පසුගිය දින 30',
+  last90Days: 'පසුගිය දින 90',
+  allTime: 'සම්පූර්ණ කාලය',
+  takenDoses: 'ලබාගත් මාත්‍රා',
+  missedDoses: 'මඟහැරුණු මාත්‍රා',
+  pendingDoses: 'ඉතිරිව ඇති මාත්‍රා',
+  dailyTrend: 'දෛනික ප්‍රවණතාව',
+  medicationBreakdown: 'ඖෂධ වර්ගීකරණය',
+  missedDoseTimes: 'මඟහැරුණු වේලාවන්',
+  scheduledDoses: 'සැලසුම් කළ මාත්‍රා',
+  viewAnalytics: 'විශ්ලේෂණය බලන්න',
+  evaluatedDoses: 'තක්සේරු කළ මාත්‍රා',
 };

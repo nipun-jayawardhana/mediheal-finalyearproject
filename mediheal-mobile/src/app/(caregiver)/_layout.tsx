@@ -53,6 +53,7 @@ export default function CaregiverLayout() {
       <Stack.Screen name="alerts" options={{ headerShown: false }} />
       <Stack.Screen name="community" options={{ headerShown: false }} />
       <Stack.Screen name="medication-monitoring" options={{ headerShown: false }} />
+      <Stack.Screen name="medication-analytics" options={{ headerShown: false }} />
     </Stack>
   );
 }

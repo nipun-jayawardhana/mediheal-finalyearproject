@@ -22,6 +22,8 @@ import { getActiveEmergencyAlert } from '../../services/emergencyService';
 import { getMyTodayMedicationSchedules } from '../../services/medicationScheduleService';
 import { getMyMissedMedications } from '../../services/medicationReminderService';
 import { getUnreadNotificationCount } from '../../services/notificationService';
+import { getMyMedicationAnalytics } from '../../services/medicationAnalyticsService';
+import { AdherenceSummary } from '../../types/medicationAnalytics';
 import { MissedMedicationItem } from '../../types/medicationReminder';
 import { VOICE_ONBOARDING_STORAGE_KEY } from './voice-onboarding';
 import { useVoice } from '../../hooks/useVoice';
@@ -57,6 +59,7 @@ export default function PatientHomeScreen() {
   });
   const [missedMeds, setMissedMeds] = useState<MissedMedicationItem[]>([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+  const [adherenceSummary, setAdherenceSummary] = useState<AdherenceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [langModalVisible, setLangModalVisible] = useState(false);
@@ -84,11 +87,12 @@ export default function PatientHomeScreen() {
     setErrorMsg('');
 
     try {
-      const [res, todayMedRes, missedRes, notifCountRes] = await Promise.all([
+      const [res, todayMedRes, missedRes, notifCountRes, analyticsRes] = await Promise.all([
         getPatientDashboardApi(),
         getMyTodayMedicationSchedules().catch(() => null),
         getMyMissedMedications().catch(() => null),
         getUnreadNotificationCount().catch(() => null),
+        getMyMedicationAnalytics('30d').catch(() => null),
       ]);
 
       if (res && res.success) {
@@ -107,6 +111,10 @@ export default function PatientHomeScreen() {
 
       if (notifCountRes && notifCountRes.success && typeof notifCountRes.unreadCount === 'number') {
         setUnreadNotifCount(notifCountRes.unreadCount);
+      }
+
+      if (analyticsRes && analyticsRes.success && analyticsRes.summary) {
+        setAdherenceSummary(analyticsRes.summary);
       }
     } catch (err: any) {
       if (err.statusCode === 404) {
@@ -549,6 +557,74 @@ export default function PatientHomeScreen() {
               </View>
               <View style={[styles.viewMedBtn, { backgroundColor: themeColors.primary }]}>
                 <Text style={styles.viewMedBtnText}>{t('viewMedication')}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* Medication Adherence Analytics Dashboard Card (Phase 6) */}
+          <TouchableOpacity
+            style={[
+              styles.todayMedCard,
+              {
+                backgroundColor: themeColors.card,
+                borderColor: themeColors.primary,
+                marginTop: spacing.sm,
+              },
+            ]}
+            activeOpacity={0.8}
+            onPress={() => {
+              stopSpeech();
+              router.push('/(patient)/medication-analytics' as any);
+            }}
+          >
+            <View style={styles.todayMedHeaderRow}>
+              <View
+                style={[
+                  styles.todayMedIconBox,
+                  {
+                    backgroundColor:
+                      adherenceSummary?.hasEnoughData && adherenceSummary.adherencePercentage !== null
+                        ? adherenceSummary.adherencePercentage >= 80
+                          ? isDark
+                            ? 'rgba(34, 197, 94, 0.2)'
+                            : '#DCFCE7'
+                          : isDark
+                          ? 'rgba(234, 179, 8, 0.2)'
+                          : '#FEF9C3'
+                        : themeColors.primaryLight,
+                  },
+                ]}
+              >
+                <Text style={styles.todayMedIcon}>📊</Text>
+              </View>
+              <View style={styles.todayMedTextCol}>
+                <Text style={[styles.todayMedTitle, { color: themeColors.textPrimary }]}>
+                  {t('medicationAnalytics')}
+                </Text>
+                <Text style={[styles.analyticsCardRange, { color: themeColors.textSecondary }]}>
+                  {t('last30Days')}
+                </Text>
+                <Text
+                  style={[
+                    styles.todayMedRemaining,
+                    {
+                      color:
+                        adherenceSummary?.hasEnoughData && adherenceSummary.adherencePercentage !== null
+                          ? adherenceSummary.adherencePercentage >= 80
+                            ? themeColors.success
+                            : themeColors.warning
+                          : themeColors.textSecondary,
+                      fontWeight: '700',
+                    },
+                  ]}
+                >
+                  {adherenceSummary?.hasEnoughData && adherenceSummary.adherencePercentage !== null
+                    ? `${adherenceSummary.adherencePercentage}% ${t('medicationAdherence')}`
+                    : t('notEnoughAdherenceData')}
+                </Text>
+              </View>
+              <View style={[styles.viewMedBtn, { backgroundColor: themeColors.primary }]}>
+                <Text style={styles.viewMedBtnText}>{t('viewAnalytics')}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1111,5 +1187,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
+  },
+  analyticsCardRange: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 1,
+    marginBottom: 2,
   },
 });

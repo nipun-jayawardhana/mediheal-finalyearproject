@@ -70,6 +70,7 @@ export default function PatientLayout() {
       <Stack.Screen name="today-medication" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />
       <Stack.Screen name="medical-history" options={{ headerShown: false }} />
+      <Stack.Screen name="medication-analytics" options={{ headerShown: false }} />
     </Stack>
   );
 }
