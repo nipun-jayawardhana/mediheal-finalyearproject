@@ -476,6 +476,28 @@ export const en = {
   scheduledAt: 'Scheduled at',
   minRemaining: 'min remaining',
   allCaughtUp: 'All caught up!',
+
+  // Patient Medical History Timeline (Phase 5)
+  medicalHistory: 'Medical History',
+  medicalHistorySub: 'Your complete healthcare journey timeline',
+  healthTimeline: 'Health Timeline',
+  consultation: 'Consultation',
+  prescription: 'Prescription',
+  prescriptionsTitle: 'Prescriptions',
+  prescribedBy: 'Prescribed By',
+  clinicalNotes: 'Clinical Notes',
+  recommendations: 'Recommendations',
+  medicineDetails: 'Medicine Details',
+  instructions: 'Instructions',
+  medicationAdherence: 'Medication Adherence',
+  adherenceSummary: 'Adherence Summary',
+  notEnoughAdherenceData: 'Not enough adherence data',
+  noMedicalHistoryTitle: 'No Medical History Available Yet',
+  noMedicalHistoryDesc: 'Your completed consultations and prescriptions will appear here.',
+  newestFirst: 'Newest First',
+  oldestFirst: 'Oldest First',
+  expandAll: 'Expand All',
+  collapseAll: 'Collapse All',
 };
 
 export type TranslationKeys = keyof typeof en;

@@ -562,6 +562,20 @@ export default function PatientHomeScreen() {
             <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
 
+          {/* Patient Medical History Timeline Banner (Phase 5) */}
+          <TouchableOpacity
+            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.primary, marginTop: spacing.sm }]}
+            activeOpacity={0.8}
+            onPress={() => { stopSpeech(); router.push('/(patient)/medical-history' as any); }}
+          >
+            <Text style={styles.appointmentsIcon}>📋</Text>
+            <View style={styles.appointmentsTextCol}>
+              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>{t('medicalHistory')}</Text>
+              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>{t('medicalHistorySub')}</Text>
+            </View>
+            <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
+          </TouchableOpacity>
+
           {/* Consultation History Banner */}
           <TouchableOpacity
             style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.accent, marginTop: spacing.sm }]}

@@ -5,6 +5,9 @@ const {
   updatePatientProfile,
   getPatientDashboard,
 } = require('../controllers/patientController');
+const {
+  getPatientMedicalHistory,
+} = require('../controllers/medicalHistoryController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
 
@@ -21,5 +24,8 @@ router.put('/profile', updatePatientProfile);
 
 // Patient Dashboard Endpoint
 router.get('/dashboard', getPatientDashboard);
+
+// Patient Medical History Timeline Endpoint (Phase 5)
+router.get('/medical-history', getPatientMedicalHistory);
 
 module.exports = router;

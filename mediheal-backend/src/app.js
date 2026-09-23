@@ -43,6 +43,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/voice', voiceRoutes);
 app.use('/api/patients', patientRoutes);
+app.use('/api/patient', patientRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/caregivers', caregiverRoutes);
