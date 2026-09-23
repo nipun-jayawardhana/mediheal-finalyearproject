@@ -629,6 +629,49 @@ export default function PatientHomeScreen() {
             </View>
           </TouchableOpacity>
 
+          {/* Emergency Health Profile Card (Phase 7) */}
+          <TouchableOpacity
+            style={[
+              styles.todayMedCard,
+              {
+                backgroundColor: themeColors.card,
+                borderColor: themeColors.danger,
+                marginTop: spacing.sm,
+              },
+            ]}
+            activeOpacity={0.8}
+            onPress={() => {
+              stopSpeech();
+              router.push('/(patient)/emergency-health-profile' as any);
+            }}
+          >
+            <View style={styles.todayMedHeaderRow}>
+              <View
+                style={[
+                  styles.todayMedIconBox,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(239, 68, 68, 0.25)'
+                      : '#FEE2E2',
+                  },
+                ]}
+              >
+                <Text style={styles.todayMedIcon}>🚨</Text>
+              </View>
+              <View style={styles.todayMedTextCol}>
+                <Text style={[styles.todayMedTitle, { color: themeColors.danger, fontWeight: '800' }]}>
+                  {t('emergencyHealthProfile')}
+                </Text>
+                <Text style={[styles.analyticsCardRange, { color: themeColors.textSecondary }]}>
+                  {t('emergencyHealthProfileSub')}
+                </Text>
+              </View>
+              <View style={[styles.viewMedBtn, { backgroundColor: themeColors.danger }]}>
+                <Text style={styles.viewMedBtnText}>{t('viewDetails')}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
           {/* My Appointments Quick Action Banner */}
           <TouchableOpacity
             style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}

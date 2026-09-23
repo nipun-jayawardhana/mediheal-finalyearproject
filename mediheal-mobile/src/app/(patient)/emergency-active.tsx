@@ -248,8 +248,17 @@ export default function EmergencyActiveScreen() {
         </View>
 
         {/* Actions Section */}
-        {isStillActive && (
-          <View style={styles.actionsContainer}>
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={styles.viewProfileBtn}
+            onPress={() => router.push('/(patient)/emergency-health-profile' as any)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.viewProfileBtnIcon}>🚨</Text>
+            <Text style={styles.viewProfileBtnText}>View Emergency Health Profile</Text>
+          </TouchableOpacity>
+
+          {isStillActive && (
             <AppButton
               title={cancelling ? 'Cancelling Alert...' : 'Cancel Emergency Alert'}
               onPress={handleCancelAlert}
@@ -257,15 +266,15 @@ export default function EmergencyActiveScreen() {
               disabled={cancelling}
               style={styles.cancelAlertBtn}
             />
+          )}
 
-            <TouchableOpacity
-              style={styles.returnHomeBtn}
-              onPress={() => router.replace('/(patient)' as any)}
-            >
-              <Text style={styles.returnHomeText}>Return to Home Dashboard</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            style={styles.returnHomeBtn}
+            onPress={() => router.replace('/(patient)' as any)}
+          >
+            <Text style={styles.returnHomeText}>Return to Home Dashboard</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
@@ -434,5 +443,26 @@ const styles = StyleSheet.create({
     ...typography.bodyBold,
     fontSize: 15,
     color: colors.textSecondary,
+  },
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm + 2,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    minHeight: 48,
+  },
+  viewProfileBtnIcon: {
+    fontSize: 18,
+  },
+  viewProfileBtnText: {
+    ...typography.bodyBold,
+    fontSize: 15,
+    color: colors.danger,
   },
 });
