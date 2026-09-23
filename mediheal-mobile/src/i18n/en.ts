@@ -498,6 +498,15 @@ export const en = {
   oldestFirst: 'Oldest First',
   expandAll: 'Expand All',
   collapseAll: 'Collapse All',
+
+  // Patient Dashboard Card Localizations
+  doctorPrescriptions: 'Doctor Prescriptions',
+  doctorPrescriptionsDescription: 'View official medications & dosages from your doctor',
+  scheduled: 'Scheduled',
+  more: 'more',
+  scheduledTimeWithMore: 'Scheduled: {time} (+{count} more)',
+  scheduledTimeSingle: 'Scheduled: {time}',
+  loadingDashboard: 'Loading your MediHeal dashboard...',
 };
 
 export type TranslationKeys = keyof typeof en;

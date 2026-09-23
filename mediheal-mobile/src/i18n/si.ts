@@ -500,4 +500,13 @@ export const si: Record<TranslationKeys, string> = {
   oldestFirst: 'පැරණිතම පළමුව',
   expandAll: 'සියල්ල විවෘත කරන්න',
   collapseAll: 'සියල්ල හකුළන්න',
+
+  // Patient Dashboard Card Localizations
+  doctorPrescriptions: 'වෛද්‍ය බෙහෙත් වට්ටෝරු',
+  doctorPrescriptionsDescription: 'ඔබගේ වෛද්‍යවරයා ලබාදුන් ඖෂධ සහ මාත්‍රා බලන්න',
+  scheduled: 'නියමිත වේලාව',
+  more: 'තවත්',
+  scheduledTimeWithMore: 'නියමිත වේලාව: {time} (තවත් {count})',
+  scheduledTimeSingle: 'නියමිත වේලාව: {time}',
+  loadingDashboard: 'ඔබගේ MediHeal පුවරුව පූරණය වෙමින් පවතී...',
 };

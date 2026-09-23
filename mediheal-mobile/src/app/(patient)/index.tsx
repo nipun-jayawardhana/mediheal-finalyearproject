@@ -218,10 +218,11 @@ export default function PatientHomeScreen() {
   };
 
   if (loading) {
-    return <LoadingView message="Loading your MediHeal dashboard..." />;
+    return <LoadingView message={t('loadingDashboard')} />;
   }
 
-  const patientName = user?.fullName ? user.fullName.split(' ')[0] : 'Patient';
+  const defaultPatientLabel = language === 'si' ? 'රෝගියා' : language === 'ta' ? 'நோயாளி' : 'Patient';
+  const patientName = user?.fullName ? user.fullName.split(' ')[0] : defaultPatientLabel;
 
   return (
     <ScreenContainer scrollable backgroundColor={themeColors.background}>
@@ -503,8 +504,12 @@ export default function PatientHomeScreen() {
                     <Text style={{ fontWeight: '700' }}>{missedMeds[0].medicineName}</Text>
                   </Text>
                   <Text style={[styles.missedMedTime, { color: themeColors.textSecondary }]}>
-                    Scheduled: {formatTimeAmPm(missedMeds[0].scheduledTime)}
-                    {missedMeds.length > 1 ? ` (+${missedMeds.length - 1} more)` : ''}
+                    {missedMeds.length > 1
+                      ? t('scheduledTimeWithMore')
+                          .replace('{time}', formatTimeAmPm(missedMeds[0].scheduledTime))
+                          .replace('{count}', String(missedMeds.length - 1))
+                      : t('scheduledTimeSingle')
+                          .replace('{time}', formatTimeAmPm(missedMeds[0].scheduledTime))}
                   </Text>
                 </View>
                 <View style={[styles.viewMissedBtn, { backgroundColor: themeColors.danger }]}>
@@ -598,8 +603,8 @@ export default function PatientHomeScreen() {
           >
             <Text style={styles.appointmentsIcon}>📋</Text>
             <View style={styles.appointmentsTextCol}>
-              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>Doctor Prescriptions</Text>
-              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>View official medications & dosages from your doctor</Text>
+              <Text style={[styles.appointmentsTitle, { color: themeColors.primary }]}>{t('doctorPrescriptions')}</Text>
+              <Text style={[styles.appointmentsSub, { color: themeColors.textSecondary }]}>{t('doctorPrescriptionsDescription')}</Text>
             </View>
             <Text style={[styles.appointmentsArrow, { color: themeColors.primary }]}>→</Text>
           </TouchableOpacity>
@@ -630,7 +635,7 @@ export default function PatientHomeScreen() {
                 <Text style={[styles.previewTitle, { color: themeColors.textPrimary }]}>{t('nextScheduledMedication')}</Text>
                 {dashboardData?.medications && dashboardData.medications.length > 0 ? (
                   <Text style={[styles.previewSub, { color: themeColors.textSecondary }]}>
-                    {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || 'Scheduled'})
+                    {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || t('scheduled')})
                   </Text>
                 ) : (
                   <Text style={[styles.previewSub, { color: themeColors.textSecondary }]}>{t('noActiveMedications')}</Text>

@@ -500,4 +500,13 @@ export const ta: Record<TranslationKeys, string> = {
   oldestFirst: 'பழையது முதலில்',
   expandAll: 'அனைத்தையும் விரிவாக்கு',
   collapseAll: 'அனைத்தையும் சுருக்கு',
+
+  // Patient Dashboard Card Localizations
+  doctorPrescriptions: 'மருத்துவர் பரிந்துரைத்த மருந்துச் சீட்டுகள்',
+  doctorPrescriptionsDescription: 'உங்கள் மருத்துவரின் அதிகாரப்பூர்வ மருந்துகள் மற்றும் அளவுகளைப் பார்க்கவும்',
+  scheduled: 'திட்டமிடப்பட்ட நேரம்',
+  more: 'மேலும்',
+  scheduledTimeWithMore: 'திட்டமிடப்பட்ட நேரம்: {time} (மேலும் {count})',
+  scheduledTimeSingle: 'திட்டமிடப்பட்ட நேரம்: {time}',
+  loadingDashboard: 'உங்கள் MediHeal டாஷ்போர்டு ஏற்றப்படுகிறது...',
 };
