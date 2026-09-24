@@ -51,6 +51,7 @@ export default function CaregiverLayout() {
       <Stack.Screen name="medication-add" options={{ headerShown: false }} />
       <Stack.Screen name="medication-edit" options={{ headerShown: false }} />
       <Stack.Screen name="alerts" options={{ headerShown: false }} />
+      <Stack.Screen name="emergency-details" options={{ headerShown: false }} />
       <Stack.Screen name="community" options={{ headerShown: false }} />
       <Stack.Screen name="medication-monitoring" options={{ headerShown: false }} />
       <Stack.Screen name="medication-analytics" options={{ headerShown: false }} />

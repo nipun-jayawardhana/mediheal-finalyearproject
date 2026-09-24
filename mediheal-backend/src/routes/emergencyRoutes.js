@@ -5,6 +5,7 @@ const {
   getEmergencyAlertById,
   cancelEmergencyAlert,
   resolveEmergencyAlert,
+  getCaregiverEmergencyAlertHealthSummary,
 } = require('../controllers/emergencyController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
@@ -22,7 +23,8 @@ router.patch('/:alertId/cancel', authorize('patient'), cancelEmergencyAlert);
 // Shared route (patient or caregiver)
 router.get('/:alertId', authorize('patient', 'caregiver'), getEmergencyAlertById);
 
-// Caregiver route
+// Caregiver routes
+router.get('/:alertId/health-summary', authorize('caregiver'), getCaregiverEmergencyAlertHealthSummary);
 router.patch('/:alertId/resolve', authorize('caregiver'), resolveEmergencyAlert);
 
 module.exports = router;

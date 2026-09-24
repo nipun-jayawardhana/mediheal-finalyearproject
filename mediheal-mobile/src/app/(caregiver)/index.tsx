@@ -105,6 +105,17 @@ export default function CaregiverDashboardScreen() {
     fetchDashboardData(true);
   };
 
+  const formatAlertTime = (isoStr?: string) => {
+    if (!isoStr) return '';
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
+      return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    } catch (e) {
+      return isoStr;
+    }
+  };
+
   const performSignOut = async () => {
     await logout();
     router.replace('/(auth)/login');
@@ -374,29 +385,86 @@ export default function CaregiverDashboardScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Emergency SOS Banner (Rule 37) */}
+        {/* Emergency SOS High-Priority Section (Phase 7.1 - Section 9) */}
         {activeAlerts.length > 0 ? (
-          <TouchableOpacity
-            style={[
-              styles.sosAlertBanner,
-              {
-                backgroundColor: isDark ? themeColors.dangerLight : '#FEF2F2',
-                borderColor: themeColors.danger,
-              },
-            ]}
-            activeOpacity={0.85}
-            onPress={() => router.push('/(caregiver)/alerts' as any)}
-          >
-            <View style={styles.sosBadgeRow}>
-              <Text style={styles.sosIconText}>🚨</Text>
-              <Text style={[styles.sosBannerTitle, { color: themeColors.danger }]}>
-                {t('activeEmergencyAlert')} ({activeAlerts.length})
-              </Text>
-            </View>
-            <Text style={[styles.sosBannerSub, { color: themeColors.textSecondary }]}>
-              {t('activeEmergencyAlertSub')}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.activeSosSection}>
+            {activeAlerts.map((alertItem) => {
+              const patientName =
+                typeof alertItem.patientId === 'object' && alertItem.patientId?.fullName
+                  ? alertItem.patientId.fullName
+                  : (patients.find(
+                      (p) =>
+                        p.patient?._id ===
+                        (typeof alertItem.patientId === 'string'
+                          ? alertItem.patientId
+                          : alertItem.patientId?._id)
+                    )?.patient?.fullName || t('careRecipient'));
+
+              const triggeredTime = formatAlertTime(alertItem.createdAt);
+
+              return (
+                <View
+                  key={alertItem._id}
+                  style={[
+                    styles.sosAlertCard,
+                    {
+                      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                      borderColor: themeColors.danger,
+                    },
+                  ]}
+                >
+                  <View style={styles.sosCardHeader}>
+                    <View style={styles.sosCardHeaderLeft}>
+                      <Text style={styles.sosIconText}>🚨</Text>
+                      <Text style={[styles.sosCardTitle, { color: themeColors.danger }]}>
+                        {t('emergencySOS')}
+                      </Text>
+                    </View>
+                    <View style={[styles.sosCardBadge, { backgroundColor: themeColors.danger }]}>
+                      <Text style={styles.sosCardBadgeText}>{t('activeBadgeLabel')}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.sosCardBody}>
+                    <View style={styles.sosInfoRow}>
+                      <Text style={[styles.sosInfoLabel, { color: themeColors.textSecondary }]}>
+                        {t('patientInformation')}:
+                      </Text>
+                      <Text style={[styles.sosInfoValue, { color: themeColors.textPrimary }]}>
+                        {patientName}
+                      </Text>
+                    </View>
+
+                    <View style={styles.sosInfoRow}>
+                      <Text style={[styles.sosInfoLabel, { color: themeColors.textSecondary }]}>
+                        {t('sosTriggeredAt')}:
+                      </Text>
+                      <Text style={[styles.sosInfoValue, { color: themeColors.textPrimary }]}>
+                        {triggeredTime}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.sosViewDetailsBtn, { backgroundColor: themeColors.danger }]}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/(caregiver)/emergency-details' as any,
+                        params: { alertId: alertItem._id },
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t('viewEmergencyDetails')} ${patientName}`}
+                  >
+                    <Text style={styles.sosViewDetailsBtnText}>
+                      {t('viewEmergencyDetails')} →
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
         ) : (
           <View
             style={[
@@ -791,6 +859,76 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+  activeSosSection: {
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  sosAlertCard: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    borderWidth: 2,
+    ...shadows.card,
+  },
+  sosCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
+  sosCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sosCardTitle: {
+    ...typography.header,
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  sosCardBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.pill,
+  },
+  sosCardBadgeText: {
+    ...typography.caption,
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 11,
+  },
+  sosCardBody: {
+    marginVertical: spacing.xs,
+    gap: 4,
+  },
+  sosInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sosInfoLabel: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sosInfoValue: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  sosViewDetailsBtn: {
+    marginTop: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  sosViewDetailsBtnText: {
+    ...typography.bodyBold,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
   },
   sosBadgeRow: {
     flexDirection: 'row',

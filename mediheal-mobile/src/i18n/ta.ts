@@ -560,4 +560,23 @@ export const ta: Record<TranslationKeys, string> = {
   noPhoneNumberForContact: 'இந்த தொடர்புக்கு தொலைபேசி எண் வழங்கப்படவில்லை',
   callEmergencyContactConfirm: '{phone} என்ற எண்ணில் {name} என்பவரை அழைக்க விரும்புகிறீர்களா?',
   call: 'அழைக்கவும்',
+
+  // Phase 7.1 - SOS Emergency Summary for Linked Caregiver
+  emergencySOS: 'அவசர SOS',
+  emergencyMedicalInformation: 'அவசர மருத்துவத் தகவல்',
+  emergencyDetails: 'அவசர விவரங்கள்',
+  viewEmergencyDetails: 'அவசர விவரங்களைப் பார்க்கவும்',
+  callPatient: 'நோயாளியை அழைக்கவும்',
+  profileNotCompleted: 'பூர்த்தி செய்யப்படவில்லை',
+  informationNotProvided: 'வழங்கப்படவில்லை',
+  emergencyInformationUnavailable: 'அவசர தகவல்கள் கிடைக்கவில்லை',
+  sosTriggeredAt: 'தூண்டப்பட்ட நேரம்',
+  patientInformation: 'நோயாளி தகவல்',
+  patientPhone: 'தொலைபேசி',
+  callingPatientConfirm: '{phone} என்ற எண்ணில் நோயாளி {name} என்பவரை அழைக்க விரும்புகிறீர்களா?',
+  callingContactConfirm: '{phone} என்ற எண்ணில் அவசர தொடர்பு {name} என்பவரை அழைக்க விரும்புகிறீர்களா?',
+  noPhoneRecorded: 'தொலைபேசி எண் எதுவும் இல்லை',
+  activeAlertNotice: 'செயலில் உள்ள SOS எச்சரிக்கை — உடனடி கவனம் தேவை',
+  emergencySummaryNotice: 'செயலில் உள்ள SOS எச்சரிக்கையின் போது மட்டுமே இந்த அவசர சுகாதார சுருக்கம் அணுகப்படும்.',
+  relationshipLabel: 'உறவுமுறை',
 };

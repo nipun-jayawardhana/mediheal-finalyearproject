@@ -560,4 +560,23 @@ export const si: Record<TranslationKeys, string> = {
   noPhoneNumberForContact: 'මෙම සම්බන්ධතාවය සඳහා දුරකථන අංකයක් සපයා නැත',
   callEmergencyContactConfirm: '{phone} අංකයෙන් {name} අමතන්නද?',
   call: 'අමතන්න',
+
+  // Phase 7.1 - SOS Emergency Summary for Linked Caregiver
+  emergencySOS: 'හදිසි SOS ඇමතුම',
+  emergencyMedicalInformation: 'හදිසි වෛද්‍ය තොරතුරු',
+  emergencyDetails: 'හදිසි විස්තර',
+  viewEmergencyDetails: 'හදිසි විස්තර බලන්න',
+  callPatient: 'රෝගියාට අමතන්න',
+  profileNotCompleted: 'සම්පූර්ණ කර නැත',
+  informationNotProvided: 'සපයා නැත',
+  emergencyInformationUnavailable: 'හදිසි තොරතුරු ලබාගත නොහැක',
+  sosTriggeredAt: 'ක්‍රියාත්මක වූ වේලාව',
+  patientInformation: 'රෝගියාගේ තොරතුරු',
+  patientPhone: 'දුරකථන අංකය',
+  callingPatientConfirm: '{phone} අංකයෙන් {name} රෝගියා අමතන්නද?',
+  callingContactConfirm: '{phone} අංකයෙන් හදිසි සම්බන්ධතාව {name} අමතන්නද?',
+  noPhoneRecorded: 'දුරකථන අංකයක් සටහන්ව නැත',
+  activeAlertNotice: 'සක්‍රිය SOS අනතුරු ඇඟවීම — වහාම අවධානය යොමු කරන්න',
+  emergencySummaryNotice: 'මෙම හදිසි සෞඛ්‍ය සාරාංශය ලබාගත හැක්කේ සක්‍රිය SOS අනතුරු ඇඟවීමක් පවතින විට පමණි.',
+  relationshipLabel: 'ඥාති සබඳතාව',
 };

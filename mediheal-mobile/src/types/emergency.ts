@@ -51,3 +51,45 @@ export interface EmergencyListResponse {
   data: EmergencyAlert[];
   message?: string;
 }
+
+// Phase 7.1 — Caregiver SOS Emergency Health Summary Types
+export interface CaregiverEmergencyMedication {
+  medicineName: string;
+  dosage: string;
+  frequency: string;
+}
+
+export interface CaregiverEmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+}
+
+export interface CaregiverEmergencySummary {
+  profileCompleted: boolean;
+  bloodGroup: string;
+  allergies: string[];
+  hasNoKnownAllergies?: boolean;
+  chronicConditions: string[];
+  currentMedications: CaregiverEmergencyMedication[];
+  emergencyContact: CaregiverEmergencyContact;
+  emergencyNotes: string;
+  unavailable?: boolean;
+  message?: string;
+}
+
+export interface CaregiverEmergencyAlertSummaryResponse {
+  success: boolean;
+  alert: {
+    alertId: string;
+    patientId: string;
+    triggeredAt: string;
+    status: EmergencyStatus;
+  };
+  patient: {
+    name: string;
+    phone: string;
+  };
+  emergencySummary: CaregiverEmergencySummary | null;
+  message?: string;
+}

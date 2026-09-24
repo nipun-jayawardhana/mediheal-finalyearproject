@@ -8,7 +8,11 @@ import {
   AddMedicationPayload,
   UpdateMedicationPayload,
 } from '../types/caregiver';
-import { EmergencyListResponse, EmergencyResponse } from '../types/emergency';
+import {
+  EmergencyListResponse,
+  EmergencyResponse,
+  CaregiverEmergencyAlertSummaryResponse,
+} from '../types/emergency';
 import { MedicationListResponse, MedicationLogListResponse } from '../types/medication';
 
 /**
@@ -82,6 +86,19 @@ export const resolveEmergencyAlert = async (
 ): Promise<EmergencyResponse> => {
   const response = await apiClient.patch<EmergencyResponse>(
     `/emergency/${alertId}/resolve`
+  );
+  return response.data;
+};
+
+/**
+ * Get limited emergency health summary for an active SOS alert (Caregiver only)
+ * GET /api/caregivers/emergency-alerts/:alertId/health-summary
+ */
+export const getCaregiverEmergencyAlertHealthSummary = async (
+  alertId: string
+): Promise<CaregiverEmergencyAlertSummaryResponse> => {
+  const response = await apiClient.get<CaregiverEmergencyAlertSummaryResponse>(
+    `/caregivers/emergency-alerts/${alertId}/health-summary`
   );
   return response.data;
 };

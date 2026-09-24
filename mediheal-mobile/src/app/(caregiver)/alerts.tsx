@@ -213,10 +213,30 @@ export default function CaregiverAlertsScreen() {
                             </Text>
                           ) : null}
 
+                          <TouchableOpacity
+                            style={[
+                              styles.viewDetailsBtn,
+                              { backgroundColor: themeColors.danger },
+                            ]}
+                            onPress={() =>
+                              router.push({
+                                pathname: '/(caregiver)/emergency-details' as any,
+                                params: { alertId: alertItem._id },
+                              })
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('viewEmergencyDetails')} for ${patientName}`}
+                            activeOpacity={0.85}
+                          >
+                            <Text style={styles.viewDetailsBtnText}>
+                              🚨 {t('viewEmergencyDetails')} →
+                            </Text>
+                          </TouchableOpacity>
+
                           <AppButton
                             title={isResolving ? t('resolvingAlert') : t('resolveAlertBtn')}
                             onPress={() => handleResolveAlert(alertItem)}
-                            variant="primary"
+                            variant="secondary"
                             disabled={isResolving}
                             style={styles.resolveBtn}
                           />
@@ -378,9 +398,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: spacing.xs,
   },
+  viewDetailsBtn: {
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  viewDetailsBtnText: {
+    ...typography.bodyBold,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
   resolveBtn: {
     marginTop: spacing.xs,
-    minHeight: 42,
+    minHeight: 44,
   },
   pastAlertCard: {
     backgroundColor: colors.card,

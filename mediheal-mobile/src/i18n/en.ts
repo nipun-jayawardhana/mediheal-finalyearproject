@@ -558,6 +558,25 @@ export const en = {
   noPhoneNumberForContact: 'No phone number provided for this emergency contact',
   callEmergencyContactConfirm: 'Do you want to call {name} at {phone}?',
   call: 'Call',
+
+  // Phase 7.1 - SOS Emergency Summary for Linked Caregiver
+  emergencySOS: 'Emergency SOS',
+  emergencyMedicalInformation: 'Emergency Medical Information',
+  emergencyDetails: 'Emergency Details',
+  viewEmergencyDetails: 'View Emergency Details',
+  callPatient: 'Call Patient',
+  profileNotCompleted: 'Not completed',
+  informationNotProvided: 'Not provided',
+  emergencyInformationUnavailable: 'Emergency information unavailable',
+  sosTriggeredAt: 'Triggered at',
+  patientInformation: 'Patient Information',
+  patientPhone: 'Phone',
+  callingPatientConfirm: 'Do you want to call patient {name} at {phone}?',
+  callingContactConfirm: 'Do you want to call emergency contact {name} at {phone}?',
+  noPhoneRecorded: 'No phone number available',
+  activeAlertNotice: 'Active SOS Alert — Immediate Attention Required',
+  emergencySummaryNotice: 'This emergency health summary is only accessible while an active SOS alert is in progress.',
+  relationshipLabel: 'Relationship',
 };
 
 export type TranslationKeys = keyof typeof en;

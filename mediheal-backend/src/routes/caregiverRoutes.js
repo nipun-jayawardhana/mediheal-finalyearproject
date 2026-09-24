@@ -5,7 +5,10 @@ const {
   getPatientDetailsForCaregiver,
   removeCaregiverLink,
 } = require('../controllers/caregiverController');
-const { getCaregiverEmergencyAlerts } = require('../controllers/emergencyController');
+const {
+  getCaregiverEmergencyAlerts,
+  getCaregiverEmergencyAlertHealthSummary,
+} = require('../controllers/emergencyController');
 const {
   getCaregiverMissedMedications,
   getCaregiverPatientTodayMedications,
@@ -26,6 +29,7 @@ router.use(authorize('caregiver'));
 router.post('/link', linkPatient);
 router.get('/patients', getLinkedPatients);
 router.get('/emergency-alerts', getCaregiverEmergencyAlerts);
+router.get('/emergency-alerts/:alertId/health-summary', getCaregiverEmergencyAlertHealthSummary);
 router.get('/patients/:patientId', getPatientDetailsForCaregiver);
 router.delete('/patients/:patientId/link', removeCaregiverLink);
 

@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 const EmergencyAlert = require('../models/EmergencyAlert');
 const PatientProfile = require('../models/PatientProfile');
 const CaregiverLink = require('../models/CaregiverLink');
+const User = require('../models/User');
+const EmergencyHealthProfile = require('../models/EmergencyHealthProfile');
+const { deriveCurrentMedications } = require('../services/emergencyProfileService');
 
 /**
  * @desc    Create a new Emergency Alert (Patient only)
@@ -380,6 +383,176 @@ const getCaregiverEmergencyAlerts = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get limited emergency health summary for an active emergency alert (Caregiver only)
+ * @route   GET /api/caregiver/emergency-alerts/:alertId/health-summary
+ * @access  Private (Caregiver only, actively linked, ACTIVE SOS only)
+ */
+const getCaregiverEmergencyAlertHealthSummary = async (req, res, next) => {
+  try {
+    const { alertId } = req.params;
+
+    // 1. Role verification
+    if (req.user.role !== 'caregiver') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only caregivers can access emergency health summaries',
+      });
+    }
+
+    // 2. Validate alertId format
+    if (!mongoose.Types.ObjectId.isValid(alertId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid emergency alert ID format',
+      });
+    }
+
+    // 3. Find the emergency alert
+    const alert = await EmergencyAlert.findById(alertId);
+    if (!alert) {
+      return res.status(404).json({
+        success: false,
+        message: 'Emergency alert record not found',
+      });
+    }
+
+    const patientId = alert.patientId;
+
+    // 4. Verify caregiver has an active link to the patient
+    const activeLink = await CaregiverLink.findOne({
+      caregiverId: req.user._id,
+      patientId,
+      status: 'active',
+    });
+
+    if (!activeLink) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You do not have an active caregiver link to this patient',
+      });
+    }
+
+    // 5. Active SOS Check (Privacy Rule: Only accessible during ACTIVE emergency alerts)
+    if (alert.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Emergency health summary is only accessible during an active emergency SOS alert',
+      });
+    }
+
+    // 6. Retrieve patient details
+    const patientUser = await User.findById(patientId).select('fullName phoneNumber email');
+    const patientName = patientUser?.fullName || 'Patient';
+    const patientPhone = patientUser?.phoneNumber || '';
+
+    // 7. Retrieve Emergency Health Profile, PatientProfile & Current Medications (Failure-safe)
+    let emergencyProfile = null;
+    let patientProfile = null;
+    let currentMedications = [];
+    let fetchErrorOccurred = false;
+
+    try {
+      emergencyProfile = await EmergencyHealthProfile.findOne({ patientId });
+    } catch (err) {
+      console.error('[EMERGENCY SUMMARY] Error fetching EmergencyHealthProfile:', err);
+      fetchErrorOccurred = true;
+    }
+
+    try {
+      patientProfile = await PatientProfile.findOne({ userId: patientId });
+    } catch (err) {
+      console.error('[EMERGENCY SUMMARY] Error fetching PatientProfile:', err);
+    }
+
+    try {
+      currentMedications = await deriveCurrentMedications(patientId);
+    } catch (err) {
+      console.error('[EMERGENCY SUMMARY] Error deriving medications:', err);
+      currentMedications = [];
+    }
+
+    let emergencySummary;
+
+    if (fetchErrorOccurred) {
+      // Failure-safe fallback (Mandatory Section 16)
+      emergencySummary = {
+        profileCompleted: false,
+        unavailable: true,
+        bloodGroup: 'Not provided',
+        allergies: [],
+        hasNoKnownAllergies: false,
+        chronicConditions: [],
+        currentMedications: [],
+        emergencyContact: {
+          name: alert.emergencyContactName || patientProfile?.emergencyContactName || '',
+          relationship: '',
+          phone: alert.emergencyContactPhone || patientProfile?.emergencyContactPhone || '',
+        },
+        emergencyNotes: '',
+        message: 'Emergency information unavailable',
+      };
+    } else if (emergencyProfile) {
+      // Completed Emergency Health Profile
+      emergencySummary = {
+        profileCompleted: true,
+        bloodGroup: emergencyProfile.bloodGroup || 'Unknown',
+        allergies: emergencyProfile.allergies || [],
+        hasNoKnownAllergies: emergencyProfile.hasNoKnownAllergies || false,
+        chronicConditions: emergencyProfile.chronicConditions || [],
+        currentMedications: currentMedications.map((m) => ({
+          medicineName: m.medicineName,
+          dosage: m.dosage,
+          frequency: m.frequency,
+        })),
+        emergencyContact: {
+          name: emergencyProfile.emergencyContact?.name || alert.emergencyContactName || patientProfile?.emergencyContactName || '',
+          relationship: emergencyProfile.emergencyContact?.relationship || '',
+          phone: emergencyProfile.emergencyContact?.phone || alert.emergencyContactPhone || patientProfile?.emergencyContactPhone || '',
+        },
+        emergencyNotes: emergencyProfile.emergencyNotes || '',
+      };
+    } else {
+      // New Patient / Empty Profile Behavior
+      emergencySummary = {
+        profileCompleted: false,
+        bloodGroup: 'Not provided',
+        allergies: [],
+        hasNoKnownAllergies: false,
+        chronicConditions: [],
+        currentMedications: currentMedications.map((m) => ({
+          medicineName: m.medicineName,
+          dosage: m.dosage,
+          frequency: m.frequency,
+        })),
+        emergencyContact: {
+          name: alert.emergencyContactName || patientProfile?.emergencyContactName || '',
+          relationship: '',
+          phone: alert.emergencyContactPhone || patientProfile?.emergencyContactPhone || '',
+        },
+        emergencyNotes: '',
+      };
+    }
+
+    return res.status(200).json({
+      success: true,
+      alert: {
+        alertId: alert._id,
+        patientId,
+        triggeredAt: alert.createdAt,
+        status: alert.status,
+      },
+      patient: {
+        name: patientName,
+        phone: patientPhone,
+      },
+      emergencySummary,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createEmergencyAlert,
   getPatientEmergencyAlerts,
@@ -387,4 +560,5 @@ module.exports = {
   cancelEmergencyAlert,
   resolveEmergencyAlert,
   getCaregiverEmergencyAlerts,
+  getCaregiverEmergencyAlertHealthSummary,
 };
