@@ -285,6 +285,27 @@ export default function DoctorDashboardScreen() {
           <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
         </TouchableOpacity>
 
+        {/* Doctor Weekly Availability Banner */}
+        <TouchableOpacity
+          style={[
+            styles.menuBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border, marginTop: spacing.sm },
+          ]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(doctor)/availability' as any)}
+        >
+          <Text style={styles.menuIcon}>⚙️</Text>
+          <View style={styles.menuTextCol}>
+            <Text style={[styles.menuTitle, { color: themeColors.textPrimary }]}>
+              Doctor Weekly Availability
+            </Text>
+            <Text style={[styles.menuSub, { color: themeColors.textMuted }]}>
+              Configure working hours, active days, and slot duration
+            </Text>
+          </View>
+          <Text style={[styles.menuArrow, { color: themeColors.primary }]}>→</Text>
+        </TouchableOpacity>
+
         {/* Today's Appointments Section */}
         <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>

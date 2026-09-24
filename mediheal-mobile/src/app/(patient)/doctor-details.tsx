@@ -17,8 +17,9 @@ import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getDoctorById } from '../../services/doctorService';
-import { createAppointment } from '../../services/appointmentService';
+import { createAppointment, getDoctorAvailableSlotsApi } from '../../services/appointmentService';
 import { DoctorProfile } from '../../types/doctor';
+import { AvailableSlotItem } from '../../types/appointment';
 import { useLanguage } from '../../context/LanguageContext';
 import { getSpecializationTranslationKey } from '../../utils/displayMappers';
 import { useTheme } from '../../context/ThemeContext';
@@ -35,7 +36,7 @@ interface DateItem {
 export default function DoctorDetailsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { colors: themeColors } = useTheme();
+  const { colors: themeColors, isDark } = useTheme();
   const { id, initialReason } = useLocalSearchParams<{ id: string; initialReason?: string }>();
 
   const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
@@ -46,6 +47,9 @@ export default function DoctorDetailsScreen() {
   const [selectedDateIso, setSelectedDateIso] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [reason, setReason] = useState<string>(initialReason || '');
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlotItem[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
+  const [slotMessage, setSlotMessage] = useState<string>('');
 
   // Generate 14 upcoming dates starting from today
   const upcomingDates: DateItem[] = useMemo(() => {
@@ -123,6 +127,38 @@ export default function DoctorDetailsScreen() {
     return upcomingDates.find((d) => d.dateIso === selectedDateIso);
   }, [upcomingDates, selectedDateIso]);
 
+  const fetchAvailableSlots = useCallback(async (dateIso: string) => {
+    if (!doctor || !dateIso) return;
+    setLoadingSlots(true);
+    setSlotMessage('');
+    setSelectedSlot(null);
+
+    try {
+      const doctorIdToUse = doctor.userId?._id || doctor._id;
+      const res = await getDoctorAvailableSlotsApi(doctorIdToUse, dateIso);
+      if (res && res.success) {
+        setAvailableSlots(res.slots || []);
+        if (res.message) {
+          setSlotMessage(res.message);
+        }
+      } else {
+        setAvailableSlots([]);
+        setSlotMessage(res?.message || 'No available slots');
+      }
+    } catch (err: any) {
+      setAvailableSlots([]);
+      setSlotMessage(err.message || 'Unable to load available slots');
+    } finally {
+      setLoadingSlots(false);
+    }
+  }, [doctor]);
+
+  useEffect(() => {
+    if (selectedDateIso && doctor) {
+      fetchAvailableSlots(selectedDateIso);
+    }
+  }, [selectedDateIso, doctor, fetchAvailableSlots]);
+
   const handleBookAppointment = async () => {
     if (!doctor) return;
 
@@ -197,6 +233,7 @@ export default function DoctorDetailsScreen() {
           'Slot Unavailable',
           'This time slot has already been booked for the selected date. Please choose another time slot.'
         );
+        fetchAvailableSlots(selectedDateIso);
       } else if (errMsg.toLowerCase().includes('past')) {
         Alert.alert('Invalid Date', 'Appointment date cannot be in the past. Please select a future date.');
       } else if (errMsg.toLowerCase().includes('not available')) {
@@ -393,27 +430,77 @@ export default function DoctorDetailsScreen() {
           ) : null}
 
           {/* Time Slot Picker Grid */}
-          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary, marginTop: spacing.md }]}>{t('selectTimeSlot')}</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.textPrimary, marginTop: spacing.md }]}>
+            {t('availableSlots')}
+          </Text>
 
-          {doctor.availableTimeSlots && doctor.availableTimeSlots.length > 0 ? (
+          {loadingSlots ? (
+            <View style={[styles.emptySlotBox, { backgroundColor: themeColors.surfaceSecondary }]}>
+              <Text style={[styles.emptyScheduleText, { color: themeColors.textSecondary }]}>
+                Loading available slots...
+              </Text>
+            </View>
+          ) : availableSlots && availableSlots.length > 0 ? (
             <View style={styles.slotsGrid}>
-              {doctor.availableTimeSlots.map((slot, idx) => {
-                const isSelected = selectedSlot === slot;
+              {availableSlots.map((slot, idx) => {
+                const isSelected = selectedSlot === slot.time;
+                const isAvailable = slot.available;
                 return (
                   <TouchableOpacity
                     key={idx}
+                    disabled={!isAvailable}
                     style={[
                       styles.slotChip,
-                      { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
-                      isSelected && { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary },
+                      {
+                        backgroundColor: isAvailable
+                          ? isSelected
+                            ? themeColors.primaryLight
+                            : themeColors.surfaceSecondary
+                          : isDark
+                          ? 'rgba(239, 68, 68, 0.15)'
+                          : '#FEE2E2',
+                        borderColor: isAvailable
+                          ? isSelected
+                            ? themeColors.primary
+                            : themeColors.border
+                          : themeColors.border,
+                        opacity: isAvailable ? 1 : 0.6,
+                      },
                     ]}
-                    onPress={() => setSelectedSlot(slot)}
+                    onPress={() => setSelectedSlot(slot.time)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${slot.time} ${isAvailable ? t('available') : t('alreadyBooked')}`}
                   >
-                    <Text
-                      style={[styles.slotText, { color: themeColors.textPrimary }, isSelected && { color: themeColors.primary }]}
-                    >
-                      ⏰ {slot}
-                    </Text>
+                    <View style={styles.slotContentRow}>
+                      <Text
+                        style={[
+                          styles.slotText,
+                          {
+                            color: isAvailable
+                              ? isSelected
+                                ? themeColors.primary
+                                : themeColors.textPrimary
+                              : themeColors.textMuted,
+                          },
+                        ]}
+                      >
+                        ⏰ {slot.time}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.slotStatusLabel,
+                          {
+                            color: isAvailable
+                              ? isSelected
+                                ? themeColors.primary
+                                : themeColors.success
+                              : themeColors.danger,
+                          },
+                        ]}
+                      >
+                        {isAvailable ? t('available') : t('alreadyBooked')}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -421,7 +508,7 @@ export default function DoctorDetailsScreen() {
           ) : (
             <View style={[styles.emptySlotBox, { backgroundColor: themeColors.surfaceSecondary }]}>
               <Text style={[styles.emptyScheduleText, { color: themeColors.textSecondary }]}>
-                {t('noDoctorsForSpec')}
+                {slotMessage || t('chooseAnotherSlot')}
               </Text>
             </View>
           )}
@@ -709,8 +796,19 @@ const styles = StyleSheet.create({
   },
   slotText: {
     ...typography.caption,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
+  },
+  slotContentRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    minHeight: 48,
+  },
+  slotStatusLabel: {
+    ...typography.caption,
+    fontSize: 10,
+    fontWeight: '700',
   },
   activeSlotText: {
     color: colors.primaryDark,

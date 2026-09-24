@@ -1,5 +1,7 @@
 const PatientProfile = require('../models/PatientProfile');
 const EmergencyAlert = require('../models/EmergencyAlert');
+const Appointment = require('../models/Appointment');
+const DoctorProfile = require('../models/DoctorProfile');
 const generateLinkCode = require('../utils/generateLinkCode');
 
 /**
@@ -176,6 +178,32 @@ const getPatientDashboard = async (req, res, next) => {
       status: 'active',
     }).sort({ createdAt: -1 });
 
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const rawAppointments = await Appointment.find({
+      patientId: userId,
+      appointmentDate: { $gte: today },
+      status: { $in: ['pending', 'confirmed'] },
+    })
+      .populate('doctorId', 'fullName email phoneNumber preferredLanguage')
+      .sort({ appointmentDate: 1, timeSlot: 1 })
+      .limit(5);
+
+    const upcomingAppointments = await Promise.all(
+      rawAppointments.map(async (appt) => {
+        const apptObj = appt.toObject();
+        if (appt.doctorId?._id) {
+          const docProf = await DoctorProfile.findOne({ userId: appt.doctorId._id });
+          if (docProf) {
+            apptObj.specialization = docProf.specialization;
+            apptObj.hospital = docProf.hospital;
+          }
+        }
+        return apptObj;
+      })
+    );
+
     return res.status(200).json({
       success: true,
       message: 'Patient dashboard retrieved successfully',
@@ -183,7 +211,7 @@ const getPatientDashboard = async (req, res, next) => {
         user: req.user,
         patientProfile: profile || null,
         medications: [],
-        upcomingAppointments: [],
+        upcomingAppointments,
         latestSymptomCheck: null,
         activeEmergencyAlert: activeEmergencyAlert || null,
       },

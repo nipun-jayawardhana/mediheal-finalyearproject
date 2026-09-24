@@ -11,7 +11,7 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['MEDICATION_REMINDER', 'MISSED_MEDICATION', 'MEDICATION_TAKEN'],
+        values: ['MEDICATION_REMINDER', 'MISSED_MEDICATION', 'MEDICATION_TAKEN', 'APPOINTMENT_REMINDER'],
         message: '{VALUE} is not a valid notification type',
       },
       required: [true, 'Notification type is required'],
@@ -39,6 +39,11 @@ const notificationSchema = new mongoose.Schema(
     },
     recordId: {
       type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    appointmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Appointment',
       default: null,
     },
     medicineName: {
@@ -88,6 +93,7 @@ const notificationSchema = new mongoose.Schema(
 
 notificationSchema.index({ userId: 1, status: 1, createdAt: -1 });
 notificationSchema.index({ userId: 1, type: 1, scheduleId: 1, recordId: 1 });
+notificationSchema.index({ userId: 1, type: 1, appointmentId: 1 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 

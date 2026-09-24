@@ -4,6 +4,10 @@ import {
   AppointmentListResponse,
   CreateAppointmentRequest,
   AppointmentStatus,
+  DoctorAvailableSlotsResponse,
+  RescheduleAppointmentRequest,
+  DoctorAvailabilityResponse,
+  DoctorWeeklyAvailabilityDay,
 } from '../types/appointment';
 
 /**
@@ -63,3 +67,74 @@ export const cancelAppointment = async (
   );
   return response.data;
 };
+
+/**
+ * Get available slots for a doctor on a specific date
+ * GET /api/appointments/doctors/:doctorId/available-slots?date=YYYY-MM-DD
+ */
+export const getDoctorAvailableSlotsApi = async (
+  doctorId: string,
+  date: string
+): Promise<DoctorAvailableSlotsResponse> => {
+  const response = await apiClient.get<DoctorAvailableSlotsResponse>(
+    `/appointments/doctors/${doctorId}/available-slots`,
+    { params: { date } }
+  );
+  return response.data;
+};
+
+/**
+ * Reschedule an appointment
+ * PATCH /api/appointments/:appointmentId/reschedule
+ */
+export const rescheduleAppointmentApi = async (
+  appointmentId: string,
+  payload: RescheduleAppointmentRequest
+): Promise<AppointmentResponse> => {
+  const response = await apiClient.patch<AppointmentResponse>(
+    `/appointments/${appointmentId}/reschedule`,
+    payload
+  );
+  return response.data;
+};
+
+/**
+ * Fetch doctor's weekly availability (Doctor only)
+ * GET /api/doctor/availability
+ */
+export const getDoctorAvailabilityApi = async (): Promise<DoctorAvailabilityResponse> => {
+  const response = await apiClient.get<DoctorAvailabilityResponse>(
+    '/doctor/availability'
+  );
+  return response.data;
+};
+
+/**
+ * Update doctor's weekly availability (Doctor only)
+ * PUT /api/doctor/availability
+ */
+export const updateDoctorAvailabilityApi = async (payload: {
+  weeklyAvailability: DoctorWeeklyAvailabilityDay[];
+  defaultSlotDuration?: number;
+  isAvailable?: boolean;
+}): Promise<DoctorAvailabilityResponse> => {
+  const response = await apiClient.put<DoctorAvailabilityResponse>(
+    '/doctor/availability',
+    payload
+  );
+  return response.data;
+};
+
+/**
+ * Process appointment reminders
+ * POST /api/appointments/reminders/process
+ */
+export const triggerAppointmentRemindersApi = async (): Promise<{
+  success: boolean;
+  message?: string;
+  data: { evaluated: number; remindersCreated: number };
+}> => {
+  const response = await apiClient.post('/appointments/reminders/process');
+  return response.data;
+};
+

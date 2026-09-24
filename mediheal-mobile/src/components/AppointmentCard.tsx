@@ -11,6 +11,7 @@ import { useTheme } from '../context/ThemeContext';
 interface AppointmentCardProps {
   appointment: Appointment;
   onCancel?: (appointment: Appointment) => void;
+  onReschedule?: (appointment: Appointment) => void;
   onViewSummary?: (appointment: Appointment) => void;
   cancellingId?: string | null;
 }
@@ -18,6 +19,7 @@ interface AppointmentCardProps {
 export const AppointmentCard: React.FC<AppointmentCardProps> = ({
   appointment,
   onCancel,
+  onReschedule,
   onViewSummary,
   cancellingId,
 }) => {
@@ -127,6 +129,20 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
           </View>
         ) : null}
 
+        {/* Reschedule History Audit */}
+        {appointment.rescheduleHistory && appointment.rescheduleHistory.length > 0 && (
+          <View style={[styles.rescheduleBox, { backgroundColor: themeColors.surfaceSecondary }]}>
+            <Text style={[styles.rescheduleTitle, { color: themeColors.primary }]}>
+              🔄 {t('rescheduleHistoryLabel')} ({appointment.rescheduleHistory.length})
+            </Text>
+            {appointment.rescheduleHistory.map((hist, idx) => (
+              <Text key={idx} style={[styles.rescheduleItemText, { color: themeColors.textSecondary }]}>
+                • Changed from {formatDate(hist.oldDate)} ({hist.oldTime}) to {formatDate(hist.newDate)} ({hist.newTime})
+              </Text>
+            ))}
+          </View>
+        )}
+
         {/* Cancellation Reason if Cancelled */}
         {appointment.status === 'cancelled' && appointment.cancellationReason ? (
           <View style={[styles.cancelledBox, { backgroundColor: themeColors.dangerLight }]}>
@@ -139,13 +155,21 @@ export const AppointmentCard: React.FC<AppointmentCardProps> = ({
 
       {/* Action Footer */}
       {isCancellable && (
-        <View style={styles.actionFooter}>
+        <View style={styles.actionFooterRow}>
+          {onReschedule && (
+            <AppButton
+              title={t('rescheduleAppointment')}
+              onPress={() => onReschedule(appointment)}
+              variant="outline"
+              style={styles.actionBtnHalf}
+            />
+          )}
           <AppButton
             title={isCurrentlyCancelling ? '...' : t('cancelAppointmentBtn')}
             onPress={() => onCancel && onCancel(appointment)}
             variant="danger"
             disabled={isCurrentlyCancelling}
-            style={styles.cancelBtn}
+            style={onReschedule ? styles.actionBtnHalf : styles.cancelBtn}
           />
         </View>
       )}
@@ -284,8 +308,34 @@ const styles = StyleSheet.create({
   actionFooter: {
     marginTop: spacing.md,
   },
+  actionFooterRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionBtnHalf: {
+    flex: 1,
+    minHeight: 48,
+  },
+  rescheduleBox: {
+    marginTop: spacing.xs,
+    borderRadius: borderRadius.sm,
+    padding: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  rescheduleTitle: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  rescheduleItemText: {
+    ...typography.caption,
+    fontSize: 11,
+    lineHeight: 16,
+  },
   cancelBtn: {
-    minHeight: 40,
+    minHeight: 48,
   },
   summaryBtn: {
     minHeight: 40,

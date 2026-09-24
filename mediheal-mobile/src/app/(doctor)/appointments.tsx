@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { DoctorAppointmentCard } from '../../components/DoctorAppointmentCard';
 import { LoadingView } from '../../components/LoadingView';
 import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
-import { colors, spacing, borderRadius, typography } from '../../constants/theme';
+import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import {
   getDoctorAppointments,
@@ -26,6 +26,8 @@ import { DoctorAppointment } from '../../types/doctorPortal';
 
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'All', value: 'all' },
+  { label: 'Today', value: 'today' },
+  { label: 'Upcoming', value: 'upcoming' },
   { label: 'Pending', value: 'pending' },
   { label: 'Confirmed', value: 'confirmed' },
   { label: 'Completed', value: 'completed' },
@@ -49,7 +51,9 @@ export default function DoctorAppointmentsScreen() {
       setErrorMsg('');
 
       try {
-        const queryStatus = filterVal === 'all' ? undefined : filterVal;
+        const queryStatus = ['all', 'today', 'upcoming'].includes(filterVal)
+          ? undefined
+          : filterVal;
         const res = await getDoctorAppointments(queryStatus);
         if (res && res.success) {
           setAppointments(res.data || []);
@@ -124,6 +128,35 @@ export default function DoctorAppointmentsScreen() {
     });
   };
 
+  const filteredAppointments = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    if (selectedFilter === 'today') {
+      return appointments.filter((a) => {
+        try {
+          return new Date(a.appointmentDate).toISOString().split('T')[0] === todayStr;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
+    if (selectedFilter === 'upcoming') {
+      return appointments.filter((a) => {
+        try {
+          const d = new Date(a.appointmentDate);
+          return d >= todayStart && (a.status === 'pending' || a.status === 'confirmed');
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+
+    return appointments;
+  }, [appointments, selectedFilter]);
+
   if (loading && appointments.length === 0) {
     return <LoadingView message="Loading assigned appointments..." />;
   }
@@ -137,6 +170,27 @@ export default function DoctorAppointmentsScreen() {
       />
 
       <View style={styles.container}>
+        {/* Availability Shortcut Banner */}
+        <TouchableOpacity
+          style={[
+            styles.availabilityBanner,
+            { backgroundColor: themeColors.card, borderColor: themeColors.border },
+          ]}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(doctor)/availability' as any)}
+        >
+          <Text style={styles.availabilityIcon}>⚙️</Text>
+          <View style={styles.availabilityTextCol}>
+            <Text style={[styles.availabilityTitle, { color: themeColors.primary }]}>
+              Manage Doctor Availability
+            </Text>
+            <Text style={[styles.availabilitySub, { color: themeColors.textSecondary }]}>
+              Configure your weekly working hours and time slots
+            </Text>
+          </View>
+          <Text style={[styles.availabilityArrow, { color: themeColors.primary }]}>→</Text>
+        </TouchableOpacity>
+
         {/* Filter Tabs */}
         <View style={styles.tabsWrap}>
           <ScrollView
@@ -180,7 +234,7 @@ export default function DoctorAppointmentsScreen() {
           <ErrorView message={errorMsg} onRetry={() => fetchAppointments(selectedFilter, true)} />
         ) : null}
 
-        {!errorMsg && appointments.length === 0 && (
+        {!errorMsg && filteredAppointments.length === 0 && (
           <EmptyState
             icon="📅"
             title="No Appointments Found"
@@ -188,9 +242,9 @@ export default function DoctorAppointmentsScreen() {
           />
         )}
 
-        {!errorMsg && appointments.length > 0 && (
+        {!errorMsg && filteredAppointments.length > 0 && (
           <FlatList
-            data={appointments}
+            data={filteredAppointments}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => (
               <DoctorAppointmentCard
@@ -221,6 +275,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingVertical: spacing.xs,
+  },
+  availabilityBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.xs,
+    ...shadows.card,
+  },
+  availabilityIcon: {
+    fontSize: 22,
+    marginRight: spacing.sm,
+  },
+  availabilityTextCol: {
+    flex: 1,
+  },
+  availabilityTitle: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  availabilitySub: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  availabilityArrow: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginLeft: spacing.xs,
   },
   tabsWrap: {
     marginVertical: spacing.xs,

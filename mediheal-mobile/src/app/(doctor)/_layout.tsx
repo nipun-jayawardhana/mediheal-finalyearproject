@@ -49,6 +49,7 @@ export default function DoctorLayout() {
       <Stack.Screen name="active-consultation" options={{ headerShown: false }} />
       <Stack.Screen name="patient-history" options={{ headerShown: false }} />
       <Stack.Screen name="profile" options={{ headerShown: false }} />
+      <Stack.Screen name="availability" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -29,8 +29,8 @@ const appointmentSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['pending', 'confirmed', 'completed', 'cancelled'],
-        message: '{VALUE} is not a valid status. Allowed: pending, confirmed, completed, cancelled',
+        values: ['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled'],
+        message: '{VALUE} is not a valid status. Allowed: pending, confirmed, completed, cancelled, rescheduled',
       },
       default: 'pending',
     },
@@ -39,6 +39,16 @@ const appointmentSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    rescheduleHistory: [
+      {
+        oldDate: { type: Date, required: true },
+        oldTime: { type: String, required: true },
+        newDate: { type: Date, required: true },
+        newTime: { type: String, required: true },
+        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        changedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   {
     timestamps: true,

@@ -31,6 +31,7 @@ import { getLocaleForLanguage } from '../../services/voiceService';
 import { useLanguage } from '../../context/LanguageContext';
 import { SUPPORTED_LANGUAGES, LanguageCode } from '../../utils/languageStorage';
 import { useTheme } from '../../context/ThemeContext';
+import { getAppointmentStatusTranslationKey } from '../../utils/displayMappers';
 
 const formatTimeAmPm = (time24?: string): string => {
   if (!time24) return '';
@@ -44,6 +45,24 @@ const formatTimeAmPm = (time24?: string): string => {
   hours = hours ? hours : 12;
   const hoursStr = String(hours).padStart(2, '0');
   return `${hoursStr}:${minutes} ${ampm}`;
+};
+
+const formatApptDate = (dateStr: string) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const target = new Date(dateStr);
+    const targetDate = new Date(target);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((targetDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    return target.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  } catch (e) {
+    return dateStr;
+  }
 };
 
 export default function PatientHomeScreen() {
@@ -672,9 +691,109 @@ export default function PatientHomeScreen() {
             </View>
           </TouchableOpacity>
 
+          {/* Patient Upcoming Appointment Card (Phase 9) */}
+          {(() => {
+            const nextAppt = dashboardData?.upcomingAppointments && dashboardData.upcomingAppointments.length > 0
+              ? dashboardData.upcomingAppointments[0]
+              : null;
+
+            return (
+              <View
+                style={[
+                  styles.upcomingApptCard,
+                  { backgroundColor: themeColors.card, borderColor: themeColors.border },
+                ]}
+              >
+                <View style={styles.upcomingApptHeader}>
+                  <View style={styles.upcomingApptHeaderLeft}>
+                    <Text style={styles.upcomingApptIcon}>📅</Text>
+                    <Text style={[styles.upcomingApptHeaderTitle, { color: themeColors.primary }]}>
+                      {t('nextAppointment')}
+                    </Text>
+                  </View>
+                  {nextAppt && (
+                    <StatusBadge
+                      status={nextAppt.status}
+                      label={t(getAppointmentStatusTranslationKey(nextAppt.status))}
+                    />
+                  )}
+                </View>
+
+                {nextAppt ? (
+                  <View style={styles.upcomingApptBody}>
+                    <View style={styles.upcomingApptDoctorCol}>
+                      <Text style={[styles.upcomingApptDoctorName, { color: themeColors.textPrimary }]}>
+                        {nextAppt.doctorId?.fullName
+                          ? nextAppt.doctorId.fullName.toLowerCase().startsWith('dr.')
+                            ? nextAppt.doctorId.fullName
+                            : `Dr. ${nextAppt.doctorId.fullName}`
+                          : 'Medical Specialist'}
+                      </Text>
+                      <Text style={[styles.upcomingApptSpec, { color: themeColors.primary }]}>
+                        {nextAppt.specialization || 'Medical Specialist'}
+                      </Text>
+                      {nextAppt.hospital ? (
+                        <Text style={[styles.upcomingApptHospital, { color: themeColors.textSecondary }]}>
+                          🏥 {nextAppt.hospital}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View
+                      style={[
+                        styles.upcomingApptTimeBadge,
+                        { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+                      ]}
+                    >
+                      <Text style={[styles.upcomingApptDateText, { color: themeColors.primary }]}>
+                        {formatApptDate(nextAppt.appointmentDate)}
+                      </Text>
+                      <Text style={[styles.upcomingApptTimeText, { color: themeColors.textPrimary }]}>
+                        {nextAppt.timeSlot}
+                      </Text>
+                    </View>
+
+                    <View style={styles.upcomingApptActionRow}>
+                      <TouchableOpacity
+                        style={[styles.upcomingApptViewBtn, { backgroundColor: themeColors.primary }]}
+                        onPress={() => {
+                          stopSpeech();
+                          router.push('/(patient)/my-bookings' as any);
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('viewAppointment')}
+                      >
+                        <Text style={styles.upcomingApptViewBtnText}>{t('viewAppointment')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.noUpcomingApptBox}>
+                    <Text style={[styles.noUpcomingApptText, { color: themeColors.textSecondary }]}>
+                      {t('noUpcomingAppointments')}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.bookDoctorSmallBtn, { backgroundColor: themeColors.primaryLight }]}
+                      onPress={() => {
+                        stopSpeech();
+                        router.push('/(patient)/specialists' as any);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('bookAppointment')}
+                    >
+                      <Text style={[styles.bookDoctorSmallBtnText, { color: themeColors.primary }]}>
+                        + {t('bookAppointment')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })()}
+
           {/* My Appointments Quick Action Banner */}
           <TouchableOpacity
-            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+            style={[styles.myAppointmentsBanner, { backgroundColor: themeColors.card, borderColor: themeColors.border, marginTop: spacing.sm }]}
             activeOpacity={0.8}
             onPress={() => { stopSpeech(); router.push('/(patient)/my-bookings' as any); }}
           >
@@ -1236,5 +1355,109 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 1,
     marginBottom: 2,
+  },
+  upcomingApptCard: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    ...shadows.card,
+  },
+  upcomingApptHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  upcomingApptHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  upcomingApptIcon: {
+    fontSize: 18,
+  },
+  upcomingApptHeaderTitle: {
+    ...typography.bodyBold,
+    fontSize: 15,
+  },
+  upcomingApptBody: {
+    marginTop: spacing.xs,
+  },
+  upcomingApptDoctorCol: {
+    marginBottom: spacing.xs,
+  },
+  upcomingApptDoctorName: {
+    ...typography.subheader,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  upcomingApptSpec: {
+    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  upcomingApptHospital: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  upcomingApptTimeBadge: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginVertical: spacing.xs,
+  },
+  upcomingApptDateText: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  upcomingApptTimeText: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  upcomingApptActionRow: {
+    marginTop: spacing.xs,
+  },
+  upcomingApptViewBtn: {
+    paddingVertical: 10,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  upcomingApptViewBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  noUpcomingApptBox: {
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  noUpcomingApptText: {
+    ...typography.caption,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  bookDoctorSmallBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: borderRadius.pill,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  bookDoctorSmallBtnText: {
+    ...typography.caption,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });

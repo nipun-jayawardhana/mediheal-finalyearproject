@@ -301,6 +301,13 @@ export default function DoctorProfileScreen() {
           </InfoCard>
         ) : null}
 
+        <AppButton
+          title="⚙️ Manage Availability & Slot Duration"
+          onPress={() => router.push('/(doctor)/availability' as any)}
+          variant="secondary"
+          style={{ marginTop: spacing.lg }}
+        />
+
         {/* 3. Sign Out Button */}
         <AppButton
           title="Sign Out"

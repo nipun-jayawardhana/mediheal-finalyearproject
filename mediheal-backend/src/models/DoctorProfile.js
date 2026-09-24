@@ -46,6 +46,37 @@ const doctorProfileSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    weeklyAvailability: [
+      {
+        dayOfWeek: {
+          type: String,
+          enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+          required: true,
+        },
+        startTime: {
+          type: String,
+          default: '09:00',
+        },
+        endTime: {
+          type: String,
+          default: '17:00',
+        },
+        enabled: {
+          type: Boolean,
+          default: true,
+        },
+        slotDuration: {
+          type: Number,
+          enum: [15, 20, 30, 45, 60],
+          default: 30,
+        },
+      },
+    ],
+    defaultSlotDuration: {
+      type: Number,
+      enum: [15, 20, 30, 45, 60],
+      default: 30,
+    },
     biography: {
       type: String,
       trim: true,
