@@ -27,6 +27,8 @@ import {
   calculateHaversineDistance,
   formatDistanceAway,
   RADIUS_OPTIONS,
+  DEFAULT_PATIENT_LOCATION,
+  isValidCoordinate,
 } from '../../utils/locationUtils';
 
 // Conditionally import MapView & Marker & Circle to prevent web bundling crashes
@@ -130,7 +132,7 @@ export default function SpecialistMapScreen() {
   );
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
-  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation>(DEFAULT_PATIENT_LOCATION);
   const [selectedRadius, setSelectedRadius] = useState<number | null>(10);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -144,19 +146,18 @@ export default function SpecialistMapScreen() {
         if (prof.preferredDoctorRadius) {
           setSelectedRadius(prof.preferredDoctorRadius);
         }
-        if (
-          typeof prof.patientLocation?.latitude === 'number' &&
-          typeof prof.patientLocation?.longitude === 'number'
-        ) {
+        const pLat = prof.patientLocation?.latitude;
+        const pLng = prof.patientLocation?.longitude;
+        if (isValidCoordinate(pLat, pLng)) {
           setUserLocation({
-            latitude: prof.patientLocation.latitude,
-            longitude: prof.patientLocation.longitude,
+            latitude: Number(pLat),
+            longitude: Number(pLng),
           });
           return;
         }
       }
     } catch {
-      // Proceed to device GPS
+      // Proceed to device GPS fallback
     }
 
     try {
@@ -164,30 +165,43 @@ export default function SpecialistMapScreen() {
         if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              setUserLocation({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              });
+              if (isValidCoordinate(pos.coords.latitude, pos.coords.longitude)) {
+                setUserLocation({
+                  latitude: pos.coords.latitude,
+                  longitude: pos.coords.longitude,
+                });
+                return;
+              }
             },
-            () => {}
+            () => {
+              // Permission denied or GPS unavailable -> ensure fallback is maintained
+              setUserLocation((prev) => prev || DEFAULT_PATIENT_LOCATION);
+            },
+            { timeout: 5000 }
           );
+          return;
         }
-        return;
-      }
-
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        setUserLocation({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
+      } else {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          if (isValidCoordinate(loc.coords.latitude, loc.coords.longitude)) {
+            setUserLocation({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+            return;
+          }
+        }
       }
     } catch (err) {
       console.warn('Location request error:', err);
     }
+
+    // Default fallback to Colombo Central if GPS and profile are not available
+    setUserLocation((prev) => prev || DEFAULT_PATIENT_LOCATION);
   }, []);
 
   // 2. Fetch doctors list with optional specialization filter
@@ -221,35 +235,66 @@ export default function SpecialistMapScreen() {
 
   // Filter doctors with valid numeric latitude & longitude
   const mappedDoctors = useMemo(() => {
-    return doctors.filter(
-      (d) =>
-        typeof d.latitude === 'number' &&
-        typeof d.longitude === 'number' &&
-        !isNaN(d.latitude) &&
-        !isNaN(d.longitude) &&
-        d.latitude >= -90 &&
-        d.latitude <= 90 &&
-        d.longitude >= -180 &&
-        d.longitude <= 180 &&
-        !(d.latitude === 0 && d.longitude === 0)
-    );
+    return doctors.filter((d) => isValidCoordinate(d.latitude, d.longitude));
   }, [doctors]);
 
   // Filter doctors within selected radius from patient location
   const nearbyMappedDoctors = useMemo(() => {
-    if (selectedRadius === null || !userLocation) {
+    if (selectedRadius === null) {
       return mappedDoctors;
     }
+
+    if (!userLocation || !isValidCoordinate(userLocation.latitude, userLocation.longitude)) {
+      return [];
+    }
+
     return mappedDoctors.filter((doc) => {
+      // 4. No doctor is passing filter because of missing coordinates
+      if (!isValidCoordinate(doc.latitude, doc.longitude)) {
+        return false;
+      }
+
       const dist = calculateHaversineDistance(
         userLocation.latitude,
         userLocation.longitude,
-        doc.latitude!,
-        doc.longitude!
+        doc.latitude,
+        doc.longitude
       );
-      return dist <= selectedRadius;
+
+      return dist !== null && !isNaN(dist) && dist <= selectedRadius;
     });
   }, [mappedDoctors, selectedRadius, userLocation]);
+
+  // Debug Distance Calculation Logger
+  useEffect(() => {
+    if (!userLocation || doctors.length === 0) return;
+
+    console.log('Patient location:');
+    console.log('latitude:');
+    console.log(userLocation.latitude);
+    console.log('longitude:');
+    console.log(userLocation.longitude);
+
+    doctors.forEach((doc) => {
+      const docName = doc.userId?.fullName || 'Specialist';
+      const hasCoords = isValidCoordinate(doc.latitude, doc.longitude);
+      const dist = hasCoords
+        ? calculateHaversineDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            doc.latitude,
+            doc.longitude
+          )
+        : null;
+
+      console.log('Doctor:');
+      console.log(docName);
+      console.log(hasCoords ? doc.latitude : 'undefined');
+      console.log(hasCoords ? doc.longitude : 'undefined');
+      console.log('Distance:');
+      console.log(dist !== null ? `${dist} km` : 'No valid coordinates');
+    });
+  }, [doctors, userLocation]);
 
   // Set selected doctor if doctorId param was explicitly provided
   useEffect(() => {
@@ -716,7 +761,9 @@ export default function SpecialistMapScreen() {
 
   // Distance calculation for currently selected doctor
   const selectedDocDistance =
-    selectedDoctor && userLocation && selectedDoctor.latitude && selectedDoctor.longitude
+    selectedDoctor &&
+    userLocation &&
+    isValidCoordinate(selectedDoctor.latitude, selectedDoctor.longitude)
       ? calculateHaversineDistance(
           userLocation.latitude,
           userLocation.longitude,
