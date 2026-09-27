@@ -137,6 +137,29 @@ export default function CaregiverMedicationMonitoringScreen() {
       });
   };
 
+  const handleSmsPatient = (
+    phone?: string,
+    patientName?: string,
+    medicine?: string,
+    time?: string
+  ) => {
+    if (!phone) {
+      Alert.alert('Phone Not Available', 'This patient has not provided a phone number.');
+      return;
+    }
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const body = encodeURIComponent(
+      `Hi ${patientName || 'there'}, this is a reminder from your MediHeal caregiver regarding your prescribed dose of ${medicine || 'medication'} scheduled at ${time || 'today'}. Please remember to take it.`
+    );
+    const url =
+      Platform.OS === 'ios'
+        ? `sms:${cleanPhone}&body=${body}`
+        : `sms:${cleanPhone}?body=${body}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Unable to open SMS application.');
+    });
+  };
+
   if (loading && !refreshing) {
     return <LoadingView message="Loading medication monitoring..." />;
   }
@@ -649,19 +672,40 @@ export default function CaregiverMedicationMonitoringScreen() {
               {/* Actions */}
               <View style={styles.modalActionsRow}>
                 {contactTarget?.patientPhone ? (
-                  <TouchableOpacity
-                    style={[
-                      styles.callPatientBtn,
-                      { backgroundColor: themeColors.success },
-                    ]}
-                    onPress={() => {
-                      setContactModalVisible(false);
-                      handleCallPatient(contactTarget?.patientPhone);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.callPatientBtnText}>📞 Call Patient</Text>
-                  </TouchableOpacity>
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.callPatientBtn,
+                        { backgroundColor: themeColors.success },
+                      ]}
+                      onPress={() => {
+                        setContactModalVisible(false);
+                        handleCallPatient(contactTarget?.patientPhone);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.callPatientBtnText}>📞 {t('contactPatient')}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.callPatientBtn,
+                        { backgroundColor: themeColors.primary, marginTop: 8 },
+                      ]}
+                      onPress={() => {
+                        setContactModalVisible(false);
+                        handleSmsPatient(
+                          contactTarget?.patientPhone,
+                          contactTarget?.patientName,
+                          contactTarget?.medicine,
+                          contactTarget?.time
+                        );
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.callPatientBtnText}>💬 {t('remindPatient')}</Text>
+                    </TouchableOpacity>
+                  </>
                 ) : null}
 
                 <TouchableOpacity

@@ -11,7 +11,8 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { CaregiverLinkCodeCard } from '../../components/CaregiverLinkCodeCard';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, borderRadius, typography } from '../../constants/theme';
-import { getPatientProfileApi } from '../../services/patientService';
+import { getPatientProfileApi, updatePatientProfileApi } from '../../services/patientService';
+import * as Location from 'expo-location';
 import { PatientProfile } from '../../types/patient';
 import { SUPPORTED_LANGUAGES } from '../../utils/languageStorage';
 import { useLanguage } from '../../context/LanguageContext';
@@ -26,6 +27,8 @@ export default function PatientProfileScreen() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [updatingLocation, setUpdatingLocation] = useState(false);
+  const [savingRadius, setSavingRadius] = useState(false);
 
   const currentLangObj = SUPPORTED_LANGUAGES.find((l) => l.code === language);
   const currentLangName = currentLangObj ? `${currentLangObj.flag} ${currentLangObj.nativeName} (${currentLangObj.name})` : 'English';
@@ -52,6 +55,63 @@ export default function PatientProfileScreen() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  const handleUpdateLocation = async () => {
+    setUpdatingLocation(true);
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const newLoc = {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+              };
+              await updatePatientProfileApi({ patientLocation: newLoc });
+              setProfile((prev) => (prev ? { ...prev, patientLocation: newLoc } : prev));
+              Alert.alert(t('currentLocation'), t('locationUpdatedSuccess'));
+            },
+            (err) => {
+              Alert.alert('Location Error', err.message || 'Unable to retrieve location.');
+            }
+          );
+        }
+        return;
+      }
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please grant location permission to update your current location.');
+        return;
+      }
+
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const newLoc = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      };
+
+      await updatePatientProfileApi({ patientLocation: newLoc });
+      setProfile((prev) => (prev ? { ...prev, patientLocation: newLoc } : prev));
+      Alert.alert(t('currentLocation'), t('locationUpdatedSuccess'));
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to update location.');
+    } finally {
+      setUpdatingLocation(false);
+    }
+  };
+
+  const handleSelectRadius = async (radius: number) => {
+    setSavingRadius(true);
+    try {
+      await updatePatientProfileApi({ preferredDoctorRadius: radius });
+      setProfile((prev) => (prev ? { ...prev, preferredDoctorRadius: radius } : prev));
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to save radius preference.');
+    } finally {
+      setSavingRadius(false);
+    }
+  };
 
   const performSignOut = async () => {
     await logout();
@@ -122,6 +182,67 @@ export default function PatientProfileScreen() {
           <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
             <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>{t('phoneNumber')}</Text>
             <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>{user?.phoneNumber || 'N/A'}</Text>
+          </View>
+        </InfoCard>
+
+        {/* 1.1 Patient Location & Search Radius Preferences */}
+        <InfoCard
+          title={t('nearbyDoctors')}
+          subtitle={t('searchRadius')}
+        >
+          <View style={[styles.detailRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.detailLabel, { color: themeColors.textSecondary }]}>
+              📍 {t('currentLocation')}
+            </Text>
+            <Text style={[styles.detailValue, { color: themeColors.textPrimary }]}>
+              {profile?.patientLocation?.latitude && profile?.patientLocation?.longitude
+                ? `${profile.patientLocation.latitude.toFixed(4)}, ${profile.patientLocation.longitude.toFixed(4)}`
+                : 'GPS Location Not Set'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.updateLocBtn, { backgroundColor: themeColors.primaryLight, borderColor: themeColors.primary }]}
+            onPress={handleUpdateLocation}
+            disabled={updatingLocation}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.updateLocBtnText, { color: themeColors.primary }]}>
+              📍 {updatingLocation ? 'Updating...' : t('updateLocation')}
+            </Text>
+          </TouchableOpacity>
+
+          <Text style={[styles.chipSectionTitle, { color: themeColors.textPrimary, marginTop: spacing.md }]}>
+            {t('searchRadius')}
+          </Text>
+          <View style={styles.radiusChipsRow}>
+            {[5, 10, 25, 50].map((rad) => {
+              const currentRad = profile?.preferredDoctorRadius || 10;
+              const isSelected = currentRad === rad;
+              return (
+                <TouchableOpacity
+                  key={rad}
+                  style={[
+                    styles.radiusChip,
+                    { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+                    isSelected && { backgroundColor: themeColors.primary, borderColor: themeColors.primary },
+                  ]}
+                  onPress={() => handleSelectRadius(rad)}
+                  disabled={savingRadius}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.radiusChipText,
+                      { color: themeColors.textSecondary },
+                      isSelected && { color: '#FFFFFF', fontWeight: '800' },
+                    ]}
+                  >
+                    {rad} km
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </InfoCard>
 
@@ -345,5 +466,34 @@ const styles = StyleSheet.create({
   },
   signOutBtn: {
     marginVertical: spacing.md,
+  },
+  updateLocBtn: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateLocBtnText: {
+    ...typography.bodyBold,
+  },
+  radiusChipsRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  radiusChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radiusChipText: {
+    ...typography.caption,
+    fontWeight: '700',
   },
 });

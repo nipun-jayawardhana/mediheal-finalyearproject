@@ -42,6 +42,19 @@ export default function CaregiverEditMedicationScreen() {
   const [deactivating, setDeactivating] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  React.useEffect(() => {
+    Alert.alert(
+      t('monitorMedication'),
+      'Medication schedules are prescribed by doctors. Caregivers monitor patient adherence.',
+      [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(caregiver)/medication-monitoring' as any),
+        },
+      ]
+    );
+  }, [router, t]);
+
   const fetchMedication = useCallback(async () => {
     if (!params.id || !params.patientId) {
       setErrorMsg(t('patientIdMissing'));

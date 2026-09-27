@@ -56,6 +56,25 @@ const patientProfileSchema = new mongoose.Schema(
       required: [true, 'Caregiver linking code is required'],
       unique: true,
     },
+    patientLocation: {
+      latitude: {
+        type: Number,
+        min: [-90, 'Latitude must be between -90 and 90'],
+        max: [90, 'Latitude must be between -90 and 90'],
+        default: null,
+      },
+      longitude: {
+        type: Number,
+        min: [-180, 'Longitude must be between -180 and 180'],
+        max: [180, 'Longitude must be between -180 and 180'],
+        default: null,
+      },
+    },
+    preferredDoctorRadius: {
+      type: Number,
+      default: 10,
+      min: [1, 'Preferred doctor radius must be at least 1 km'],
+    },
   },
   {
     timestamps: true,

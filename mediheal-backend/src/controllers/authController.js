@@ -82,7 +82,7 @@ const registerUser = async (req, res, next) => {
  */
 const loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     // 1. Validation for email and password
     if (!email || !password) {
@@ -108,6 +108,14 @@ const loginUser = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: 'Account is deactivated. Please contact administrator.',
+      });
+    }
+
+    // 4.1 Check role match if requested role is specified (admin preserved)
+    if (role && user.role !== 'admin' && user.role !== role) {
+      return res.status(403).json({
+        success: false,
+        message: 'Selected account type does not match your account.',
       });
     }
 

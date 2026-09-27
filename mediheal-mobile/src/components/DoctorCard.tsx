@@ -9,10 +9,11 @@ import { useTheme } from '../context/ThemeContext';
 
 interface DoctorCardProps {
   doctor: DoctorProfile;
+  distanceKm?: number;
   onPress: () => void;
 }
 
-export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
+export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, distanceKm, onPress }) => {
   const { t } = useLanguage();
   const { colors: themeColors } = useTheme();
 
@@ -75,8 +76,17 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onPress }) => {
           </View>
         ) : null}
 
-        {/* Experience & Fee */}
+        {/* Experience & Fee & Distance */}
         <View style={styles.statsRow}>
+          {distanceKm !== undefined && distanceKm !== null ? (
+            <View style={[styles.statBadge, { backgroundColor: themeColors.primaryLight }]}>
+              <Text style={styles.statIcon}>📍</Text>
+              <Text style={[styles.statText, { color: themeColors.primary, fontWeight: '700' }]}>
+                {distanceKm} km {t('distanceAway')}
+              </Text>
+            </View>
+          ) : null}
+
           {doctor.yearsOfExperience > 0 ? (
             <View style={[styles.statBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
               <Text style={styles.statIcon}>👨‍⚕️</Text>

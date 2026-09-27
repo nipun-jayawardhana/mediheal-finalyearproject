@@ -8,14 +8,19 @@ import { PasswordInput } from '../../components/PasswordInput';
 import { AppButton } from '../../components/AppButton';
 import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, typography, borderRadius } from '../../constants/theme';
+import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
+
+type LoginRole = 'patient' | 'doctor' | 'caregiver';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { login } = useAuth();
-  const { colors: themeColors } = useTheme();
+  const { login, logout } = useAuth();
+  const { colors: themeColors, isDark } = useTheme();
+  const { t } = useLanguage();
 
+  const [selectedRole, setSelectedRole] = useState<LoginRole>('patient');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -58,7 +63,15 @@ export default function LoginScreen() {
       const loggedUser = await login({
         email: email.trim(),
         password,
+        role: selectedRole,
       });
+
+      // Role Selection Validation: Role selection is a filter, reject if mismatch (admin exempt)
+      if (loggedUser.role !== 'admin' && loggedUser.role !== selectedRole) {
+        await logout();
+        setErrorMsg(t('wrongAccountType'));
+        return;
+      }
 
       // Route based on role
       switch (loggedUser.role) {
@@ -105,6 +118,85 @@ export default function LoginScreen() {
 
         {/* Login Form */}
         <View style={[styles.formCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          {/* Role Selection Toggle */}
+          <View style={styles.roleToggleContainer}>
+            <Text style={[styles.roleToggleLabel, { color: themeColors.textSecondary }]}>
+              {t('selectAccountType')}
+            </Text>
+            <View
+              style={[
+                styles.roleToggleRow,
+                { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
+              ]}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.roleToggleBtn,
+                  selectedRole === 'patient' && [
+                    styles.roleToggleBtnActive,
+                    { backgroundColor: themeColors.primary },
+                  ],
+                ]}
+                onPress={() => setSelectedRole('patient')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.roleToggleBtnText,
+                    { color: themeColors.textSecondary },
+                    selectedRole === 'patient' && styles.roleToggleBtnTextActive,
+                  ]}
+                >
+                  👤 {t('patient')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.roleToggleBtn,
+                  selectedRole === 'doctor' && [
+                    styles.roleToggleBtnActive,
+                    { backgroundColor: themeColors.primary },
+                  ],
+                ]}
+                onPress={() => setSelectedRole('doctor')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.roleToggleBtnText,
+                    { color: themeColors.textSecondary },
+                    selectedRole === 'doctor' && styles.roleToggleBtnTextActive,
+                  ]}
+                >
+                  👨‍⚕️ {t('doctor')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.roleToggleBtn,
+                  selectedRole === 'caregiver' && [
+                    styles.roleToggleBtnActive,
+                    { backgroundColor: themeColors.primary },
+                  ],
+                ]}
+                onPress={() => setSelectedRole('caregiver')}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.roleToggleBtnText,
+                    { color: themeColors.textSecondary },
+                    selectedRole === 'caregiver' && styles.roleToggleBtnTextActive,
+                  ]}
+                >
+                  🤝 {t('caregiver')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           <AppInput
             label="Email Address"
             placeholder="e.g. sunil@example.com"
@@ -240,5 +332,37 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: colors.primary,
+  },
+  roleToggleContainer: {
+    marginBottom: spacing.md,
+  },
+  roleToggleLabel: {
+    ...typography.bodyBold,
+    marginBottom: spacing.xs,
+  },
+  roleToggleRow: {
+    flexDirection: 'row',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    padding: 3,
+    gap: 4,
+  },
+  roleToggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roleToggleBtnActive: {
+    ...shadows.card,
+  },
+  roleToggleBtnText: {
+    ...typography.caption,
+    fontWeight: '700',
+  },
+  roleToggleBtnTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
 });

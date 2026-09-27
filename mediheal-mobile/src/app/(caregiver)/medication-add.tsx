@@ -45,6 +45,19 @@ export default function CaregiverAddMedicationScreen() {
   const [instructions, setInstructions] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    Alert.alert(
+      t('monitorMedication'),
+      'Prescriptions are created by doctors. Caregivers monitor patient adherence.',
+      [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/(caregiver)/medication-monitoring' as any),
+        },
+      ]
+    );
+  }, [router, t]);
+
   const handleAddTimeSlot = () => {
     const clean = newTimeInput.trim();
     if (!clean) return;

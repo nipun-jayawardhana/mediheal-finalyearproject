@@ -606,4 +606,19 @@ export const si: Record<TranslationKeys, string> = {
   rescheduleNotes: 'ඔබේ හමුවීම වෙනස් කිරීමට නව දිනයක් සහ වේලාවක් තෝරන්න.',
   rescheduledStatus: 'දිනය වෙනස් කළ',
   rescheduleHistoryLabel: 'වෙනස් කිරීම් ඉතිහාසය',
+
+  // Phase 10.2 Healthcare Workflow & User Experience Corrections
+  patient: 'රෝගියා',
+  selectAccountType: 'ගිණුම් වර්ගය තෝරන්න',
+  wrongAccountType: 'තෝරාගත් ගිණුම් වර්ගය ඔබගේ ගිණුමට නොගැලපේ.',
+  nearbyDoctors: 'ආසන්නයේ සිටින වෛද්‍යවරුන්',
+  searchRadius: 'සෙවුම් අරය',
+  distanceAway: 'දුරින්',
+  monitorMedication: 'ඖෂධ නිරීක්ෂණය',
+  remindPatient: 'රෝගියාට මතක් කරන්න',
+  viewMedicationStatus: 'ඖෂධ තත්ත්වය බලන්න',
+  updateLocation: 'ස්ථානය යාවත්කාලීන කරන්න',
+  locationUpdatedSuccess: 'ස්ථානය සාර්ථකව යාවත්කාලීන කරන ලදී',
+  currentLocation: 'වත්මන් ස්ථානය',
+  kmRadius: 'කි.මී. {radius}',
 };

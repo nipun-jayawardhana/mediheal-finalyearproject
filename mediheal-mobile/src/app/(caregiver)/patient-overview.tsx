@@ -305,7 +305,7 @@ export default function PatientOverviewScreen() {
           )}
         </View>
 
-        {/* Active Medications Section */}
+        {/* Active Medications Section (Read-Only Monitoring) */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: themeColors.textPrimary }]}>
@@ -314,13 +314,10 @@ export default function PatientOverviewScreen() {
             <TouchableOpacity
               style={[styles.addMedBtn, { backgroundColor: themeColors.primary }]}
               onPress={() =>
-                router.push({
-                  pathname: '/(caregiver)/medication-add' as any,
-                  params: { patientId: patient._id },
-                })
+                router.push('/(caregiver)/medication-monitoring' as any)
               }
             >
-              <Text style={styles.addMedText}>+ {t('addMedication')}</Text>
+              <Text style={styles.addMedText}>🔍 {t('monitorMedication')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -335,16 +332,6 @@ export default function PatientOverviewScreen() {
               >
                 <View style={styles.medHeaderRow}>
                   <Text style={[styles.medName, { color: themeColors.textPrimary }]}>💊 {med.medicineName}</Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      router.push({
-                        pathname: '/(caregiver)/medication-edit' as any,
-                        params: { id: med._id, patientId: patient._id },
-                      })
-                    }
-                  >
-                    <Text style={[styles.editMedText, { color: themeColors.primary }]}>{t('edit')}</Text>
-                  </TouchableOpacity>
                 </View>
                 <Text style={[styles.medDetail, { color: themeColors.textSecondary }]}>
                   {t('dosage')}: {med.dosage} • {t('frequency')}: {med.frequency}

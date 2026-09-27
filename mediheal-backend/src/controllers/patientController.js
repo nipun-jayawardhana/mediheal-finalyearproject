@@ -31,6 +31,8 @@ const createPatientProfile = async (req, res, next) => {
       emergencyContactPhone,
       medicalConditions,
       allergies,
+      patientLocation,
+      preferredDoctorRadius,
     } = req.body;
 
     // 2. Validate required fields
@@ -63,6 +65,8 @@ const createPatientProfile = async (req, res, next) => {
       medicalConditions: medicalConditions || [],
       allergies: allergies || [],
       caregiverLinkCode,
+      patientLocation: patientLocation || { latitude: null, longitude: null },
+      preferredDoctorRadius: preferredDoctorRadius ? Number(preferredDoctorRadius) : 10,
     });
 
     return res.status(201).json({
@@ -137,6 +141,8 @@ const updatePatientProfile = async (req, res, next) => {
       emergencyContactPhone,
       medicalConditions,
       allergies,
+      patientLocation,
+      preferredDoctorRadius,
     } = req.body;
 
     // Update only provided fields
@@ -148,6 +154,15 @@ const updatePatientProfile = async (req, res, next) => {
     if (emergencyContactPhone !== undefined) profile.emergencyContactPhone = emergencyContactPhone;
     if (medicalConditions !== undefined) profile.medicalConditions = medicalConditions;
     if (allergies !== undefined) profile.allergies = allergies;
+    if (patientLocation !== undefined) {
+      profile.patientLocation = {
+        latitude: patientLocation?.latitude !== undefined ? patientLocation.latitude : profile.patientLocation?.latitude,
+        longitude: patientLocation?.longitude !== undefined ? patientLocation.longitude : profile.patientLocation?.longitude,
+      };
+    }
+    if (preferredDoctorRadius !== undefined) {
+      profile.preferredDoctorRadius = Number(preferredDoctorRadius);
+    }
 
     await profile.save();
 

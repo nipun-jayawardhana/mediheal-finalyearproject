@@ -604,6 +604,21 @@ export const en = {
   rescheduleNotes: 'Select a new date and available slot to reschedule your appointment.',
   rescheduledStatus: 'Rescheduled',
   rescheduleHistoryLabel: 'Reschedule History',
+
+  // Phase 10.2 Healthcare Workflow & User Experience Corrections
+  patient: 'Patient',
+  selectAccountType: 'Select Account Type',
+  wrongAccountType: 'Selected account type does not match your account.',
+  nearbyDoctors: 'Nearby Doctors',
+  searchRadius: 'Search Radius',
+  distanceAway: 'away',
+  monitorMedication: 'Monitor Medication',
+  remindPatient: 'Remind Patient',
+  viewMedicationStatus: 'View Medication Status',
+  updateLocation: 'Update Location',
+  locationUpdatedSuccess: 'Location updated successfully',
+  currentLocation: 'Current Location',
+  kmRadius: '{radius} km',
 };
 
 export type TranslationKeys = keyof typeof en;

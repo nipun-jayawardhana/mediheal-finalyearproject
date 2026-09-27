@@ -15,6 +15,11 @@ export interface PatientProfile {
   medicalConditions: string[];
   allergies: string[];
   caregiverLinkCode: string;
+  patientLocation?: {
+    latitude: number | null;
+    longitude: number | null;
+  };
+  preferredDoctorRadius?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -28,6 +33,11 @@ export interface CreatePatientProfilePayload {
   emergencyContactPhone: string;
   medicalConditions?: string[];
   allergies?: string[];
+  patientLocation?: {
+    latitude: number | null;
+    longitude: number | null;
+  };
+  preferredDoctorRadius?: number;
 }
 
 export interface UpdatePatientProfilePayload {
@@ -39,6 +49,11 @@ export interface UpdatePatientProfilePayload {
   emergencyContactPhone?: string;
   medicalConditions?: string[];
   allergies?: string[];
+  patientLocation?: {
+    latitude: number | null;
+    longitude: number | null;
+  };
+  preferredDoctorRadius?: number;
 }
 
 export interface PatientProfileResponse {

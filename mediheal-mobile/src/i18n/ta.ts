@@ -606,4 +606,19 @@ export const ta: Record<TranslationKeys, string> = {
   rescheduleNotes: 'உங்கள் சந்திப்பை மாற்ற புதிய தேதியையும் நேரத்தையும் தேர்ந்தெடுக்கவும்.',
   rescheduledStatus: 'மாற்றியமைக்கப்பட்டது',
   rescheduleHistoryLabel: 'மாற்றப்பட்ட வரலாறு',
+
+  // Phase 10.2 Healthcare Workflow & User Experience Corrections
+  patient: 'நோயாளி',
+  selectAccountType: 'கணக்கு வகையைத் தேர்ந்தெடுக்கவும்',
+  wrongAccountType: 'தேர்ந்தெடுக்கப்பட்ட கணக்கு வகை உங்கள் கணக்குடன் பொருந்தவில்லை.',
+  nearbyDoctors: 'அருகிலுள்ள மருத்துவர்கள்',
+  searchRadius: 'தேடல் ஆரம்',
+  distanceAway: 'தொலைவில்',
+  monitorMedication: 'மருந்தை கண்காணிக்கவும்',
+  remindPatient: 'நோயாளிக்கு நினைவூட்டவும்',
+  viewMedicationStatus: 'மருந்து நிலையைப் பார்க்கவும்',
+  updateLocation: 'இருப்பிடத்தைப் புதுப்பிக்கவும்',
+  locationUpdatedSuccess: 'இருப்பிடம் வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
+  currentLocation: 'தற்போதைய இருப்பிடம்',
+  kmRadius: 'கி.மீ. {radius}',
 };

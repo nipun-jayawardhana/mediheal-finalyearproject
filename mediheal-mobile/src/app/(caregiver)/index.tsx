@@ -611,15 +611,12 @@ export default function CaregiverDashboardScreen() {
                     ]}
                     activeOpacity={0.8}
                     onPress={() =>
-                      router.push({
-                        pathname: '/(caregiver)/medication-add' as any,
-                        params: { patientId: activePatientItem.patient._id },
-                      })
+                      router.push('/(caregiver)/medication-monitoring' as any)
                     }
                   >
                     <Text style={styles.actionIcon}>💊</Text>
-                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('addMedication')}</Text>
-                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>{t('addMedicationSub')}</Text>
+                    <Text style={[styles.actionTitle, { color: themeColors.textPrimary }]}>{t('monitorMedication')}</Text>
+                    <Text style={[styles.actionSub, { color: themeColors.textMuted }]}>{t('patientMedicationMonitoring')}</Text>
                   </TouchableOpacity>
                 </View>
 

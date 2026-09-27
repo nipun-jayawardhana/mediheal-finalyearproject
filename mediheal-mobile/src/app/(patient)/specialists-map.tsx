@@ -8,7 +8,6 @@ import {
   Linking,
   Alert,
   ScrollView,
-  FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
@@ -19,14 +18,21 @@ import { ErrorView } from '../../components/ErrorView';
 import { EmptyState } from '../../components/EmptyState';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getDoctors } from '../../services/doctorService';
+import { getPatientProfileApi } from '../../services/patientService';
 import { DoctorProfile } from '../../types/doctor';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getSpecializationTranslationKey } from '../../utils/displayMappers';
+import {
+  calculateHaversineDistance,
+  formatDistanceAway,
+  RADIUS_OPTIONS,
+} from '../../utils/locationUtils';
 
-// Conditionally import MapView to prevent web bundling crashes
+// Conditionally import MapView & Marker & Circle to prevent web bundling crashes
 let MapView: any = null;
 let Marker: any = null;
+let Circle: any = null;
 let PROVIDER_GOOGLE: any = null;
 
 if (Platform.OS !== 'web') {
@@ -34,6 +40,7 @@ if (Platform.OS !== 'web') {
     const MapsModule = require('react-native-maps');
     MapView = MapsModule.default;
     Marker = MapsModule.Marker;
+    Circle = MapsModule.Circle;
     PROVIDER_GOOGLE = MapsModule.PROVIDER_GOOGLE;
   } catch (e) {
     console.warn('react-native-maps not loaded natively:', e);
@@ -58,12 +65,12 @@ const COMMON_SPECIALIZATIONS = [
 
 const DARK_MAP_STYLE = [
   { elementType: 'geometry', stylers: [{ color: '#1e293b' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#cbd5e1' }] },
   { elementType: 'labels.text.stroke', stylers: [{ color: '#0f172a' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
   {
     featureType: 'administrative.locality',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#cbd5e1' }],
+    stylers: [{ color: '#93c5fd' }],
   },
   {
     featureType: 'poi',
@@ -73,7 +80,12 @@ const DARK_MAP_STYLE = [
   {
     featureType: 'poi.park',
     elementType: 'geometry',
-    stylers: [{ color: '#0f172a' }],
+    stylers: [{ color: '#132a26' }],
+  },
+  {
+    featureType: 'poi.park',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#34d399' }],
   },
   {
     featureType: 'road',
@@ -102,28 +114,6 @@ const DARK_MAP_STYLE = [
   },
 ];
 
-/**
- * Compute straight-line distance in kilometers using the Haversine formula
- */
-function calculateHaversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371; // Earth's radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 10) / 10;
-}
-
 export default function SpecialistMapScreen() {
   const router = useRouter();
   const { t } = useLanguage();
@@ -141,11 +131,34 @@ export default function SpecialistMapScreen() {
   const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorProfile | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [selectedRadius, setSelectedRadius] = useState<number | null>(10);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  // 1. Request Foreground Location Permission
-  const requestLocationPermission = useCallback(async () => {
+  // 1. Fetch Patient Location & Preferences from Profile, with device GPS fallback
+  const requestLocationAndPreferences = useCallback(async () => {
+    try {
+      const pRes = await getPatientProfileApi();
+      if (pRes?.success && pRes.data?.profile) {
+        const prof = pRes.data.profile;
+        if (prof.preferredDoctorRadius) {
+          setSelectedRadius(prof.preferredDoctorRadius);
+        }
+        if (
+          typeof prof.patientLocation?.latitude === 'number' &&
+          typeof prof.patientLocation?.longitude === 'number'
+        ) {
+          setUserLocation({
+            latitude: prof.patientLocation.latitude,
+            longitude: prof.patientLocation.longitude,
+          });
+          return;
+        }
+      }
+    } catch {
+      // Proceed to device GPS
+    }
+
     try {
       if (Platform.OS === 'web') {
         if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
@@ -199,8 +212,8 @@ export default function SpecialistMapScreen() {
   }, [selectedSpecialization]);
 
   useEffect(() => {
-    requestLocationPermission();
-  }, [requestLocationPermission]);
+    requestLocationAndPreferences();
+  }, [requestLocationAndPreferences]);
 
   useEffect(() => {
     fetchDoctors();
@@ -222,22 +235,38 @@ export default function SpecialistMapScreen() {
     );
   }, [doctors]);
 
+  // Filter doctors within selected radius from patient location
+  const nearbyMappedDoctors = useMemo(() => {
+    if (selectedRadius === null || !userLocation) {
+      return mappedDoctors;
+    }
+    return mappedDoctors.filter((doc) => {
+      const dist = calculateHaversineDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        doc.latitude!,
+        doc.longitude!
+      );
+      return dist <= selectedRadius;
+    });
+  }, [mappedDoctors, selectedRadius, userLocation]);
+
   // Set selected doctor if doctorId param was explicitly provided
   useEffect(() => {
-    if (params.doctorId && mappedDoctors.length > 0) {
-      const targetDoc = mappedDoctors.find((d) => d._id === params.doctorId);
+    if (params.doctorId && nearbyMappedDoctors.length > 0) {
+      const targetDoc = nearbyMappedDoctors.find((d) => d._id === params.doctorId);
       if (targetDoc) {
         setSelectedDoctor(targetDoc);
       }
     }
-  }, [mappedDoctors, params.doctorId]);
+  }, [nearbyMappedDoctors, params.doctorId]);
 
   // Listen for Web postMessage from Leaflet map marker clicks
   useEffect(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const handleWebMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'SELECT_DOCTOR' && event.data.doctorId) {
-          const doc = mappedDoctors.find((d) => d._id === event.data.doctorId);
+          const doc = nearbyMappedDoctors.find((d) => d._id === event.data.doctorId);
           if (doc) {
             setSelectedDoctor(doc);
           }
@@ -246,7 +275,7 @@ export default function SpecialistMapScreen() {
       window.addEventListener('message', handleWebMessage);
       return () => window.removeEventListener('message', handleWebMessage);
     }
-  }, [mappedDoctors]);
+  }, [nearbyMappedDoctors]);
 
   // Helper to format doctor name cleanly
   const getDoctorDisplayName = useCallback((doc: DoctorProfile): string => {
@@ -254,9 +283,9 @@ export default function SpecialistMapScreen() {
     return raw.toLowerCase().startsWith('dr.') ? raw : `Dr. ${raw}`;
   }, []);
 
-  // Compute Initial Region covering ALL doctor coordinates
+  // Compute Initial Region covering doctors and user location
   const initialRegion = useMemo(() => {
-    if (mappedDoctors.length === 0) {
+    if (nearbyMappedDoctors.length === 0) {
       return {
         latitude: userLocation?.latitude || 6.9271,
         longitude: userLocation?.longitude || 79.8612,
@@ -265,17 +294,22 @@ export default function SpecialistMapScreen() {
       };
     }
 
-    if (mappedDoctors.length === 1) {
+    if (nearbyMappedDoctors.length === 1) {
       return {
-        latitude: mappedDoctors[0].latitude!,
-        longitude: mappedDoctors[0].longitude!,
-        latitudeDelta: 0.03,
-        longitudeDelta: 0.03,
+        latitude: nearbyMappedDoctors[0].latitude!,
+        longitude: nearbyMappedDoctors[0].longitude!,
+        latitudeDelta: 0.04,
+        longitudeDelta: 0.04,
       };
     }
 
-    const lats = mappedDoctors.map((d) => d.latitude!);
-    const lngs = mappedDoctors.map((d) => d.longitude!);
+    const lats = nearbyMappedDoctors.map((d) => d.latitude!);
+    const lngs = nearbyMappedDoctors.map((d) => d.longitude!);
+    if (userLocation) {
+      lats.push(userLocation.latitude);
+      lngs.push(userLocation.longitude);
+    }
+
     const minLat = Math.min(...lats);
     const maxLat = Math.max(...lats);
     const minLng = Math.min(...lngs);
@@ -283,8 +317,8 @@ export default function SpecialistMapScreen() {
 
     const midLat = (minLat + maxLat) / 2;
     const midLng = (minLng + maxLng) / 2;
-    const latDelta = Math.max((maxLat - minLat) * 1.6, 0.05);
-    const lngDelta = Math.max((maxLng - minLng) * 1.6, 0.05);
+    const latDelta = Math.max((maxLat - minLat) * 1.5, 0.05);
+    const lngDelta = Math.max((maxLng - minLng) * 1.5, 0.05);
 
     return {
       latitude: midLat,
@@ -292,43 +326,47 @@ export default function SpecialistMapScreen() {
       latitudeDelta: latDelta,
       longitudeDelta: lngDelta,
     };
-  }, [mappedDoctors, userLocation]);
+  }, [nearbyMappedDoctors, userLocation]);
 
   // Fit to coordinates on native map
   const fitMapToMarkers = useCallback(() => {
-    if (!mapRef.current || mappedDoctors.length === 0 || Platform.OS === 'web') return;
+    if (!mapRef.current || nearbyMappedDoctors.length === 0 || Platform.OS === 'web') return;
 
-    if (mappedDoctors.length === 1) {
+    const coords = nearbyMappedDoctors.map((d) => ({
+      latitude: d.latitude!,
+      longitude: d.longitude!,
+    }));
+    if (userLocation) {
+      coords.push(userLocation);
+    }
+
+    if (coords.length === 1) {
       mapRef.current.animateToRegion(
         {
-          latitude: mappedDoctors[0].latitude!,
-          longitude: mappedDoctors[0].longitude!,
-          latitudeDelta: 0.03,
-          longitudeDelta: 0.03,
+          latitude: coords[0].latitude,
+          longitude: coords[0].longitude,
+          latitudeDelta: 0.04,
+          longitudeDelta: 0.04,
         },
         500
       );
     } else {
-      const coords = mappedDoctors.map((d) => ({
-        latitude: d.latitude!,
-        longitude: d.longitude!,
-      }));
       mapRef.current.fitToCoordinates(coords, {
         edgePadding: { top: 80, bottom: 80, left: 50, right: 50 },
         animated: true,
       });
     }
-  }, [mappedDoctors]);
+  }, [nearbyMappedDoctors, userLocation]);
 
-  // Automatically fit all markers whenever mappedDoctors updates
+  // Automatically fit all markers whenever nearbyMappedDoctors updates
   useEffect(() => {
-    if (mappedDoctors.length > 0 && Platform.OS !== 'web') {
+    if (nearbyMappedDoctors.length > 0 && Platform.OS !== 'web') {
       const timer = setTimeout(() => {
         fitMapToMarkers();
       }, 350);
       return () => clearTimeout(timer);
     }
-  }, [mappedDoctors, fitMapToMarkers]);
+  }, [nearbyMappedDoctors, fitMapToMarkers]);
 
   const handleSelectDoctor = (doc: DoctorProfile) => {
     setSelectedDoctor(doc);
@@ -369,33 +407,46 @@ export default function SpecialistMapScreen() {
     });
   };
 
-  // Generate Web Leaflet HTML containing ALL doctor markers
+  // Generate Web Leaflet HTML containing doctor pins, user location pin, and radius circle
   const webMapHtml = useMemo(() => {
-    if (mappedDoctors.length === 0) return '';
-
     const doctorJson = JSON.stringify(
-      mappedDoctors.map((d) => ({
-        id: d._id,
-        name: getDoctorDisplayName(d),
-        lat: d.latitude,
-        lng: d.longitude,
-        specialty: d.specialization,
-        hospital: d.hospital,
-        location: d.location || '',
-        fee: d.consultationFee,
-        available: d.availableDays && d.availableDays.length > 0 ? d.availableDays.join(', ') : '',
-        isSelected: selectedDoctor?._id === d._id,
-      }))
+      nearbyMappedDoctors.map((d) => {
+        const dist = userLocation
+          ? calculateHaversineDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              d.latitude!,
+              d.longitude!
+            )
+          : null;
+
+        return {
+          id: d._id,
+          name: getDoctorDisplayName(d),
+          lat: d.latitude,
+          lng: d.longitude,
+          specialty: d.specialization,
+          hospital: d.hospital,
+          location: d.location || '',
+          fee: d.consultationFee,
+          available: d.availableDays && d.availableDays.length > 0 ? d.availableDays.join(', ') : '',
+          distanceText: dist !== null ? `${dist} km away` : '',
+          isSelected: selectedDoctor?._id === d._id,
+        };
+      })
     );
 
-    const tileUrl = isDark
-      ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-      : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     const cardBg = isDark ? '#1E293B' : '#FFFFFF';
     const textColor = isDark ? '#F8FAFC' : '#1E293B';
     const subColor = isDark ? '#94A3B8' : '#64748B';
     const primaryColor = isDark ? '#3B82F6' : '#1060C8';
+
+    const userLocJson = userLocation
+      ? JSON.stringify({ lat: userLocation.latitude, lng: userLocation.longitude })
+      : 'null';
+    const radiusMeters = selectedRadius ? selectedRadius * 1000 : 'null';
 
     return `<!DOCTYPE html>
 <html>
@@ -445,6 +496,7 @@ export default function SpecialistMapScreen() {
     .popup-title { font-size: 14px; font-weight: 800; color: ${textColor}; margin-bottom: 2px; }
     .popup-spec { font-size: 12px; font-weight: 700; color: ${primaryColor}; margin-bottom: 4px; }
     .popup-hosp { font-size: 11px; color: ${subColor}; margin-bottom: 2px; }
+    .popup-dist { font-size: 11px; font-weight: 700; color: ${primaryColor}; margin-bottom: 2px; }
     .popup-fee { font-size: 12px; font-weight: 700; color: ${primaryColor}; margin-top: 4px; }
   </style>
 </head>
@@ -458,8 +510,32 @@ export default function SpecialistMapScreen() {
     }).addTo(map);
 
     var doctors = ${doctorJson};
+    var userLoc = ${userLocJson};
+    var radiusMeters = ${radiusMeters};
     var markers = [];
 
+    // Render User Location Pin & Radius Circle
+    if (userLoc) {
+      var userIcon = L.divIcon({
+        className: 'user-pin-badge',
+        html: '<div style="background:#2563EB;color:#FFF;padding:4px 10px;border-radius:9999px;font-size:11px;font-weight:800;box-shadow:0 2px 10px rgba(37,99,235,0.4);white-space:nowrap;">📍 Current Location</div>',
+        iconAnchor: [50, 15]
+      });
+      var userMarker = L.marker([userLoc.lat, userLoc.lng], { icon: userIcon }).addTo(map);
+      markers.push(userMarker);
+
+      if (radiusMeters) {
+        L.circle([userLoc.lat, userLoc.lng], {
+          radius: radiusMeters,
+          color: '${primaryColor}',
+          fillColor: '${primaryColor}',
+          fillOpacity: 0.12,
+          weight: 2
+        }).addTo(map);
+      }
+    }
+
+    // Render Doctor Pins within Radius
     doctors.forEach(function(doc) {
       var icon = L.divIcon({
         className: 'custom-leaflet-pin',
@@ -472,6 +548,7 @@ export default function SpecialistMapScreen() {
       var popupContent = '<div class="popup-title">📍 ' + doc.name + '</div>' +
         '<div class="popup-spec">' + doc.specialty + '</div>' +
         '<div class="popup-hosp">🏥 ' + doc.hospital + '</div>' +
+        (doc.distanceText ? '<div class="popup-dist">📍 ' + doc.distanceText + '</div>' : '') +
         (doc.location ? '<div class="popup-hosp">📍 ' + doc.location + '</div>' : '') +
         (doc.fee ? '<div class="popup-fee">Fee: LKR ' + Number(doc.fee).toLocaleString() + '</div>' : '') +
         (doc.available ? '<div class="popup-hosp" style="margin-top:2px;">Available: ' + doc.available + '</div>' : '');
@@ -494,7 +571,7 @@ export default function SpecialistMapScreen() {
   </script>
 </body>
 </html>`;
-  }, [mappedDoctors, selectedDoctor, isDark, getDoctorDisplayName]);
+  }, [nearbyMappedDoctors, selectedDoctor, userLocation, selectedRadius, isDark, getDoctorDisplayName]);
 
   if (loading && doctors.length === 0) {
     return <LoadingView message="Loading specialist map locations..." />;
@@ -509,9 +586,91 @@ export default function SpecialistMapScreen() {
     );
   }
 
-  // Filter Chip Bar Component
-  const renderFilterChips = () => (
-    <View style={[styles.filterBarContainer, { backgroundColor: themeColors.card, borderBottomColor: themeColors.border }]}>
+  // Radius Filter Bar Component
+  const renderRadiusFilterChips = () => (
+    <View
+      style={[
+        styles.radiusBarContainer,
+        { backgroundColor: themeColors.card, borderBottomColor: themeColors.border },
+      ]}
+    >
+      <Text style={[styles.radiusBarLabel, { color: themeColors.textPrimary }]}>
+        ⭕ {t('searchRadius')}:
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.radiusBarScroll}
+      >
+        {RADIUS_OPTIONS.map((rad) => {
+          const isSelected = selectedRadius === rad;
+          return (
+            <TouchableOpacity
+              key={rad}
+              style={[
+                styles.radiusChip,
+                {
+                  backgroundColor: themeColors.surfaceSecondary,
+                  borderColor: themeColors.border,
+                },
+                isSelected && {
+                  backgroundColor: themeColors.primary,
+                  borderColor: themeColors.primary,
+                },
+              ]}
+              onPress={() => setSelectedRadius(rad)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.radiusChipText,
+                  { color: themeColors.textSecondary },
+                  isSelected && styles.radiusChipTextActive,
+                ]}
+              >
+                {rad} km
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+
+        <TouchableOpacity
+          style={[
+            styles.radiusChip,
+            {
+              backgroundColor: themeColors.surfaceSecondary,
+              borderColor: themeColors.border,
+            },
+            selectedRadius === null && {
+              backgroundColor: themeColors.primary,
+              borderColor: themeColors.primary,
+            },
+          ]}
+          onPress={() => setSelectedRadius(null)}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              styles.radiusChipText,
+              { color: themeColors.textSecondary },
+              selectedRadius === null && styles.radiusChipTextActive,
+            ]}
+          >
+            {t('allDoctors')}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
+  // Specialization Filter Chip Bar Component
+  const renderSpecializationChips = () => (
+    <View
+      style={[
+        styles.filterBarContainer,
+        { backgroundColor: themeColors.card, borderBottomColor: themeColors.border },
+      ]}
+    >
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -574,21 +733,22 @@ export default function SpecialistMapScreen() {
           title={t('viewOnMap')}
           subtitle={
             selectedSpecialization
-              ? `${selectedSpecialization} • ${mappedDoctors.length} Specialists with GPS`
-              : `${mappedDoctors.length} Specialists with GPS`
+              ? `${selectedSpecialization} • ${nearbyMappedDoctors.length} Specialists in Radius`
+              : `${nearbyMappedDoctors.length} Specialists in Radius`
           }
           onBackPress={() => router.back()}
         />
 
-        {renderFilterChips()}
+        {renderSpecializationChips()}
+        {renderRadiusFilterChips()}
 
         <ScrollView contentContainerStyle={styles.webContainer} showsVerticalScrollIndicator={false}>
-          {/* Web Interactive Map Displaying ALL Doctor Pins */}
-          {mappedDoctors.length > 0 ? (
+          {/* Web Interactive Map Displaying Filtered Pins */}
+          {nearbyMappedDoctors.length > 0 || userLocation ? (
             <View style={[styles.webMapFrame, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
               <View style={[styles.webMapHeader, { backgroundColor: themeColors.surfaceSecondary, borderBottomColor: themeColors.border }]}>
                 <Text style={[styles.webMapHeaderTitle, { color: themeColors.textPrimary }]}>
-                  🗺️ Showing All {mappedDoctors.length} Specialists on Map
+                  🗺️ {nearbyMappedDoctors.length} Specialists {selectedRadius ? `within ${selectedRadius} km` : 'on Map'}
                 </Text>
                 {selectedDoctor && (
                   <TouchableOpacity
@@ -600,7 +760,7 @@ export default function SpecialistMapScreen() {
                 )}
               </View>
 
-              {/* Embedded interactive Leaflet view with ALL pins */}
+              {/* Embedded interactive Leaflet view with radius circle and pins */}
               <iframe
                 title="Specialist Map"
                 width="100%"
@@ -653,6 +813,14 @@ export default function SpecialistMapScreen() {
                   ) : null}
                 </View>
 
+                {selectedDocDistance !== null && (
+                  <View style={[styles.distanceBadge, { backgroundColor: themeColors.primaryLight }]}>
+                    <Text style={[styles.distanceText, { color: themeColors.primary }]}>
+                      📍 {formatDistanceAway(selectedDocDistance, t)}
+                    </Text>
+                  </View>
+                )}
+
                 <TouchableOpacity
                   style={[styles.closeCardBtn, { backgroundColor: themeColors.surfaceSecondary }]}
                   onPress={() => setSelectedDoctor(null)}
@@ -682,13 +850,13 @@ export default function SpecialistMapScreen() {
           )}
 
           {/* Doctor Cards Directory */}
-          {mappedDoctors.length > 0 ? (
+          {nearbyMappedDoctors.length > 0 ? (
             <View style={styles.webDoctorList}>
               <Text style={[styles.sectionHeading, { color: themeColors.textPrimary }]}>
-                Specialists Directory ({mappedDoctors.length} Pins)
+                Specialists Directory ({nearbyMappedDoctors.length} {selectedRadius ? `within ${selectedRadius} km` : 'Pins'})
               </Text>
 
-              {mappedDoctors.map((doc) => {
+              {nearbyMappedDoctors.map((doc) => {
                 const isSelected = selectedDoctor?._id === doc._id;
                 const dist = userLocation
                   ? calculateHaversineDistance(
@@ -747,9 +915,9 @@ export default function SpecialistMapScreen() {
                       </View>
 
                       {dist !== null && (
-                        <View style={[styles.distanceBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
+                        <View style={[styles.distanceBadge, { backgroundColor: themeColors.primaryLight }]}>
                           <Text style={[styles.distanceText, { color: themeColors.primary }]}>
-                            Approx. {dist} km
+                            📍 {formatDistanceAway(dist, t)}
                           </Text>
                         </View>
                       )}
@@ -779,14 +947,24 @@ export default function SpecialistMapScreen() {
           ) : (
             <EmptyState
               icon="🗺️"
-              title="No doctor locations available"
+              title={
+                selectedRadius
+                  ? `No doctors within ${selectedRadius} km`
+                  : 'No doctor locations available'
+              }
               description={
-                selectedSpecialization
+                selectedRadius
+                  ? `No specialists with coordinates were found within ${selectedRadius} km. Try expanding to 50 km.`
+                  : selectedSpecialization
                   ? `No specialists for "${selectedSpecialization}" currently have map coordinates.`
                   : 'No specialists currently have GPS map coordinates available.'
               }
-              actionText="View All Specialists"
-              onAction={() => setSelectedSpecialization(undefined)}
+              actionText={selectedRadius ? 'Expand to 50 km' : 'View All Specialists'}
+              onAction={
+                selectedRadius
+                  ? () => setSelectedRadius(50)
+                  : () => setSelectedSpecialization(undefined)
+              }
             />
           )}
         </ScrollView>
@@ -801,15 +979,16 @@ export default function SpecialistMapScreen() {
         title={t('viewOnMap')}
         subtitle={
           selectedSpecialization
-            ? `${selectedSpecialization} (${mappedDoctors.length} Pins)`
-            : `${mappedDoctors.length} Specialists on Map`
+            ? `${selectedSpecialization} (${nearbyMappedDoctors.length} Pins)`
+            : `${nearbyMappedDoctors.length} Specialists on Map`
         }
         onBackPress={() => router.back()}
       />
 
-      {renderFilterChips()}
+      {renderSpecializationChips()}
+      {renderRadiusFilterChips()}
 
-      {mappedDoctors.length > 0 ? (
+      {nearbyMappedDoctors.length > 0 || userLocation ? (
         <View style={styles.mapWrap}>
           <MapView
             ref={mapRef}
@@ -825,14 +1004,25 @@ export default function SpecialistMapScreen() {
             {userLocation && (
               <Marker
                 coordinate={userLocation}
-                title="Your Location"
-                description="Current Device Location"
+                title={t('currentLocation')}
+                description="Your Location"
                 pinColor="#2563EB"
               />
             )}
 
-            {/* Loop through ALL mapped doctors to render markers */}
-            {mappedDoctors.map((doc) => {
+            {/* Radius Circle around user location */}
+            {userLocation && selectedRadius !== null && Circle && (
+              <Circle
+                center={userLocation}
+                radius={selectedRadius * 1000}
+                strokeWidth={2}
+                strokeColor={themeColors.primary}
+                fillColor={isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 96, 200, 0.10)'}
+              />
+            )}
+
+            {/* Render nearby mapped doctors markers */}
+            {nearbyMappedDoctors.map((doc) => {
               const displayName = getDoctorDisplayName(doc);
               const isSelected = selectedDoctor?._id === doc._id;
 
@@ -879,10 +1069,10 @@ export default function SpecialistMapScreen() {
             activeOpacity={0.8}
             accessibilityLabel="Fit all doctors"
           >
-            <Text style={[styles.recenterText, { color: themeColors.textPrimary }]}>🎯 Fit All</Text>
+            <Text style={[styles.recenterText, { color: themeColors.primary }]}>📍 Recenter</Text>
           </TouchableOpacity>
 
-          {/* Floating Selected Doctor Information Card */}
+          {/* Selected Doctor Bottom Card */}
           {selectedDoctor && (
             <View
               style={[
@@ -924,20 +1114,20 @@ export default function SpecialistMapScreen() {
                   ) : null}
                 </View>
 
+                {selectedDocDistance !== null && (
+                  <View style={[styles.distanceBadge, { backgroundColor: themeColors.primaryLight }]}>
+                    <Text style={[styles.distanceText, { color: themeColors.primary }]}>
+                      📍 {formatDistanceAway(selectedDocDistance, t)}
+                    </Text>
+                  </View>
+                )}
+
                 <TouchableOpacity
                   style={[styles.closeCardBtn, { backgroundColor: themeColors.surfaceSecondary }]}
                   onPress={() => setSelectedDoctor(null)}
                 >
                   <Text style={[styles.closeCardBtnText, { color: themeColors.textMuted }]}>✕</Text>
                 </TouchableOpacity>
-
-                {selectedDocDistance !== null && (
-                  <View style={[styles.distanceBadge, { backgroundColor: themeColors.surfaceSecondary }]}>
-                    <Text style={[styles.distanceText, { color: themeColors.primary }]}>
-                      Approx. {selectedDocDistance} km
-                    </Text>
-                  </View>
-                )}
               </View>
 
               <View style={[styles.cardActionRow, { borderTopColor: themeColors.border }]}>
@@ -964,14 +1154,24 @@ export default function SpecialistMapScreen() {
         <View style={styles.emptyWrap}>
           <EmptyState
             icon="🗺️"
-            title="No doctor locations available"
+            title={
+              selectedRadius
+                ? `No doctors within ${selectedRadius} km`
+                : 'No doctor locations available'
+            }
             description={
-              selectedSpecialization
+              selectedRadius
+                ? `No specialists with coordinates found within ${selectedRadius} km. Try expanding to 50 km.`
+                : selectedSpecialization
                 ? `No specialists for "${selectedSpecialization}" currently have map coordinates.`
                 : 'No specialists currently have GPS map coordinates available.'
             }
-            actionText="View All Specialists"
-            onAction={() => setSelectedSpecialization(undefined)}
+            actionText={selectedRadius ? 'Expand to 50 km' : 'View All Specialists'}
+            onAction={
+              selectedRadius
+                ? () => setSelectedRadius(50)
+                : () => setSelectedSpecialization(undefined)
+            }
           />
         </View>
       )}
@@ -990,6 +1190,37 @@ const styles = StyleSheet.create({
   filterBarScroll: {
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
+  },
+  radiusBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+  },
+  radiusBarLabel: {
+    ...typography.caption,
+    fontWeight: '800',
+    fontSize: 12,
+    marginRight: 6,
+  },
+  radiusBarScroll: {
+    gap: 6,
+  },
+  radiusChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+  },
+  radiusChipText: {
+    ...typography.caption,
+    fontWeight: '700',
+    fontSize: 11,
+  },
+  radiusChipTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   specChip: {
     paddingHorizontal: spacing.md,
@@ -1102,11 +1333,9 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   distanceBadge: {
-    paddingHorizontal: spacing.xs + 2,
+    paddingHorizontal: spacing.xs + 4,
     paddingVertical: 4,
     borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
     marginLeft: spacing.xs,
   },
   distanceText: {
