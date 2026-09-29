@@ -254,6 +254,7 @@ const extractSymptomConcepts = (symptoms = [], conversation = []) => {
 };
 
 const clinicalCaseService = require('./clinicalCaseService');
+const groqFollowupService = require('./groqFollowupService');
 
 /**
  * Deterministic fallback strategy when Gemini API is unavailable or returns invalid data
@@ -560,35 +561,44 @@ const validateFollowUpQuestion = (arg1, arg2, arg3 = [], arg4 = []) => {
  * Generate next follow-up question or complete symptom summary via Gemini REST API
  * PRIVACY GUARANTEE: Only sends symptoms array, conversation Q&A history, and question count. NO PII.
  */
-const generateFollowUp = async (symptoms = [], conversation = [], questionCount = 0) => {
+const generateFollowUp = async (arg1 = [], conversation = [], questionCount = 0) => {
+  let symptoms = [];
+  let conv = [];
+  let count = 0;
+
+  if (arg1 && typeof arg1 === 'object' && !Array.isArray(arg1) && (arg1.symptoms || arg1.conversation !== undefined)) {
+    symptoms = Array.isArray(arg1.symptoms) ? arg1.symptoms : [];
+    conv = Array.isArray(arg1.conversation) ? arg1.conversation : [];
+    count = Number(arg1.questionCount) || 0;
+  } else {
+    symptoms = Array.isArray(arg1) ? arg1 : [];
+    conv = Array.isArray(conversation) ? conversation : [];
+    count = Number(questionCount) || 0;
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   const configuredModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
-  const currentCount = Number(questionCount) || conversation.length || 0;
+  const currentCount = count || conv.length || 0;
 
   // Hard limit: Max 3 questions
   if (currentCount >= 3) {
-    return extractStructuredSummary(symptoms, conversation);
+    return extractStructuredSummary(symptoms, conv);
   }
 
   // Extract canonical case to provide full context to Gemini
   const canonicalCase = clinicalCaseService.buildCanonicalClinicalCase({
     symptoms,
-    conversation,
+    conversation: conv,
   });
 
-  const previousQuestions = conversation.map((c) => c.question || '').filter(Boolean);
-  const previousAnswers = conversation.map((c) => c.answer || '').filter(Boolean);
+  const previousQuestions = conv.map((c) => c.question || '').filter(Boolean);
+  const previousAnswers = conv.map((c) => c.answer || '').filter(Boolean);
 
   // Log conversation begin
   console.log('[GEMINI CONVERSATION]');
   console.log(`Model: ${configuredModel}`);
 
-  if (!apiKey) {
-    console.warn('⚠️ [GEMINI SERVICE] GEMINI_API_KEY not configured. Using deterministic fallback.');
-    return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
-  }
-
-  const formattedHistory = conversation
+  const formattedHistory = conv
     .map((item, idx) => `Q${idx + 1}: ${item.question}\nA${idx + 1}: ${item.answer}`)
     .join('\n\n');
 
@@ -679,34 +689,42 @@ Output JSON:`;
   };
 
   const endpointUrl = `${GEMINI_API_URL}/${configuredModel}:generateContent?key=${apiKey}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
+  // PRIMARY: Call Gemini
   try {
-    const response = await fetch(endpointUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY is not configured');
+    }
 
-    clearTimeout(timeoutId);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    let response;
+    try {
+      response = await fetch(endpointUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
-      console.warn(`⚠️ [GEMINI SERVICE] HTTP ${response.status}. Using validated deterministic fallback.`);
-      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
+      throw new Error(`Gemini API HTTP ${response.status}`);
     }
 
     const data = await response.json();
     const candidateContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!candidateContent) {
-      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
+      throw new Error('Empty response content from Gemini');
     }
 
     const parsed = parseJSONFromText(candidateContent);
     if (!parsed || typeof parsed !== 'object') {
-      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
+      throw new Error('Invalid JSON received from Gemini');
     }
 
     if (parsed.status === 'ask' && parsed.question && typeof parsed.question === 'string') {
@@ -724,9 +742,11 @@ Output JSON:`;
       console.log(`[FOLLOWUP VALIDATION] accepted=${val.accepted} reason=${val.reason}`);
 
       if (val.accepted) {
+        console.log('[FOLLOWUP AI]\nProvider: Gemini\nStatus: success');
         return {
           status: 'ask',
           question: candidateQ,
+          concept: parsed.field || parsed.concept || '',
           field: parsed.field || 'follow_up',
           quickOptions: Array.isArray(parsed.quickOptions)
             ? parsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
@@ -763,7 +783,6 @@ Generate ONE different, clinically relevant follow-up question targeting missing
           body: JSON.stringify(retryPayload),
           signal: retryController.signal,
         });
-        clearTimeout(retryTimeoutId);
 
         if (retryRes.ok) {
           const retryData = await retryRes.json();
@@ -783,9 +802,11 @@ Generate ONE different, clinically relevant follow-up question targeting missing
 
             console.log(`[FOLLOWUP VALIDATION][RETRY] accepted=${retryVal.accepted} reason=${retryVal.reason}`);
             if (retryVal.accepted) {
+              console.log('[FOLLOWUP AI]\nProvider: Gemini\nStatus: success');
               return {
                 status: 'ask',
                 question: retryQ,
+                concept: retryParsed.field || retryParsed.concept || '',
                 field: retryParsed.field || 'follow_up',
                 quickOptions: Array.isArray(retryParsed.quickOptions)
                   ? retryParsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
@@ -794,23 +815,71 @@ Generate ONE different, clinically relevant follow-up question targeting missing
             }
           }
         }
-      } catch (rErr) {
+      } finally {
         clearTimeout(retryTimeoutId);
       }
 
-      // If regeneration also fails -> fallback
-      return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
+      throw new Error(`Gemini candidate question failed clinical validation (${val.reason})`);
     }
 
     if (parsed.status === 'complete' && parsed.summary) {
-      return validateAndFormatSummary(parsed.summary, symptoms, conversation);
+      console.log('[FOLLOWUP AI]\nProvider: Gemini\nStatus: success');
+      return validateAndFormatSummary(parsed.summary, symptoms, conv);
     }
-  } catch (err) {
-    clearTimeout(timeoutId);
-    console.warn(`⚠️ [GEMINI SERVICE] Model ${configuredModel} error: ${err.message}. Using validated fallback.`);
-  }
 
-  return getValidatedDeterministicFallback(symptoms, conversation, currentCount, canonicalCase, previousQuestions, previousAnswers);
+    throw new Error('Gemini response did not contain a valid question or summary');
+  } catch (geminiError) {
+    console.warn(`[FOLLOWUP AI]\nProvider: Gemini\nStatus: failed`);
+    console.warn(`[FOLLOWUP AI]\nGemini failed\nSwitching to Groq backup`);
+    console.warn(`[FOLLOWUP AI] Gemini error reason: ${geminiError.message}`);
+
+    // SECONDARY FALLBACK: Groq Qwen2.5
+    try {
+      const groqResult = await groqFollowupService.generateFollowUpQuestion({
+        symptoms,
+        canonicalCase,
+        previousQuestions,
+        language: canonicalCase.language || 'en',
+        questionCount: currentCount,
+      });
+
+      if (groqResult && groqResult.question) {
+        let groqQ = groqResult.question.trim();
+        if (groqQ.length > 150) groqQ = groqQ.substring(0, 147) + '...';
+
+        const groqVal = validateFollowUpQuestion({
+          question: groqQ,
+          canonicalCase,
+          previousQuestions,
+          previousAnswers,
+        });
+
+        console.log(`[FOLLOWUP VALIDATION][GROQ] accepted=${groqVal.accepted} reason=${groqVal.reason}`);
+
+        if (groqVal.accepted) {
+          console.log('[FOLLOWUP AI]\nProvider: Groq Qwen2.5\nStatus: success');
+          return {
+            status: 'ask',
+            question: groqQ,
+            concept: groqResult.concept || 'follow_up',
+            field: groqResult.concept || 'follow_up',
+            quickOptions: Array.isArray(groqResult.quickOptions) && groqResult.quickOptions.length > 0
+              ? groqResult.quickOptions
+              : ['Yes', 'No'],
+          };
+        } else {
+          throw new Error(`Groq candidate question rejected: ${groqVal.reason}`);
+        }
+      } else {
+        throw new Error('Groq returned invalid response without question');
+      }
+    } catch (groqError) {
+      console.warn(`[FOLLOWUP AI]\nProvider: Groq Qwen2.5\nStatus: failed`);
+      console.warn(`[FOLLOWUP AI] Groq error reason: ${groqError.message}`);
+      console.log('[FOLLOWUP AI]\nProvider: Deterministic fallback');
+      return getValidatedDeterministicFallback(symptoms, conv, currentCount, canonicalCase, previousQuestions, previousAnswers);
+    }
+  }
 };
 
 /**
@@ -1229,6 +1298,7 @@ const extractStructuredSummary = async (symptoms, conversation) => {
 
 module.exports = {
   generateFollowUp,
+  generateFollowUpQuestion: generateFollowUp,
   validateFollowUpQuestion,
   getValidatedDeterministicFallback,
   getDeterministicFallback: getValidatedDeterministicFallback,
