@@ -704,18 +704,44 @@ export default function PatientHomeScreen() {
                   { backgroundColor: themeColors.card, borderColor: themeColors.border },
                 ]}
               >
-                <View style={styles.upcomingApptHeader}>
+                <View
+                  style={[
+                    styles.upcomingApptHeader,
+                    !nextAppt && styles.upcomingApptHeaderEmpty,
+                  ]}
+                >
                   <View style={styles.upcomingApptHeaderLeft}>
                     <Text style={styles.upcomingApptIcon}>📅</Text>
-                    <Text style={[styles.upcomingApptHeaderTitle, { color: themeColors.primary }]}>
-                      {t('nextAppointment')}
-                    </Text>
+                    <View style={!nextAppt ? styles.upcomingApptTitleCol : undefined}>
+                      <Text style={[styles.upcomingApptHeaderTitle, { color: themeColors.primary }]}>
+                        {t('nextAppointment')}
+                      </Text>
+                      {!nextAppt && (
+                        <Text style={[styles.noUpcomingApptText, { color: themeColors.textSecondary }]}>
+                          {t('noUpcomingAppointments')}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                  {nextAppt && (
+                  {nextAppt ? (
                     <StatusBadge
                       status={nextAppt.status}
                       label={t(getAppointmentStatusTranslationKey(nextAppt.status))}
                     />
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.bookDoctorSmallBtn, { backgroundColor: themeColors.primaryLight }]}
+                      onPress={() => {
+                        stopSpeech();
+                        router.push('/(patient)/specialists' as any);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('bookAppointment')}
+                    >
+                      <Text style={[styles.bookDoctorSmallBtnText, { color: themeColors.primary }]}>
+                        + {t('bookAppointment')}
+                      </Text>
+                    </TouchableOpacity>
                   )}
                 </View>
 
@@ -767,26 +793,7 @@ export default function PatientHomeScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                ) : (
-                  <View style={styles.noUpcomingApptBox}>
-                    <Text style={[styles.noUpcomingApptText, { color: themeColors.textSecondary }]}>
-                      {t('noUpcomingAppointments')}
-                    </Text>
-                    <TouchableOpacity
-                      style={[styles.bookDoctorSmallBtn, { backgroundColor: themeColors.primaryLight }]}
-                      onPress={() => {
-                        stopSpeech();
-                        router.push('/(patient)/specialists' as any);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('bookAppointment')}
-                    >
-                      <Text style={[styles.bookDoctorSmallBtnText, { color: themeColors.primary }]}>
-                        + {t('bookAppointment')}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                ) : null}
               </View>
             );
           })()}
@@ -1369,13 +1376,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
+  upcomingApptHeaderEmpty: {
+    marginBottom: 0,
+  },
   upcomingApptHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
+    flex: 1,
+    paddingRight: spacing.xs,
+  },
+  upcomingApptTitleCol: {
+    flex: 1,
+    justifyContent: 'center',
   },
   upcomingApptIcon: {
-    fontSize: 18,
+    fontSize: 20,
   },
   upcomingApptHeaderTitle: {
     ...typography.bodyBold,
@@ -1436,22 +1452,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-  noUpcomingApptBox: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
   noUpcomingApptText: {
     ...typography.caption,
-    fontSize: 13,
-    fontStyle: 'italic',
+    fontSize: 12,
+    marginTop: 2,
   },
   bookDoctorSmallBtn: {
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
     borderRadius: borderRadius.pill,
-    minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
