@@ -7,6 +7,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -67,6 +68,8 @@ const formatApptDate = (dateStr: string) => {
 
 export default function PatientHomeScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const { user } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const { isDark, toggleTheme, colors: themeColors } = useTheme();
@@ -255,8 +258,22 @@ export default function PatientHomeScreen() {
     <ScreenContainer scrollable backgroundColor={themeColors.background}>
       <View style={{ flex: 1 }}>
         {/* Universal Header Navigation */}
-        <View style={[styles.headerBar, { borderBottomColor: themeColors.border }]}>
-          <Text style={[styles.headerTitle, { color: themeColors.primary }]} pointerEvents="none" numberOfLines={1}>
+        <View
+          style={[
+            styles.headerBar,
+            isMobile && styles.headerBarMobile,
+            { borderBottomColor: themeColors.border },
+          ]}
+        >
+          <Text
+            style={[
+              styles.headerTitle,
+              isMobile && styles.headerTitleMobile,
+              { color: themeColors.primary },
+            ]}
+            pointerEvents="none"
+            numberOfLines={1}
+          >
             {t('appTitle')}
           </Text>
 
@@ -906,6 +923,10 @@ const styles = StyleSheet.create({
     minHeight: 52,
     position: 'relative',
   },
+  headerBarMobile: {
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+  },
   headerTitle: {
     ...typography.header,
     color: colors.primary,
@@ -916,6 +937,14 @@ const styles = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     zIndex: 0,
+  },
+  headerTitleMobile: {
+    position: 'relative',
+    left: undefined,
+    right: undefined,
+    textAlign: 'left',
+    flexShrink: 1,
+    zIndex: 1,
   },
   headerIconBtn: {
     width: 40,
