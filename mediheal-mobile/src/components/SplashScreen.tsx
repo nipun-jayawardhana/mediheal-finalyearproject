@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Image, Animated } from 'react-native';
-import { spacing, borderRadius } from '../constants/theme';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { spacing } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import { MediHealLogo } from './MediHealLogo';
 
 export interface SplashScreenProps {
   /**
@@ -13,20 +14,25 @@ export interface SplashScreenProps {
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   accessibilityLabel = 'MediHeal Splash Screen',
 }) => {
-  const { isDark, colors, isLoadingTheme } = useTheme();
+  const { colors, isLoadingTheme } = useTheme();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
-
-  const splashImage = isDark
-    ? require('../../assets/images/mediheal-splash-dark.jpg')
-    : require('../../assets/images/mediheal-splash-light.jpg');
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.back(1.6)),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, scaleAnim]);
 
   // Prevent flash during initial theme restoration from storage
   if (isLoadingTheme) {
@@ -40,27 +46,16 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       accessibilityLabel={accessibilityLabel}
     >
       <Animated.View
-        style={[
-          styles.brandCard,
-          {
-            backgroundColor: isDark ? '#071424' : colors.card,
-            borderColor: isDark ? '#1E293B' : '#E2E8F0',
-            borderWidth: isDark ? 1 : 0,
-            shadowColor: isDark ? '#000000' : '#0F172A',
-            shadowOpacity: isDark ? 0.25 : 0.08,
-            elevation: isDark ? 4 : 6,
-          },
-          { opacity: fadeAnim },
-        ]}
+        style={[styles.content, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}
       >
-        <View style={styles.logoContainer}>
-          <Image
-            source={splashImage}
-            style={styles.logoImage}
-            resizeMode="contain"
-            accessibilityLabel="MediHeal Logo"
-          />
-        </View>
+        <MediHealLogo size={104} />
+
+        <Text style={styles.wordmark}>
+          <Text style={{ color: colors.textPrimary }}>Medi</Text>
+          <Text style={{ color: colors.primary }}>Heal</Text>
+        </Text>
+
+        <Text style={[styles.tagline, { color: colors.textMuted }]}>Your health companion</Text>
       </Animated.View>
     </View>
   );
@@ -73,28 +68,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.md,
   },
-  brandCard: {
-    width: '85%',
-    maxWidth: 420,
-    borderRadius: borderRadius.xl,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
+  content: {
     alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 16,
   },
-  logoContainer: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  wordmark: {
+    fontSize: 38,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: spacing.lg,
   },
-  logoImage: {
-    width: '100%',
-    aspectRatio: 1024 / 558,
-    borderRadius: borderRadius.md,
+  tagline: {
+    fontSize: 15,
+    fontWeight: '500',
+    marginTop: spacing.xs,
   },
 });
-
-
