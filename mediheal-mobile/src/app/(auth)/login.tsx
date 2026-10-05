@@ -10,7 +10,6 @@ import { ErrorView } from '../../components/ErrorView';
 import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
-import { useLanguage } from '../../context/LanguageContext';
 
 type LoginRole = 'patient' | 'doctor' | 'caregiver';
 
@@ -18,7 +17,6 @@ export default function LoginScreen() {
   const router = useRouter();
   const { login, logout } = useAuth();
   const { colors: themeColors, isDark } = useTheme();
-  const { t } = useLanguage();
 
   const [selectedRole, setSelectedRole] = useState<LoginRole>('patient');
   const [email, setEmail] = useState('');
@@ -69,7 +67,7 @@ export default function LoginScreen() {
       // Role Selection Validation: Role selection is a filter, reject if mismatch (admin exempt)
       if (loggedUser.role !== 'admin' && loggedUser.role !== selectedRole) {
         await logout();
-        setErrorMsg(t('wrongAccountType'));
+        setErrorMsg('Selected account type does not match your account.');
         return;
       }
 
@@ -121,7 +119,7 @@ export default function LoginScreen() {
           {/* Role Selection Toggle */}
           <View style={styles.roleToggleContainer}>
             <Text style={[styles.roleToggleLabel, { color: themeColors.textSecondary }]}>
-              {t('selectAccountType')}
+              Select Account Type
             </Text>
             <View
               style={[
@@ -147,7 +145,7 @@ export default function LoginScreen() {
                     selectedRole === 'patient' && styles.roleToggleBtnTextActive,
                   ]}
                 >
-                  👤 {t('patient')}
+                  👤 Patient
                 </Text>
               </TouchableOpacity>
 
@@ -169,7 +167,7 @@ export default function LoginScreen() {
                     selectedRole === 'doctor' && styles.roleToggleBtnTextActive,
                   ]}
                 >
-                  👨‍⚕️ {t('doctor')}
+                  👨‍⚕️ Doctor
                 </Text>
               </TouchableOpacity>
 
@@ -191,7 +189,7 @@ export default function LoginScreen() {
                     selectedRole === 'caregiver' && styles.roleToggleBtnTextActive,
                   ]}
                 >
-                  🤝 {t('caregiver')}
+                  🤝 Caregiver
                 </Text>
               </TouchableOpacity>
             </View>
