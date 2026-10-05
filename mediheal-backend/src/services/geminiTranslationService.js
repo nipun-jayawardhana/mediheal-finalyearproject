@@ -11,7 +11,7 @@
  * - Quota (429) & timeout protection returning safe fallbacks
  */
 
-const { callGemini } = require('./geminiClient');
+const { callGemini, getPrimaryModel } = require('./geminiClient');
 const clinicalCaseService = require('./clinicalCaseService');
 
 /**
@@ -53,7 +53,7 @@ const parseJSONFromText = (rawText) => {
  */
 const callGeminiJSONApi = async (systemPrompt, userPrompt, timeoutMs = 8000) => {
   const apiKey = process.env.GEMINI_API_KEY;
-  const configuredModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
+  const configuredModel = getPrimaryModel();
 
   if (!apiKey) {
     console.warn('⚠️ [GEMINI TRANSLATION] GEMINI_API_KEY not configured. Skipping LLM translation.');

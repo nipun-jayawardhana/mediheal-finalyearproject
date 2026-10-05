@@ -11,7 +11,7 @@
  * Note: Gemini NEVER provides medical diagnosis, prescription, or final specialist recommendations.
  */
 
-const { callGemini } = require('./geminiClient');
+const { callGemini, getPrimaryModel } = require('./geminiClient');
 
 /**
  * Helper to parse and extract JSON object from raw response text
@@ -576,7 +576,7 @@ const generateFollowUp = async (arg1 = [], conversation = [], questionCount = 0)
     count = Number(questionCount) || 0;
   }
 
-  const configuredModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
+  const configuredModel = getPrimaryModel();
   const currentCount = count || conv.length || 0;
 
   // Hard limit: Max 3 questions
@@ -687,7 +687,9 @@ Output JSON:`;
     },
   };
 
-  // PRIMARY: Call Gemini (retries transient failures within the overall 10s budget)
+  // PRIMARY: Call Gemini (retries + fallback model within a 10s budget; whole Gemini phase capped at 15s
+  // so a rejected question's regeneration can't delay the Groq backup indefinitely)
+  const geminiPhaseDeadline = Date.now() + 15000;
   try {
     const data = await callGemini(payload, {
       model: configuredModel,
@@ -754,7 +756,7 @@ Generate ONE different, clinically relevant follow-up question targeting missing
 
       const retryData = await callGemini(retryPayload, {
         model: configuredModel,
-        budgetMs: 8000,
+        budgetMs: Math.min(8000, geminiPhaseDeadline - Date.now()),
         tag: '[FOLLOWUP REGENERATION]',
       });
       const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -800,17 +802,24 @@ Generate ONE different, clinically relevant follow-up question targeting missing
     console.warn(`[FOLLOWUP AI]\nGemini failed\nSwitching to Groq backup`);
     console.warn(`[FOLLOWUP AI] Gemini error reason: ${geminiError.message}`);
 
-    // SECONDARY FALLBACK: Groq Qwen2.5
+    // SECONDARY FALLBACK: Groq Qwen (one regeneration with feedback if the first question is rejected)
     try {
-      const groqResult = await groqFollowupService.generateFollowUpQuestion({
-        symptoms,
-        canonicalCase,
-        previousQuestions,
-        language: canonicalCase.language || 'en',
-        questionCount: currentCount,
-      });
+      let feedback = '';
+      let lastReason = '';
+      for (let groqAttempt = 0; groqAttempt < 2; groqAttempt++) {
+        const groqResult = await groqFollowupService.generateFollowUpQuestion({
+          symptoms,
+          canonicalCase,
+          previousQuestions,
+          language: canonicalCase.language || 'en',
+          questionCount: currentCount,
+          feedback,
+        });
 
-      if (groqResult && groqResult.question) {
+        if (!groqResult || !groqResult.question) {
+          throw new Error('Groq returned invalid response without question');
+        }
+
         let groqQ = groqResult.question.trim();
         if (groqQ.length > 150) groqQ = groqQ.substring(0, 147) + '...';
 
@@ -821,10 +830,10 @@ Generate ONE different, clinically relevant follow-up question targeting missing
           previousAnswers,
         });
 
-        console.log(`[FOLLOWUP VALIDATION][GROQ] accepted=${groqVal.accepted} reason=${groqVal.reason}`);
+        console.log(`[FOLLOWUP VALIDATION][GROQ${groqAttempt ? '][RETRY' : ''}] question="${groqQ}" accepted=${groqVal.accepted} reason=${groqVal.reason}`);
 
         if (groqVal.accepted) {
-          console.log('[FOLLOWUP AI]\nProvider: Groq Qwen2.5\nStatus: success');
+          console.log('[FOLLOWUP AI]\nProvider: Groq Qwen\nStatus: success');
           return {
             status: 'ask',
             question: groqQ,
@@ -834,14 +843,15 @@ Generate ONE different, clinically relevant follow-up question targeting missing
               ? groqResult.quickOptions
               : ['Yes', 'No'],
           };
-        } else {
-          throw new Error(`Groq candidate question rejected: ${groqVal.reason}`);
         }
-      } else {
-        throw new Error('Groq returned invalid response without question');
+
+        lastReason = groqVal.reason;
+        feedback = `Your previous question "${groqQ}" was REJECTED because it was ${groqVal.reason}. Ask about exactly ONE specific clinical concept that is not already known, in a different question.`;
       }
+
+      throw new Error(`Groq candidate question rejected: ${lastReason}`);
     } catch (groqError) {
-      console.warn(`[FOLLOWUP AI]\nProvider: Groq Qwen2.5\nStatus: failed`);
+      console.warn(`[FOLLOWUP AI]\nProvider: Groq Qwen\nStatus: failed`);
       console.warn(`[FOLLOWUP AI] Groq error reason: ${groqError.message}`);
       console.log('[FOLLOWUP AI]\nProvider: Deterministic fallback');
       return getValidatedDeterministicFallback(symptoms, conv, currentCount, canonicalCase, previousQuestions, previousAnswers);

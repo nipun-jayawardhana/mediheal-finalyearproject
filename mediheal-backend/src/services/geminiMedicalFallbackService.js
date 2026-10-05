@@ -11,8 +11,7 @@
  * - Returns structured output with analysisSource = 'gemini-secondary' and modelName
  */
 
-const { callGemini } = require('./geminiClient');
-const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
+const { callGemini, getPrimaryModel } = require('./geminiClient');
 const { normalizeSpecialist } = require('./med42Service');
 
 /**
@@ -67,7 +66,8 @@ const analyzeSymptomsWithGeminiSecondary = async (clinicalCase, reqId = '', maxT
     throw new Error('GEMINI_API_KEY unavailable');
   }
 
-  console.log(`${tag} Initiating secondary biomedical analysis via ${GEMINI_MODEL_NAME} (Budget: ${maxTimeoutMs}ms)`);
+  const primaryModel = getPrimaryModel();
+  console.log(`${tag} Initiating secondary biomedical analysis via ${primaryModel} (Budget: ${maxTimeoutMs}ms)`);
 
   const posText = Array.isArray(clinicalCase.positiveSymptoms) && clinicalCase.positiveSymptoms.length > 0
     ? clinicalCase.positiveSymptoms.map((s) => `- ${s}`).join('\n')
@@ -146,7 +146,7 @@ JSON Output:`;
     let data;
     try {
       data = await callGemini(requestPayload, {
-        model: GEMINI_MODEL_NAME,
+        model: primaryModel,
         budgetMs: maxTimeoutMs,
         tag,
       });
@@ -216,7 +216,7 @@ JSON Output:`;
       recommendedSpecialist: normalizedSpec,
       guidance,
       analysisSource: 'gemini-secondary',
-      modelName: GEMINI_MODEL_NAME,
+      modelName: data.servedByModel || primaryModel,
     };
   } catch (err) {
     const elapsed = Date.now() - startedAt;
@@ -231,5 +231,4 @@ JSON Output:`;
 
 module.exports = {
   analyzeSymptomsWithGeminiSecondary,
-  GEMINI_MODEL_NAME,
 };

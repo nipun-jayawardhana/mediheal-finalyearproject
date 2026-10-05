@@ -1,7 +1,7 @@
 /**
  * Groq Follow-up Service
  * Backup AI provider for MediHeal Patient Symptom Conversational Follow-Up.
- * Model: qwen/qwen-2.5-7b-instruct (with live Groq compatibility fallback to qwen/qwen3.8-27b)
+ * Model: qwen/qwen3.8-27b (GROQ_MODEL overrides; qwen/qwen-2.5-7b-instruct is no longer served by Groq)
  * 
  * Clinical Safety Guardrails:
  * - Generate FOLLOW-UP QUESTIONS ONLY.
@@ -17,7 +17,7 @@
 const clinicalCaseService = require('./clinicalCaseService');
 
 const GROQ_API_URL = process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
-const PRIMARY_MODEL = process.env.GROQ_MODEL || 'qwen/qwen-2.5-7b-instruct';
+const PRIMARY_MODEL = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b';
 const COMPATIBILITY_MODEL = 'qwen/qwen3.8-27b';
 const GROQ_REQUEST_TIMEOUT_MS = parseInt(process.env.GROQ_REQUEST_TIMEOUT_MS, 10) || 8000;
 
@@ -62,7 +62,7 @@ const parseJSONFromText = (rawText) => {
  * Generate a conversational follow-up question via Groq Qwen2.5
  * 
  * Accepts either:
- * - An options object: { symptoms, canonicalCase, previousQuestions, language, questionCount }
+ * - An options object: { symptoms, canonicalCase, previousQuestions, language, questionCount, feedback }
  * - Positional arguments: (symptoms, canonicalCase, previousQuestions, language, questionCount)
  * 
  * Returns:
@@ -78,6 +78,7 @@ const generateFollowUpQuestion = async (arg1 = {}, ...rest) => {
   let previousQuestions = [];
   let language = 'en';
   let questionCount = 0;
+  let feedback = '';
 
   if (arg1 && typeof arg1 === 'object' && !Array.isArray(arg1) && (arg1.symptoms || arg1.canonicalCase || arg1.previousQuestions !== undefined)) {
     symptoms = Array.isArray(arg1.symptoms) ? arg1.symptoms : [];
@@ -85,6 +86,7 @@ const generateFollowUpQuestion = async (arg1 = {}, ...rest) => {
     previousQuestions = Array.isArray(arg1.previousQuestions) ? arg1.previousQuestions : [];
     language = typeof arg1.language === 'string' ? arg1.language : 'en';
     questionCount = Number(arg1.questionCount) || 0;
+    feedback = typeof arg1.feedback === 'string' ? arg1.feedback : '';
   } else {
     symptoms = Array.isArray(arg1) ? arg1 : [];
     canonicalCase = rest[0] || null;
@@ -147,7 +149,7 @@ Current Question Count: ${questionCount} / 3
 Instruction:
 Generate 1 relevant, single-concept follow-up question targeting missing clinical information ONLY.
 Ensure the question strictly relates to the active Clinical Domain (${clinicalProfile.clinicalDomain}).
-Respond strictly in JSON format.`;
+Respond strictly in JSON format.${feedback ? `\n\nCRITICAL FEEDBACK:\n${feedback}` : ''}`;
 
   const sendRequest = async (modelToUse) => {
     const controller = new AbortController();
@@ -185,7 +187,7 @@ Respond strictly in JSON format.`;
   let res = await sendRequest(PRIMARY_MODEL);
 
   // If primary model is not found or decommissioned on Groq, fallback to active Groq Qwen model
-  if (!res.ok && (res.status === 404 || res.status === 400)) {
+  if (!res.ok && (res.status === 404 || res.status === 400) && PRIMARY_MODEL !== COMPATIBILITY_MODEL) {
     const errCode = res.data?.error?.code;
     if (errCode === 'model_not_found' || errCode === 'model_decommissioned') {
       res = await sendRequest(COMPATIBILITY_MODEL);

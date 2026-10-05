@@ -1,5 +1,6 @@
-const app = require('./app');
+// Load .env before app so services that read process.env at require time see the configured values
 const { validateEnv } = require('./config/env');
+const app = require('./app');
 const connectDB = require('./config/db');
 
 // 1. Validate environment variables
