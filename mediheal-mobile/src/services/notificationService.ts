@@ -1,5 +1,6 @@
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsModule from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Medication } from '../types/medication';
 import { apiClient } from '../api/apiClient';
@@ -13,6 +14,23 @@ export const REMINDERS_ENABLED_KEY = '@mediheal_medication_reminders_enabled';
 export const NOTIFICATION_IDS_KEY = '@mediheal_medication_notification_ids';
 export const ANDROID_CHANNEL_ID = 'medication-reminders';
 
+// Expo Go dropped expo-notifications on Android (SDK 53+) and errors as soon as the
+// module is loaded, so only require it in development/standalone builds.
+const isAndroidExpoGo =
+  Platform.OS === 'android' &&
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+let Notifications: typeof NotificationsModule | null = null;
+if (!isAndroidExpoGo) {
+  try {
+    Notifications = require('expo-notifications');
+  } catch (e) {
+    Notifications = null;
+  }
+}
+
+export const areLocalNotificationsAvailable = (): boolean => Notifications !== null;
+
 interface StoredNotificationRecord {
   id: string;
   medicationId: string;
@@ -23,6 +41,7 @@ interface StoredNotificationRecord {
  * Configure foreground notification behavior & Android channel
  */
 export const initNotificationHandler = async (): Promise<void> => {
+  if (!Notifications) return;
   try {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
@@ -52,7 +71,8 @@ export const initNotificationHandler = async (): Promise<void> => {
 /**
  * Check existing OS notification permission status
  */
-export const getNotificationPermissionStatus = async (): Promise<Notifications.PermissionStatus> => {
+export const getNotificationPermissionStatus = async (): Promise<string> => {
+  if (!Notifications) return 'undetermined';
   try {
     const settings = await Notifications.getPermissionsAsync();
     return settings.status;
@@ -66,6 +86,7 @@ export const getNotificationPermissionStatus = async (): Promise<Notifications.P
  * Request OS notification permission from user
  */
 export const requestNotificationPermission = async (): Promise<boolean> => {
+  if (!Notifications) return false;
   try {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -145,6 +166,7 @@ export const cancelMedicationReminders = async (): Promise<void> => {
   try {
     const records = await getStoredNotificationRecords();
     for (const item of records) {
+      if (!Notifications) break;
       try {
         await Notifications.cancelScheduledNotificationAsync(item.id);
       } catch (e) {
@@ -165,13 +187,13 @@ export const synchronizeMedicationReminders = async (
   medications: Medication[]
 ): Promise<{ scheduledCount: number }> => {
   const enabled = await getRemindersEnabledPreference();
-  if (!enabled) {
+  if (!enabled || !Notifications) {
     await cancelMedicationReminders();
     return { scheduledCount: 0 };
   }
 
   const permissionStatus = await getNotificationPermissionStatus();
-  if (permissionStatus !== Notifications.PermissionStatus.GRANTED) {
+  if (permissionStatus !== 'granted') {
     await cancelMedicationReminders();
     return { scheduledCount: 0 };
   }
@@ -289,6 +311,7 @@ export const synchronizeMedicationReminders = async (
 export const setupNotificationResponseListener = (
   onNavigateToMedications: () => void
 ): (() => void) => {
+  if (!Notifications) return () => {};
   const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data;
     if (data && data.screen === '/(patient)/medications') {

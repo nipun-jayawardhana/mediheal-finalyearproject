@@ -18,6 +18,7 @@ import {
   synchronizeMedicationReminders,
   cancelMedicationReminders,
   setupNotificationResponseListener,
+  areLocalNotificationsAvailable,
 } from '../../services/notificationService';
 
 import { useLanguage } from '../../context/LanguageContext';
@@ -100,6 +101,13 @@ export default function PatientMedicationsScreen() {
     setTogglingReminders(true);
     try {
       if (val) {
+        if (!areLocalNotificationsAvailable()) {
+          Alert.alert(
+            'Reminders Unavailable',
+            'Dose reminders are not supported in Expo Go on Android. Use a development build to enable them.'
+          );
+          return;
+        }
         // Request permission
         const granted = await requestNotificationPermission();
         if (granted) {
