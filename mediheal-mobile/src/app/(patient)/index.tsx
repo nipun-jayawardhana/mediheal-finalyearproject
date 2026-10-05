@@ -889,7 +889,12 @@ export default function PatientHomeScreen() {
           <TouchableOpacity
             style={[styles.previewCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
             activeOpacity={0.8}
-            onPress={() => { stopSpeech(); router.push('/(patient)/medications' as any); }}
+            onPress={() => {
+              stopSpeech();
+              // Caregiver-added medicines live on Medications; doctor prescriptions on Today's Medication
+              const nextDose = dashboardData?.medications?.[0];
+              router.push((nextDose?.source === 'caregiver' ? '/(patient)/medications' : '/(patient)/today-medication') as any);
+            }}
           >
             <View style={styles.previewHeaderRow}>
               <Text style={styles.previewIcon}>⏰</Text>
@@ -897,7 +902,7 @@ export default function PatientHomeScreen() {
                 <Text style={[styles.previewTitle, { color: themeColors.textPrimary }]}>{t('nextScheduledMedication')}</Text>
                 {dashboardData?.medications && dashboardData.medications.length > 0 ? (
                   <Text style={[styles.previewSub, { color: themeColors.textSecondary }]}>
-                    {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.join(', ') || t('scheduled')})
+                    {dashboardData.medications[0].medicineName} — {dashboardData.medications[0].dosage} ({dashboardData.medications[0].timeSlots?.map((slot: string) => formatTimeAmPm(slot)).join(', ') || t('scheduled')})
                   </Text>
                 ) : (
                   <Text style={[styles.previewSub, { color: themeColors.textSecondary }]}>{t('noActiveMedications')}</Text>

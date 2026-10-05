@@ -1,5 +1,9 @@
 // Load .env before app so services that read process.env at require time see the configured values
 const { validateEnv } = require('./config/env');
+
+// Medication dose times ("08:00") and "today" are computed in server-local time.
+// Pin the zone so a cloud host running on UTC doesn't shift doses by 5h30m (override with TZ in .env).
+process.env.TZ = process.env.TZ || 'Asia/Colombo';
 const app = require('./app');
 const connectDB = require('./config/db');
 

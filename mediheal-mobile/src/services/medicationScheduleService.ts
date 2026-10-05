@@ -12,9 +12,10 @@ import {
 export const getMyTodayMedicationSchedules = async (
   dateStr?: string
 ): Promise<TodayMedicationResponse> => {
-  const endpoint = dateStr
-    ? `/medication-schedules/my?date=${encodeURIComponent(dateStr)}`
-    : '/medication-schedules/my';
+  // Default to the device's local date so "today" never depends on the server's timezone
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const endpoint = `/medication-schedules/my?date=${encodeURIComponent(dateStr || localToday)}`;
   const response = await apiClient.get<TodayMedicationResponse>(endpoint);
   return response.data;
 };

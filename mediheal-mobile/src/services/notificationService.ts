@@ -189,9 +189,10 @@ export const synchronizeMedicationReminders = async (
     if (!med.isActive) continue;
     if (!med.timeSlots || med.timeSlots.length === 0) continue;
 
-    // Parse start and end dates (YYYY-MM-DD)
-    const [startYear, startMonth, startDay] = med.startDate.split('-').map(Number);
-    const [endYear, endMonth, endDay] = med.endDate.split('-').map(Number);
+    // Parse start and end dates. The API returns ISO strings ("2026-10-05T00:00:00.000Z")
+    // for date-only values, so only the YYYY-MM-DD part is meaningful.
+    const [startYear, startMonth, startDay] = String(med.startDate).slice(0, 10).split('-').map(Number);
+    const [endYear, endMonth, endDay] = String(med.endDate).slice(0, 10).split('-').map(Number);
 
     if (!startYear || !startMonth || !startDay || !endYear || !endMonth || !endDay) {
       continue;

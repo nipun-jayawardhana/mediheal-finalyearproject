@@ -11,78 +11,116 @@ const formatDateKey = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const DEFAULT_TIMES = ['08:00', '20:00'];
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+/**
+ * Standard dose times for N doses per day
+ */
+const timesForDailyCount = (count) => {
+  if (count <= 1) return ['08:00'];
+  if (count === 2) return ['08:00', '20:00'];
+  if (count === 3) return ['08:00', '14:00', '20:00'];
+  if (count === 4) return ['08:00', '12:00', '16:00', '20:00'];
+  // 5+ doses: spread evenly across waking hours (06:00 - 22:00), rounded to 30 minutes
+  const step = (16 * 60) / (count - 1);
+  return Array.from({ length: count }, (_, i) => {
+    const mins = Math.round((6 * 60 + i * step) / 30) * 30;
+    return `${pad2(Math.floor(mins / 60))}:${pad2(mins % 60)}`;
+  });
+};
+
+/**
+ * Parse a human/medical frequency string into a dosing plan.
+ * Returns { times: ['HH:MM', ...], intervalDays, asNeeded }.
+ *
+ * Order matters: specific patterns (counts, hourly intervals, 1-0-1 notation) are
+ * checked before generic words like "daily", so "3x Daily" yields three doses.
+ */
+const parseFrequency = (frequencyStr) => {
+  if (!frequencyStr || typeof frequencyStr !== 'string') {
+    return { times: DEFAULT_TIMES, intervalDays: 1, asNeeded: false };
+  }
+
+  const clean = frequencyStr.toLowerCase().replace(/\s+/g, ' ').trim();
+  const has = (re) => re.test(clean);
+
+  // As needed (PRN / SOS): no fixed schedule, so no reminders or missed-dose tracking
+  if (has(/\b(prn|sos)\b|as needed|as required|when needed|if needed|when required/)) {
+    return { times: [], intervalDays: 1, asNeeded: true };
+  }
+
+  // Day interval: alternate days / every N days / weekly
+  let intervalDays = 1;
+  const everyNDays = clean.match(/every (\d+) days?/);
+  if (has(/every other day|alternate days?|\beod\b/)) intervalDays = 2;
+  else if (everyNDays) intervalDays = Math.max(1, parseInt(everyNDays[1], 10));
+  else if (has(/weekly|once a week|every week|per week/)) intervalDays = 7;
+
+  // Morning-noon-night notation, e.g. "1-0-1" or "1-1-1-1"
+  const dashMatch = clean.match(/\b([01])\s*-\s*([01])\s*-\s*([01])(?:\s*-\s*([01]))?\b/);
+  if (dashMatch) {
+    const slots = dashMatch[4] !== undefined
+      ? ['08:00', '13:00', '18:00', '21:00']
+      : ['08:00', '14:00', '20:00'];
+    const flags = dashMatch.slice(1, slots.length + 1);
+    const times = slots.filter((_, i) => flags[i] === '1');
+    if (times.length > 0) return { times, intervalDays, asNeeded: false };
+  }
+
+  // Every N hours
+  const everyNHours = clean.match(/every (\d+) ?(?:hours?|hrs?|h)\b/);
+  if (everyNHours) {
+    const hours = parseInt(everyNHours[1], 10);
+    if (hours >= 24) {
+      return { times: ['08:00'], intervalDays: Math.max(1, Math.round(hours / 24)), asNeeded: false };
+    }
+    if (hours >= 6) {
+      // every 6/8/12 hours -> standard 4/3/2 doses a day
+      return { times: timesForDailyCount(Math.floor(24 / hours)), intervalDays, asNeeded: false };
+    }
+    if (hours >= 1) {
+      // Short intervals: keep doses within waking hours (06:00 - 22:00)
+      const times = [];
+      for (let h = 6; h <= 22; h += hours) times.push(`${pad2(h)}:00`);
+      return { times, intervalDays, asNeeded: false };
+    }
+  }
+
+  // Explicit daily count
+  let count = null;
+  const numericCount = clean.match(/\b(\d+) ?(?:x|times?)\b/) || clean.match(/\bx ?(\d+)\b/);
+  if (numericCount) count = parseInt(numericCount[1], 10);
+  else if (has(/\bfour times\b|\bqid\b|\bqds\b/)) count = 4;
+  else if (has(/\bthrice\b|\bthree times\b|\btid\b|\btds\b/)) count = 3;
+  else if (has(/\btwice\b|\btwo times\b|\bbd\b|\bbid\b/)) count = 2;
+  else if (has(/\bonce\b|\bone time\b|\bod\b|\bdaily\b|every day|\bmane\b|\bnocte\b|\bhs\b/)) count = 1;
+
+  // Single dose: honour the time of day if one is mentioned
+  if (count === null || count === 1) {
+    if (has(/night|bedtime|\bhs\b|\bnocte\b/)) return { times: ['21:00'], intervalDays, asNeeded: false };
+    if (has(/evening/)) return { times: ['18:00'], intervalDays, asNeeded: false };
+    if (has(/afternoon|\bnoon\b|lunch/)) return { times: ['13:00'], intervalDays, asNeeded: false };
+    if (has(/morning|\bmane\b|breakfast/)) return { times: ['08:00'], intervalDays, asNeeded: false };
+  }
+
+  if (count !== null && count >= 1) {
+    return { times: timesForDailyCount(Math.min(count, 12)), intervalDays, asNeeded: false };
+  }
+
+  // Weekly / alternate-day without an explicit count: one dose on each dosing day
+  if (intervalDays > 1) {
+    return { times: ['08:00'], intervalDays, asNeeded: false };
+  }
+
+  return { times: DEFAULT_TIMES, intervalDays: 1, asNeeded: false };
+};
+
 /**
  * Parse human/medical frequency string into daily scheduled times (24h format)
  */
-const parseFrequencyToTimes = (frequencyStr) => {
-  if (!frequencyStr || typeof frequencyStr !== 'string') {
-    return ['08:00', '20:00'];
-  }
-
-  const clean = frequencyStr.toLowerCase().trim();
-
-  // 4 times daily / QID
-  if (
-    clean.includes('4 time') ||
-    clean.includes('four time') ||
-    clean.includes('qid') ||
-    clean.includes('every 6 hour')
-  ) {
-    return ['08:00', '12:00', '16:00', '20:00'];
-  }
-
-  // 3 times daily / TID / TDS
-  if (
-    clean.includes('3 time') ||
-    clean.includes('three time') ||
-    clean.includes('tid') ||
-    clean.includes('tds') ||
-    clean.includes('every 8 hour')
-  ) {
-    return ['08:00', '14:00', '20:00'];
-  }
-
-  // 2 times daily / BD / BID
-  if (
-    clean.includes('2 time') ||
-    clean.includes('two time') ||
-    clean.includes('twice') ||
-    clean.includes('bd') ||
-    clean.includes('bid') ||
-    clean.includes('every 12 hour')
-  ) {
-    return ['08:00', '20:00'];
-  }
-
-  // Once daily / OD
-  if (
-    clean.includes('once') ||
-    clean.includes('1 time') ||
-    clean.includes('one time') ||
-    clean.includes('od') ||
-    clean.includes('every day') ||
-    clean.includes('daily')
-  ) {
-    return ['08:00'];
-  }
-
-  // Night only / HS / bedtime
-  if (clean.includes('night') || clean.includes('bedtime') || clean.includes('hs')) {
-    return ['21:00'];
-  }
-
-  // Fallback: check any digit in string
-  const digitMatch = clean.match(/(\d+)\s*(?:times?|x)/);
-  if (digitMatch) {
-    const times = parseInt(digitMatch[1], 10);
-    if (times === 1) return ['08:00'];
-    if (times === 2) return ['08:00', '20:00'];
-    if (times === 3) return ['08:00', '14:00', '20:00'];
-    if (times >= 4) return ['08:00', '12:00', '16:00', '20:00'];
-  }
-
-  return ['08:00', '20:00'];
-};
+const parseFrequencyToTimes = (frequencyStr) => parseFrequency(frequencyStr).times;
 
 /**
  * Parse human duration string into integer day count
@@ -142,7 +180,10 @@ const generateSchedulesForPrescription = async (prescription) => {
       continue;
     }
 
-    const scheduledTimes = parseFrequencyToTimes(med.frequency);
+    const { times: scheduledTimes, intervalDays, asNeeded } = parseFrequency(med.frequency);
+    // As-needed medicines stay visible on the prescription but get no timed doses
+    if (asNeeded || scheduledTimes.length === 0) continue;
+
     const durationDays = parseDurationToDays(med.duration);
 
     // Compute start and end dates
@@ -155,12 +196,29 @@ const generateSchedulesForPrescription = async (prescription) => {
 
     // Generate day-by-day adherence records across duration
     const adherenceRecords = [];
-    for (let d = 0; d < durationDays; d++) {
+    // Interval courses (alternate day / weekly): if today's slots already passed, start tomorrow
+    // instead of waiting a full interval for the first dose.
+    let firstDay = 0;
+    if (intervalDays > 1) {
+      const lastSlot = scheduledTimes[scheduledTimes.length - 1].split(':').map(Number);
+      const lastSlotToday = new Date(startDate);
+      lastSlotToday.setHours(lastSlot[0], lastSlot[1], 0, 0);
+      if (lastSlotToday < baseDate) firstDay = 1;
+    }
+
+    for (let d = firstDay; d < durationDays; d += intervalDays) {
       const recordDate = new Date(startDate);
       recordDate.setDate(startDate.getDate() + d);
       const scheduledDateStr = formatDateKey(recordDate);
 
       for (const timeStr of scheduledTimes) {
+        // Skip dose slots that had already passed when the prescription was written,
+        // otherwise they are immediately flagged as MISSED.
+        const [h, m] = timeStr.split(':').map(Number);
+        const slotDateTime = new Date(recordDate);
+        slotDateTime.setHours(h, m, 0, 0);
+        if (slotDateTime < baseDate) continue;
+
         adherenceRecords.push({
           scheduledDate: recordDate,
           scheduledDateStr,
@@ -195,6 +253,7 @@ const generateSchedulesForPrescription = async (prescription) => {
 
 module.exports = {
   formatDateKey,
+  parseFrequency,
   parseFrequencyToTimes,
   parseDurationToDays,
   generateSchedulesForPrescription,

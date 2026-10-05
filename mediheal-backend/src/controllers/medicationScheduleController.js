@@ -209,12 +209,20 @@ const getMedicationHistory = async (req, res, next) => {
     const historyItems = [];
     let totalScheduled = 0;
     let totalTaken = 0;
+    const nowMs = Date.now();
 
     for (const schedule of schedules) {
       if (!Array.isArray(schedule.adherenceRecords)) continue;
 
       for (const rec of schedule.adherenceRecords) {
-        totalScheduled += 1;
+        // History only covers doses that are due: skip upcoming doses that are still pending
+        const dueMs = new Date(`${rec.scheduledDateStr}T${rec.scheduledTime}:00`).getTime();
+        if (rec.status === 'PENDING' && !(dueMs <= nowMs)) continue;
+
+        // Adherence = taken / (taken + missed), matching the analytics screen
+        if (rec.status === 'TAKEN' || rec.status === 'MISSED') {
+          totalScheduled += 1;
+        }
         if (rec.status === 'TAKEN') {
           totalTaken += 1;
         }

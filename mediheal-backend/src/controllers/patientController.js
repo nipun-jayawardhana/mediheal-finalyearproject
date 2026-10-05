@@ -2,7 +2,68 @@ const PatientProfile = require('../models/PatientProfile');
 const EmergencyAlert = require('../models/EmergencyAlert');
 const Appointment = require('../models/Appointment');
 const DoctorProfile = require('../models/DoctorProfile');
+const MedicationSchedule = require('../models/MedicationSchedule');
+const Medication = require('../models/Medication');
+const { formatDateKey } = require('../services/medicationScheduleService');
 const generateLinkCode = require('../utils/generateLinkCode');
+
+/**
+ * Today's remaining medication doses for the dashboard, soonest first.
+ * Combines doctor-prescribed schedules and caregiver-added medications.
+ * Falls back to today's overdue (still pending) doses when nothing is left later today.
+ */
+const getTodayUpcomingDoses = async (userId) => {
+  const now = new Date();
+  const todayStr = formatDateKey(now);
+  const nowHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const doses = [];
+
+  const schedules = await MedicationSchedule.find({
+    patientId: userId,
+    'adherenceRecords.scheduledDateStr': todayStr,
+  }).lean();
+  for (const schedule of schedules) {
+    for (const rec of schedule.adherenceRecords || []) {
+      if (rec.scheduledDateStr !== todayStr || rec.status !== 'PENDING') continue;
+      doses.push({
+        _id: `${schedule._id}-${rec._id}`,
+        medicineName: schedule.medicineName,
+        dosage: schedule.dosage,
+        timeSlots: [rec.scheduledTime],
+        source: 'prescription',
+      });
+    }
+  }
+
+  const caregiverMeds = await Medication.find({
+    patientId: userId,
+    isActive: true,
+    startDate: { $lte: endOfToday },
+    endDate: { $gte: startOfToday },
+  }).lean();
+  for (const med of caregiverMeds) {
+    for (const slot of med.timeSlots || []) {
+      doses.push({
+        _id: `${med._id}-${slot}`,
+        medicineName: med.medicineName,
+        dosage: med.dosage,
+        timeSlots: [slot],
+        source: 'caregiver',
+      });
+    }
+  }
+
+  const byTime = (a, b) => a.timeSlots[0].localeCompare(b.timeSlots[0]);
+  const upcoming = doses.filter((d) => d.timeSlots[0] >= nowHHMM).sort(byTime);
+  if (upcoming.length > 0) return upcoming;
+  // Nothing later today: surface doctor doses that are due but not yet marked taken
+  return doses.filter((d) => d.source === 'prescription').sort(byTime);
+};
 
 /**
  * @desc    Create a new patient profile
@@ -219,13 +280,20 @@ const getPatientDashboard = async (req, res, next) => {
       })
     );
 
+    let medications = [];
+    try {
+      medications = await getTodayUpcomingDoses(userId);
+    } catch (medErr) {
+      console.warn('Dashboard medication lookup warning:', medErr);
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Patient dashboard retrieved successfully',
       data: {
         user: req.user,
         patientProfile: profile || null,
-        medications: [],
+        medications,
         upcomingAppointments,
         latestSymptomCheck: null,
         activeEmergencyAlert: activeEmergencyAlert || null,
