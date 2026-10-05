@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   Modal,
   Platform,
   KeyboardAvoidingView,
@@ -19,6 +18,8 @@ import { AppButton } from '../../components/AppButton';
 import { spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { createDoctor } from '../../services/adminService';
+import { LocationPickerMap, PickedCoordinate } from '../../components/LocationPickerMap';
+import { showMessage } from '../../utils/dialogs';
 
 const COMMON_SPECIALIZATIONS = [
   'General Physician',
@@ -88,8 +89,7 @@ export default function AdminAddDoctorScreen() {
   const [consultationFee, setConsultationFee] = useState<string>('2500');
   const [languages, setLanguages] = useState<string[]>(['English', 'Sinhala']);
   const [location, setLocation] = useState<string>('');
-  const [latitude, setLatitude] = useState<string>('');
-  const [longitude, setLongitude] = useState<string>('');
+  const [pickedLocation, setPickedLocation] = useState<PickedCoordinate | null>(null);
 
   // Form states - Step 3
   const [availableDays, setAvailableDays] = useState<string[]>([
@@ -132,7 +132,7 @@ export default function AdminAddDoctorScreen() {
       setCopyFeedback(`${label} copied!`);
       setTimeout(() => setCopyFeedback(''), 2500);
     } catch {
-      Alert.alert('Copy Failed', 'Unable to automatically copy to clipboard.');
+      showMessage('Copy Failed', 'Unable to automatically copy to clipboard.');
     }
   };
 
@@ -181,7 +181,7 @@ export default function AdminAddDoctorScreen() {
     const clean = (slotToAdd || newSlotInput).trim();
     if (!clean) return;
     if (timeSlots.includes(clean)) {
-      Alert.alert('Duplicate Time', 'This time slot is already in the list.');
+      showMessage('Duplicate Time', 'This time slot is already in the list.');
       return;
     }
     setTimeSlots((prev) => [...prev, clean]);
@@ -238,19 +238,6 @@ export default function AdminAddDoctorScreen() {
     }
     if (isNaN(feeNum) || feeNum < 0) {
       errors.consultationFee = 'Consultation fee must be 0 or higher.';
-    }
-
-    if (latitude.trim()) {
-      const lat = parseFloat(latitude.trim());
-      if (isNaN(lat) || lat < -90 || lat > 90) {
-        errors.latitude = 'Latitude must be between -90 and 90.';
-      }
-    }
-    if (longitude.trim()) {
-      const lng = parseFloat(longitude.trim());
-      if (isNaN(lng) || lng < -180 || lng > 180) {
-        errors.longitude = 'Longitude must be between -180 and 180.';
-      }
     }
 
     setStepErrors(errors);
@@ -317,11 +304,6 @@ export default function AdminAddDoctorScreen() {
     const expNum = parseInt(yearsOfExperience, 10) || 0;
     const feeNum = parseInt(consultationFee, 10) || 0;
 
-    let latNum: number | undefined = undefined;
-    let lngNum: number | undefined = undefined;
-    if (latitude.trim()) latNum = parseFloat(latitude.trim());
-    if (longitude.trim()) lngNum = parseFloat(longitude.trim());
-
     setSubmitting(true);
 
     try {
@@ -339,8 +321,8 @@ export default function AdminAddDoctorScreen() {
         availableTimeSlots: timeSlots,
         biography: biography.trim(),
         location: location.trim(),
-        latitude: latNum,
-        longitude: lngNum,
+        latitude: pickedLocation?.latitude,
+        longitude: pickedLocation?.longitude,
         password: passwordMode === 'custom' ? customPassword.trim() : undefined,
       });
 
@@ -356,18 +338,18 @@ export default function AdminAddDoctorScreen() {
         });
         setShowSuccessModal(true);
       } else {
-        Alert.alert('Error', res.message || 'Failed to create doctor account.');
+        showMessage('Error', res.message || 'Failed to create doctor account.');
       }
     } catch (err: any) {
       const errMsg = err.message || 'Unable to create doctor profile.';
       if (errMsg.toLowerCase().includes('email already exists')) {
-        Alert.alert('Duplicate Email', 'An account with this email address already exists in MediHeal.');
+        showMessage('Duplicate Email', 'An account with this email address already exists in MediHeal.');
         setCurrentStep(1);
       } else if (errMsg.toLowerCase().includes('slmc number already exists')) {
-        Alert.alert('Duplicate SLMC', 'A doctor with this SLMC registration number is already registered.');
+        showMessage('Duplicate SLMC', 'A doctor with this SLMC registration number is already registered.');
         setCurrentStep(1);
       } else {
-        Alert.alert('Registration Failed', errMsg);
+        showMessage('Registration Failed', errMsg);
       }
     } finally {
       setSubmitting(false);
@@ -387,8 +369,7 @@ export default function AdminAddDoctorScreen() {
     setConsultationFee('2500');
     setBiography('');
     setLocation('');
-    setLatitude('');
-    setLongitude('');
+    setPickedLocation(null);
     setCustomPassword('');
     setPasswordMode('auto');
     setStepErrors({});
@@ -953,13 +934,17 @@ export default function AdminAddDoctorScreen() {
                   </View>
                 </View>
 
-                {/* Location Text & Coordinates */}
+                {/* Location: address field + map pin, kept in sync */}
                 <View style={styles.fieldGroup}>
                   <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>
-                    Location / City Area (Optional)
+                    Clinic Location (Optional)
                   </Text>
-                  <TextInput
-                    style={[
+                  <LocationPickerMap
+                    value={pickedLocation}
+                    onChange={setPickedLocation}
+                    address={location}
+                    onAddressChange={setLocation}
+                    inputStyle={[
                       styles.textInput,
                       {
                         backgroundColor: colors.surfaceSecondary,
@@ -967,51 +952,7 @@ export default function AdminAddDoctorScreen() {
                         borderColor: colors.border,
                       },
                     ]}
-                    placeholder="e.g. Colombo 07, Western Province"
-                    placeholderTextColor={colors.textMuted}
-                    value={location}
-                    onChangeText={setLocation}
                   />
-                </View>
-
-                <View style={styles.datesRow}>
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Latitude (Optional)</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        {
-                          backgroundColor: colors.surfaceSecondary,
-                          color: colors.textPrimary,
-                          borderColor: stepErrors.latitude ? colors.danger : colors.border,
-                        },
-                      ]}
-                      placeholder="e.g. 6.9271"
-                      placeholderTextColor={colors.textMuted}
-                      value={latitude}
-                      onChangeText={setLatitude}
-                      keyboardType="numeric"
-                    />
-                  </View>
-
-                  <View style={[styles.fieldGroup, { flex: 1 }]}>
-                    <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Longitude (Optional)</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        {
-                          backgroundColor: colors.surfaceSecondary,
-                          color: colors.textPrimary,
-                          borderColor: stepErrors.longitude ? colors.danger : colors.border,
-                        },
-                      ]}
-                      placeholder="e.g. 79.8612"
-                      placeholderTextColor={colors.textMuted}
-                      value={longitude}
-                      onChangeText={setLongitude}
-                      keyboardType="numeric"
-                    />
-                  </View>
                 </View>
               </View>
 
@@ -1540,7 +1481,7 @@ export default function AdminAddDoctorScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalPrimaryBtn, { backgroundColor: colors.textPrimary }]}
+                style={[styles.modalPrimaryBtn, { backgroundColor: colors.primary }]}
                 onPress={() => {
                   setShowSuccessModal(false);
                   router.replace('/(admin)/doctors');

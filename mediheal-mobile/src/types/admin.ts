@@ -67,8 +67,8 @@ export interface UpdateDoctorRequest {
   availableTimeSlots?: string[];
   biography?: string;
   location?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
   isAvailable?: boolean;
 }
 

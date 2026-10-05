@@ -8,9 +8,8 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  Alert,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { AppHeader } from '../../components/AppHeader';
 import { AdminDoctorCard } from '../../components/AdminDoctorCard';
@@ -24,6 +23,7 @@ import {
   updateDoctorStatus,
 } from '../../services/adminService';
 import { AdminDoctor } from '../../types/admin';
+import { confirmAction, showMessage } from '../../utils/dialogs';
 
 const STATUS_FILTERS = [
   { label: 'All Doctors', value: 'all' },
@@ -33,11 +33,25 @@ const STATUS_FILTERS = [
 
 export default function AdminDoctorsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ status?: string; specialization?: string }>();
   const { colors: themeColors, isDark } = useTheme();
 
   const [doctors, setDoctors] = useState<AdminDoctor[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(
+    STATUS_FILTERS.some((f) => f.value === params.status) ? (params.status as string) : 'all'
+  );
+  const [specializationFilter, setSpecializationFilter] = useState<string>(params.specialization || 'all');
+
+  // Keep filters in sync when navigated here again with different params
+  useEffect(() => {
+    if (params.status && STATUS_FILTERS.some((f) => f.value === params.status)) {
+      setStatusFilter(params.status);
+    }
+    if (params.specialization) {
+      setSpecializationFilter(params.specialization);
+    }
+  }, [params.status, params.specialization]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -84,36 +98,31 @@ export default function AdminDoctorsScreen() {
     const actionText = isUserActive ? 'Deactivate' : 'Reactivate';
     const doctorName = doc.userId?.fullName || 'this doctor';
 
-    Alert.alert(
-      `${actionText} Doctor Account`,
-      isUserActive
+    confirmAction({
+      title: `${actionText} Doctor Account`,
+      message: isUserActive
         ? `Deactivate ${doctorName}? Patients will no longer be able to book new appointments while the account is inactive.`
         : `Reactivate ${doctorName}? This will allow patients to view and book appointments again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: actionText,
-          style: isUserActive ? 'destructive' : 'default',
-          onPress: () => performToggleStatus(doc._id, !isUserActive),
-        },
-      ]
-    );
+      confirmText: actionText,
+      destructive: isUserActive,
+      onConfirm: () => performToggleStatus(doc._id, !isUserActive),
+    });
   };
 
   const performToggleStatus = async (doctorId: string, newActiveState: boolean) => {
     try {
       const res = await updateDoctorStatus(doctorId, { isActive: newActiveState });
       if (res && res.success) {
-        Alert.alert(
+        showMessage(
           'Status Updated',
           `Doctor account has been ${newActiveState ? 'reactivated' : 'deactivated'} successfully.`
         );
         fetchDoctors(true);
       } else {
-        Alert.alert('Error', res.message || 'Failed to update doctor status.');
+        showMessage('Error', res.message || 'Failed to update doctor status.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to update doctor status.');
+      showMessage('Error', err.message || 'Unable to update doctor status.');
     }
   };
 
@@ -121,11 +130,19 @@ export default function AdminDoctorsScreen() {
     return <LoadingView message="Loading doctor directory..." />;
   }
 
-  // Client-side filtering by status & search
+  const specializationOptions = Array.from(
+    new Set(doctors.map((d) => d.specialization?.trim()).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b));
+  if (specializationFilter !== 'all' && !specializationOptions.includes(specializationFilter)) {
+    specializationOptions.unshift(specializationFilter);
+  }
+
+  // Client-side filtering by status, specialization & search
   const filteredDoctors = doctors.filter((doc) => {
     const isUserActive = doc.userId?.isActive !== false;
     if (statusFilter === 'active' && !isUserActive) return false;
     if (statusFilter === 'inactive' && isUserActive) return false;
+    if (specializationFilter !== 'all' && doc.specialization?.trim() !== specializationFilter) return false;
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -221,6 +238,48 @@ export default function AdminDoctorsScreen() {
             })}
           </ScrollView>
         </View>
+
+        {/* Specialization Filter Chips */}
+        {specializationOptions.length > 0 && (
+          <View style={styles.filterWrap}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
+            >
+              {['all', ...specializationOptions].map((spec) => {
+                const isSelected = specializationFilter === spec;
+                return (
+                  <TouchableOpacity
+                    key={spec}
+                    style={[
+                      styles.filterChip,
+                      {
+                        backgroundColor: themeColors.card,
+                        borderColor: themeColors.border,
+                      },
+                      isSelected && {
+                        backgroundColor: themeColors.primaryLight,
+                        borderColor: themeColors.primary,
+                      },
+                    ]}
+                    onPress={() => setSpecializationFilter(spec)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.filterChipText,
+                        { color: isSelected ? themeColors.primaryDark : themeColors.textSecondary },
+                      ]}
+                    >
+                      {spec === 'all' ? 'All Specialties' : `🩺 ${spec}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Content */}
         {errorMsg ? (

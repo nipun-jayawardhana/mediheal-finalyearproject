@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  Alert,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -19,6 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { colors, spacing, borderRadius, typography, shadows } from '../../constants/theme';
 import { getAdminDoctors, updateDoctorStatus } from '../../services/adminService';
 import { AdminDoctor } from '../../types/admin';
+import { confirmAction, showMessage } from '../../utils/dialogs';
 
 export default function AdminDashboardScreen() {
   const router = useRouter();
@@ -29,6 +31,7 @@ export default function AdminDashboardScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [showSpecialties, setShowSpecialties] = useState<boolean>(false);
 
   const fetchDashboardData = useCallback(async (isRefresh: boolean = false) => {
     if (!isRefresh) setLoading(true);
@@ -60,18 +63,21 @@ export default function AdminDashboardScreen() {
     fetchDashboardData(true);
   };
 
-  const handleLogout = async () => {
-    Alert.alert('Logout', 'Are you sure you want to log out of Admin Portal?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        },
+  const handleLogout = () => {
+    confirmAction({
+      title: 'Logout',
+      message: 'Are you sure you want to log out of Admin Portal?',
+      confirmText: 'Log Out',
+      destructive: true,
+      onConfirm: async () => {
+        await logout();
+        router.replace('/(auth)/login');
       },
-    ]);
+    });
+  };
+
+  const openDoctorList = (params?: { status?: string; specialization?: string }) => {
+    router.push({ pathname: '/(admin)/doctors' as any, params });
   };
 
   const handleEditDoctor = (doc: AdminDoctor) => {
@@ -86,36 +92,46 @@ export default function AdminDashboardScreen() {
     const actionText = isUserActive ? 'Deactivate' : 'Reactivate';
     const doctorName = doc.userId?.fullName || 'this doctor';
 
-    Alert.alert(
-      `${actionText} Doctor Account`,
-      isUserActive
+    confirmAction({
+      title: `${actionText} Doctor Account`,
+      message: isUserActive
         ? `Deactivate ${doctorName}? Patients will no longer be able to book new appointments while the account is inactive.`
         : `Reactivate ${doctorName}? This will allow patients to view and book appointments again.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: actionText,
-          style: isUserActive ? 'destructive' : 'default',
-          onPress: async () => {
-            try {
-              const res = await updateDoctorStatus(doc._id, { isActive: !isUserActive });
-              if (res && res.success) {
-                Alert.alert(
-                  'Status Updated',
-                  `Doctor account has been ${!isUserActive ? 'reactivated' : 'deactivated'} successfully.`
-                );
-                fetchDashboardData(true);
-              } else {
-                Alert.alert('Error', res.message || 'Failed to update doctor status.');
-              }
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Unable to update status.');
-            }
-          },
-        },
-      ]
-    );
+      confirmText: actionText,
+      destructive: isUserActive,
+      onConfirm: async () => {
+        try {
+          const res = await updateDoctorStatus(doc._id, { isActive: !isUserActive });
+          if (res && res.success) {
+            showMessage(
+              'Status Updated',
+              `Doctor account has been ${!isUserActive ? 'reactivated' : 'deactivated'} successfully.`
+            );
+            fetchDashboardData(true);
+          } else {
+            showMessage('Error', res.message || 'Failed to update doctor status.');
+          }
+        } catch (err: any) {
+          showMessage('Error', err.message || 'Unable to update status.');
+        }
+      },
+    });
   };
+
+  // Doctor counts per specialization, most common first
+  const specialtyBreakdown = useMemo(() => {
+    const counts = new Map<string, { total: number; active: number }>();
+    doctors.forEach((d) => {
+      const name = d.specialization?.trim() || 'Unspecified';
+      const entry = counts.get(name) || { total: 0, active: 0 };
+      entry.total += 1;
+      if (d.userId?.isActive !== false) entry.active += 1;
+      counts.set(name, entry);
+    });
+    return Array.from(counts.entries())
+      .map(([name, c]) => ({ name, ...c }))
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  }, [doctors]);
 
   if (loading && doctors.length === 0) {
     return <LoadingView message="Loading admin dashboard..." />;
@@ -125,7 +141,7 @@ export default function AdminDashboardScreen() {
   const totalDoctors = doctors.length;
   const activeDoctors = doctors.filter((d) => d.userId?.isActive !== false).length;
   const inactiveDoctors = totalDoctors - activeDoctors;
-  const distinctSpecializations = new Set(doctors.map((d) => d.specialization)).size;
+  const distinctSpecializations = specialtyBreakdown.length;
 
   return (
     <ScreenContainer backgroundColor={themeColors.background}>
@@ -226,7 +242,7 @@ export default function AdminDashboardScreen() {
               styles.statCard,
               { backgroundColor: themeColors.card, borderColor: themeColors.border },
             ]}
-            onPress={() => router.push('/(admin)/doctors' as any)}
+            onPress={() => openDoctorList({ status: 'active' })}
             activeOpacity={0.8}
           >
             <Text style={[styles.statVal, { color: themeColors.success }]}>{activeDoctors}</Text>
@@ -238,22 +254,24 @@ export default function AdminDashboardScreen() {
               styles.statCard,
               { backgroundColor: themeColors.card, borderColor: themeColors.border },
             ]}
-            onPress={() => router.push('/(admin)/doctors' as any)}
+            onPress={() => openDoctorList({ status: 'inactive' })}
             activeOpacity={0.8}
           >
             <Text style={[styles.statVal, { color: themeColors.danger }]}>{inactiveDoctors}</Text>
             <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Inactive</Text>
           </TouchableOpacity>
 
-          <View
+          <TouchableOpacity
             style={[
               styles.statCard,
               { backgroundColor: themeColors.card, borderColor: themeColors.border },
             ]}
+            onPress={() => setShowSpecialties(true)}
+            activeOpacity={0.8}
           >
             <Text style={[styles.statVal, { color: themeColors.accent }]}>{distinctSpecializations}</Text>
             <Text style={[styles.statLbl, { color: themeColors.textSecondary }]}>Specialties</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Quick Action Navigation Buttons */}
@@ -329,6 +347,71 @@ export default function AdminDashboardScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Specialties Breakdown Sheet */}
+      <Modal
+        visible={showSpecialties}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSpecialties(false)}
+      >
+        <Pressable style={styles.sheetOverlay} onPress={() => setShowSpecialties(false)}>
+          <Pressable
+            style={[
+              styles.sheetCard,
+              { backgroundColor: themeColors.card, borderColor: themeColors.border },
+            ]}
+          >
+            <View style={styles.sheetHeaderRow}>
+              <Text style={[styles.sheetTitle, { color: themeColors.textPrimary }]}>
+                Specialties ({distinctSpecializations})
+              </Text>
+              <TouchableOpacity onPress={() => setShowSpecialties(false)}>
+                <Text style={[styles.sheetClose, { color: themeColors.textMuted }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.sheetSubtitle, { color: themeColors.textMuted }]}>
+              Tap a specialty to view its doctors
+            </Text>
+
+            {specialtyBreakdown.length === 0 ? (
+              <Text style={[styles.emptyText, { color: themeColors.textMuted }]}>
+                No specialties yet. Register a doctor to get started.
+              </Text>
+            ) : (
+              <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
+                {specialtyBreakdown.map((spec) => (
+                  <TouchableOpacity
+                    key={spec.name}
+                    style={[styles.specRow, { borderBottomColor: themeColors.border }]}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setShowSpecialties(false);
+                      openDoctorList({ specialization: spec.name });
+                    }}
+                  >
+                    <View style={styles.actionTextCol}>
+                      <Text style={[styles.specName, { color: themeColors.textPrimary }]}>
+                        🩺 {spec.name}
+                      </Text>
+                      <Text style={[styles.specMeta, { color: themeColors.textMuted }]}>
+                        {spec.active} active
+                        {spec.total - spec.active > 0 ? ` · ${spec.total - spec.active} inactive` : ''}
+                      </Text>
+                    </View>
+                    <View style={[styles.specCountPill, { backgroundColor: themeColors.primaryLight }]}>
+                      <Text style={[styles.specCountText, { color: themeColors.primaryDark }]}>
+                        {spec.total}
+                      </Text>
+                    </View>
+                    <Text style={[styles.actionArrow, { color: themeColors.primary }]}>→</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -506,5 +589,72 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textMuted,
     fontStyle: 'italic',
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    padding: spacing.md,
+  },
+  sheetCard: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    maxHeight: '75%',
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    ...shadows.card,
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sheetTitle: {
+    ...typography.subheader,
+    fontSize: 17,
+  },
+  sheetClose: {
+    fontSize: 16,
+    fontWeight: '900',
+    paddingHorizontal: spacing.xs,
+  },
+  sheetSubtitle: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+    marginBottom: spacing.sm,
+  },
+  sheetList: {
+    flexGrow: 0,
+  },
+  specRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    gap: spacing.sm,
+  },
+  specName: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  specMeta: {
+    ...typography.caption,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  specCountPill: {
+    minWidth: 28,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.pill,
+    alignItems: 'center',
+  },
+  specCountText: {
+    ...typography.caption,
+    fontSize: 12,
+    fontWeight: '800',
   },
 });

@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -18,6 +17,9 @@ import { spacing, borderRadius, typography, lightColors } from '../../constants/
 import { useTheme } from '../../context/ThemeContext';
 import { getAdminDoctorById, updateDoctor } from '../../services/adminService';
 import { AdminDoctor } from '../../types/admin';
+import { LocationPickerMap, PickedCoordinate } from '../../components/LocationPickerMap';
+import { isValidCoordinate } from '../../utils/locationUtils';
+import { showMessage } from '../../utils/dialogs';
 
 const COMMON_SPECIALIZATIONS = [
   'General Physician',
@@ -54,8 +56,7 @@ export default function AdminEditDoctorScreen() {
   const [newSlotInput, setNewSlotInput] = useState<string>('');
   const [biography, setBiography] = useState<string>('');
   const [location, setLocation] = useState<string>('');
-  const [latitude, setLatitude] = useState<string>('');
-  const [longitude, setLongitude] = useState<string>('');
+  const [pickedLocation, setPickedLocation] = useState<PickedCoordinate | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -88,8 +89,11 @@ export default function AdminEditDoctorScreen() {
         setTimeSlots(doc.availableTimeSlots || []);
         setBiography(doc.biography || '');
         setLocation(doc.location || '');
-        setLatitude(doc.latitude !== undefined && doc.latitude !== null ? String(doc.latitude) : '');
-        setLongitude(doc.longitude !== undefined && doc.longitude !== null ? String(doc.longitude) : '');
+        setPickedLocation(
+          isValidCoordinate(doc.latitude, doc.longitude)
+            ? { latitude: Number(doc.latitude), longitude: Number(doc.longitude) }
+            : null
+        );
       } else {
         setErrorMsg('Doctor profile not found.');
       }
@@ -120,7 +124,7 @@ export default function AdminEditDoctorScreen() {
     const clean = newSlotInput.trim();
     if (!clean) return;
     if (timeSlots.includes(clean)) {
-      Alert.alert('Duplicate Time', 'This time slot is already added.');
+      showMessage('Duplicate Time', 'This time slot is already added.');
       return;
     }
     setTimeSlots((prev) => [...prev, clean]);
@@ -142,7 +146,7 @@ export default function AdminEditDoctorScreen() {
     const cleanHosp = hospital.trim();
 
     if (!cleanName || !cleanEmail || !cleanPhone || !cleanSlmc || !cleanSpec || !cleanHosp) {
-      Alert.alert('Validation Error', 'Please complete all required fields (*).');
+      showMessage('Validation Error', 'Please complete all required fields (*).');
       return;
     }
 
@@ -150,32 +154,13 @@ export default function AdminEditDoctorScreen() {
     const feeNum = parseInt(consultationFee, 10);
 
     if (isNaN(expNum) || expNum < 0) {
-      Alert.alert('Validation Error', 'Years of experience must be 0 or greater.');
+      showMessage('Validation Error', 'Years of experience must be 0 or greater.');
       return;
     }
 
     if (isNaN(feeNum) || feeNum < 0) {
-      Alert.alert('Validation Error', 'Consultation fee must be 0 or greater.');
+      showMessage('Validation Error', 'Consultation fee must be 0 or greater.');
       return;
-    }
-
-    let latNum: number | undefined = undefined;
-    let lngNum: number | undefined = undefined;
-
-    if (latitude.trim()) {
-      latNum = parseFloat(latitude.trim());
-      if (isNaN(latNum) || latNum < -90 || latNum > 90) {
-        Alert.alert('Validation Error', 'Latitude must be between -90 and 90.');
-        return;
-      }
-    }
-
-    if (longitude.trim()) {
-      lngNum = parseFloat(longitude.trim());
-      if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
-        Alert.alert('Validation Error', 'Longitude must be between -180 and 180.');
-        return;
-      }
     }
 
     setSubmitting(true);
@@ -195,27 +180,28 @@ export default function AdminEditDoctorScreen() {
         availableTimeSlots: timeSlots,
         biography: biography.trim(),
         location: location.trim(),
-        latitude: latNum,
-        longitude: lngNum,
+        // null tells the backend to remove a previously saved pin
+        latitude: pickedLocation ? pickedLocation.latitude : null,
+        longitude: pickedLocation ? pickedLocation.longitude : null,
       });
 
       if (res && res.success) {
-        Alert.alert(
+        showMessage(
           'Doctor Updated',
           `Doctor details for ${cleanName} updated successfully.`,
-          [{ text: 'OK', onPress: () => router.back() }]
+          () => router.back()
         );
       } else {
-        Alert.alert('Error', res.message || 'Failed to update doctor profile.');
+        showMessage('Error', res.message || 'Failed to update doctor profile.');
       }
     } catch (err: any) {
       const errMsg = err.message || 'Unable to update doctor profile.';
       if (errMsg.toLowerCase().includes('email already exists')) {
-        Alert.alert('Duplicate Email', 'Another user account with this email address already exists.');
+        showMessage('Duplicate Email', 'Another user account with this email address already exists.');
       } else if (errMsg.toLowerCase().includes('slmc number already exists')) {
-        Alert.alert('Duplicate SLMC', 'Another doctor with this SLMC registration number already exists.');
+        showMessage('Duplicate SLMC', 'Another doctor with this SLMC registration number already exists.');
       } else {
-        Alert.alert('Update Failed', errMsg);
+        showMessage('Update Failed', errMsg);
       }
     } finally {
       setSubmitting(false);
@@ -320,43 +306,16 @@ export default function AdminEditDoctorScreen() {
           />
         </View>
 
-        {/* Location Text */}
+        {/* Location: address field + map pin, kept in sync */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Location / City Address</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="e.g. Colombo 10"
-            placeholderTextColor={themeColors.textMuted}
-            value={location}
-            onChangeText={setLocation}
+          <Text style={styles.fieldLabel}>Clinic Location</Text>
+          <LocationPickerMap
+            value={pickedLocation}
+            onChange={setPickedLocation}
+            address={location}
+            onAddressChange={setLocation}
+            inputStyle={styles.textInput}
           />
-        </View>
-
-        {/* GPS Coordinates (Latitude & Longitude) */}
-        <View style={styles.datesRow}>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>Latitude (-90 to 90)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. 6.9271"
-              placeholderTextColor={themeColors.textMuted}
-              value={latitude}
-              onChangeText={setLatitude}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <Text style={styles.fieldLabel}>Longitude (-180 to 180)</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. 79.8612"
-              placeholderTextColor={themeColors.textMuted}
-              value={longitude}
-              onChangeText={setLongitude}
-              keyboardType="numeric"
-            />
-          </View>
         </View>
 
         {/* Experience & Fee */}
