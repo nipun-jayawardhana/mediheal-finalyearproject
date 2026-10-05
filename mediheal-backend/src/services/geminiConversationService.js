@@ -11,7 +11,7 @@
  * Note: Gemini NEVER provides medical diagnosis, prescription, or final specialist recommendations.
  */
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const { callGemini } = require('./geminiClient');
 
 /**
  * Helper to parse and extract JSON object from raw response text
@@ -576,7 +576,6 @@ const generateFollowUp = async (arg1 = [], conversation = [], questionCount = 0)
     count = Number(questionCount) || 0;
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
   const configuredModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
   const currentCount = count || conv.length || 0;
 
@@ -688,34 +687,13 @@ Output JSON:`;
     },
   };
 
-  const endpointUrl = `${GEMINI_API_URL}/${configuredModel}:generateContent?key=${apiKey}`;
-
-  // PRIMARY: Call Gemini
+  // PRIMARY: Call Gemini (retries transient failures within the overall 10s budget)
   try {
-    if (!apiKey) {
-      throw new Error('GEMINI_API_KEY is not configured');
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-    let response;
-    try {
-      response = await fetch(endpointUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      throw new Error(`Gemini API HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await callGemini(payload, {
+      model: configuredModel,
+      budgetMs: 10000,
+      tag: '[FOLLOWUP AI]',
+    });
     const candidateContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!candidateContent) {
@@ -774,49 +752,38 @@ Generate ONE different, clinically relevant follow-up question targeting missing
         generationConfig: { temperature: 0.1, maxOutputTokens: 1000, responseMimeType: 'application/json' },
       };
 
-      const retryController = new AbortController();
-      const retryTimeoutId = setTimeout(() => retryController.abort(), 8000);
-      try {
-        const retryRes = await fetch(endpointUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(retryPayload),
-          signal: retryController.signal,
+      const retryData = await callGemini(retryPayload, {
+        model: configuredModel,
+        budgetMs: 8000,
+        tag: '[FOLLOWUP REGENERATION]',
+      });
+      const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
+      const retryParsed = parseJSONFromText(retryText);
+
+      if (retryParsed && retryParsed.status === 'ask' && retryParsed.question) {
+        let retryQ = retryParsed.question.trim();
+        if (retryQ.length > 150) retryQ = retryQ.substring(0, 147) + '...';
+
+        const retryVal = validateFollowUpQuestion({
+          question: retryQ,
+          canonicalCase,
+          previousQuestions,
+          previousAnswers,
         });
 
-        if (retryRes.ok) {
-          const retryData = await retryRes.json();
-          const retryText = retryData.candidates?.[0]?.content?.parts?.[0]?.text;
-          const retryParsed = parseJSONFromText(retryText);
-
-          if (retryParsed && retryParsed.status === 'ask' && retryParsed.question) {
-            let retryQ = retryParsed.question.trim();
-            if (retryQ.length > 150) retryQ = retryQ.substring(0, 147) + '...';
-
-            const retryVal = validateFollowUpQuestion({
-              question: retryQ,
-              canonicalCase,
-              previousQuestions,
-              previousAnswers,
-            });
-
-            console.log(`[FOLLOWUP VALIDATION][RETRY] accepted=${retryVal.accepted} reason=${retryVal.reason}`);
-            if (retryVal.accepted) {
-              console.log('[FOLLOWUP AI]\nProvider: Gemini\nStatus: success');
-              return {
-                status: 'ask',
-                question: retryQ,
-                concept: retryParsed.field || retryParsed.concept || '',
-                field: retryParsed.field || 'follow_up',
-                quickOptions: Array.isArray(retryParsed.quickOptions)
-                  ? retryParsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
-                  : undefined,
-              };
-            }
-          }
+        console.log(`[FOLLOWUP VALIDATION][RETRY] accepted=${retryVal.accepted} reason=${retryVal.reason}`);
+        if (retryVal.accepted) {
+          console.log('[FOLLOWUP AI]\nProvider: Gemini\nStatus: success');
+          return {
+            status: 'ask',
+            question: retryQ,
+            concept: retryParsed.field || retryParsed.concept || '',
+            field: retryParsed.field || 'follow_up',
+            quickOptions: Array.isArray(retryParsed.quickOptions)
+              ? retryParsed.quickOptions.filter((o) => typeof o === 'string' && o.length < 30).slice(0, 4)
+              : undefined,
+          };
         }
-      } finally {
-        clearTimeout(retryTimeoutId);
       }
 
       throw new Error(`Gemini candidate question failed clinical validation (${val.reason})`);

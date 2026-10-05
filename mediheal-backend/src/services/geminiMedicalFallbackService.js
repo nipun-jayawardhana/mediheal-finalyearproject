@@ -11,7 +11,7 @@
  * - Returns structured output with analysisSource = 'gemini-secondary' and modelName
  */
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const { callGemini } = require('./geminiClient');
 const GEMINI_MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
 const { normalizeSpecialist } = require('./med42Service');
 
@@ -142,32 +142,26 @@ JSON Output:`;
     },
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), maxTimeoutMs);
-
   try {
-    const url = `${GEMINI_API_URL}/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestPayload),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (response.status === 429) {
-      console.warn(`${tag} Quota unavailable (429) — using safe fallback`);
-      throw new Error('Gemini API rate limit exceeded (429)');
+    let data;
+    try {
+      data = await callGemini(requestPayload, {
+        model: GEMINI_MODEL_NAME,
+        budgetMs: maxTimeoutMs,
+        tag,
+      });
+    } catch (err) {
+      if (err.status === 429) {
+        console.warn(`${tag} Quota unavailable (429) — using safe fallback`);
+        throw new Error('Gemini API rate limit exceeded (429)');
+      }
+      if (err.status) {
+        console.warn(`${tag} Gemini HTTP ${err.status}: ${(err.body || '').substring(0, 100)}`);
+        throw new Error(`Gemini HTTP ${err.status}`);
+      }
+      throw err;
     }
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => '');
-      console.warn(`${tag} Gemini HTTP ${response.status}: ${errText.substring(0, 100)}`);
-      throw new Error(`Gemini HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
     const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     if (!rawText) {
       throw new Error('Empty response payload from Gemini secondary');
@@ -225,9 +219,8 @@ JSON Output:`;
       modelName: GEMINI_MODEL_NAME,
     };
   } catch (err) {
-    clearTimeout(timeoutId);
     const elapsed = Date.now() - startedAt;
-    if (err.name === 'AbortError') {
+    if (err.isTimeout) {
       console.warn(`${tag} Secondary analysis timed out after ${elapsed}ms`);
       throw new Error(`Gemini secondary analysis timed out after ${elapsed}ms`);
     }

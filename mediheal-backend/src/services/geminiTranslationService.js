@@ -11,7 +11,7 @@
  * - Quota (429) & timeout protection returning safe fallbacks
  */
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const { callGemini } = require('./geminiClient');
 const clinicalCaseService = require('./clinicalCaseService');
 
 /**
@@ -76,38 +76,24 @@ const callGeminiJSONApi = async (systemPrompt, userPrompt, timeoutMs = 8000) => 
     },
   };
 
-  const endpointUrl = `${GEMINI_API_URL}/${configuredModel}:generateContent?key=${apiKey}`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const response = await fetch(endpointUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+    const data = await callGemini(payload, {
+      model: configuredModel,
+      budgetMs: timeoutMs,
+      tag: '[GEMINI TRANSLATION]',
     });
-
-    clearTimeout(timeoutId);
-
-    if (response.status === 429) {
-      console.warn('⚠️ [GEMINI TRANSLATION] Daily/Rate Quota 429 hit. Using canonical fallback.');
-      return null;
-    }
-
-    if (!response.ok) {
-      console.warn(`⚠️ [GEMINI TRANSLATION] HTTP ${response.status} from model ${configuredModel}`);
-      return null;
-    }
-
-    const data = await response.json();
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!candidateText) return null;
 
     return parseJSONFromText(candidateText);
   } catch (err) {
-    clearTimeout(timeoutId);
-    console.warn(`⚠️ [GEMINI TRANSLATION] Error/Timeout (${timeoutMs}ms): ${err.message}`);
+    if (err.status === 429) {
+      console.warn('⚠️ [GEMINI TRANSLATION] Daily/Rate Quota 429 hit. Using canonical fallback.');
+    } else if (err.status) {
+      console.warn(`⚠️ [GEMINI TRANSLATION] HTTP ${err.status} from model ${configuredModel}`);
+    } else {
+      console.warn(`⚠️ [GEMINI TRANSLATION] Error/Timeout (${timeoutMs}ms): ${err.message}`);
+    }
     return null;
   }
 };
