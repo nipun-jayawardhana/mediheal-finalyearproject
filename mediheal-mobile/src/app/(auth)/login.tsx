@@ -11,7 +11,14 @@ import { useAuth } from '../../context/AuthContext';
 import { colors, spacing, typography, borderRadius, shadows } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 
-type LoginRole = 'patient' | 'doctor' | 'caregiver';
+type LoginRole = 'patient' | 'doctor' | 'caregiver' | 'admin';
+
+const ROLE_OPTIONS: { value: LoginRole; label: string; icon: string }[] = [
+  { value: 'patient', label: 'Patient', icon: '👤' },
+  { value: 'doctor', label: 'Doctor', icon: '👨‍⚕️' },
+  { value: 'caregiver', label: 'Caregiver', icon: '🤝' },
+  { value: 'admin', label: 'Admin', icon: '🛡️' },
+];
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -127,71 +134,35 @@ export default function LoginScreen() {
                 { backgroundColor: themeColors.surfaceSecondary, borderColor: themeColors.border },
               ]}
             >
-              <TouchableOpacity
-                style={[
-                  styles.roleToggleBtn,
-                  selectedRole === 'patient' && [
-                    styles.roleToggleBtnActive,
-                    { backgroundColor: themeColors.primary },
-                  ],
-                ]}
-                onPress={() => setSelectedRole('patient')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.roleToggleBtnText,
-                    { color: themeColors.textSecondary },
-                    selectedRole === 'patient' && styles.roleToggleBtnTextActive,
-                  ]}
-                >
-                  👤 Patient
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.roleToggleBtn,
-                  selectedRole === 'doctor' && [
-                    styles.roleToggleBtnActive,
-                    { backgroundColor: themeColors.primary },
-                  ],
-                ]}
-                onPress={() => setSelectedRole('doctor')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.roleToggleBtnText,
-                    { color: themeColors.textSecondary },
-                    selectedRole === 'doctor' && styles.roleToggleBtnTextActive,
-                  ]}
-                >
-                  👨‍⚕️ Doctor
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.roleToggleBtn,
-                  selectedRole === 'caregiver' && [
-                    styles.roleToggleBtnActive,
-                    { backgroundColor: themeColors.primary },
-                  ],
-                ]}
-                onPress={() => setSelectedRole('caregiver')}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.roleToggleBtnText,
-                    { color: themeColors.textSecondary },
-                    selectedRole === 'caregiver' && styles.roleToggleBtnTextActive,
-                  ]}
-                >
-                  🤝 Caregiver
-                </Text>
-              </TouchableOpacity>
+              {ROLE_OPTIONS.map((option) => {
+                const isActive = selectedRole === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.roleToggleBtn,
+                      isActive && [styles.roleToggleBtnActive, { backgroundColor: themeColors.primary }],
+                    ]}
+                    onPress={() => setSelectedRole(option.value)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={`Sign in as ${option.label}`}
+                  >
+                    <Text style={styles.roleToggleIcon}>{option.icon}</Text>
+                    <Text
+                      style={[
+                        styles.roleToggleBtnText,
+                        { color: themeColors.textSecondary },
+                        isActive && styles.roleToggleBtnTextActive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -347,10 +318,15 @@ const styles = StyleSheet.create({
   },
   roleToggleBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     borderRadius: borderRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  roleToggleIcon: {
+    fontSize: 18,
+    marginBottom: 2,
   },
   roleToggleBtnActive: {
     ...shadows.card,
