@@ -388,6 +388,71 @@ Output JSON:`;
 };
 
 /**
+ * Translates the pre-analysis symptom summary into target language for display only.
+ * Canonical English summary fields are left untouched for Med42 analysis.
+ */
+const translateSymptomSummary = async (summary, targetLanguage = 'en') => {
+  const toArr = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()) : []);
+  const positives = toArr(summary?.positiveSymptoms).length > 0 ? toArr(summary.positiveSymptoms) : toArr(summary?.symptoms);
+  const rawDuration = summary?.duration && summary.duration !== 'unspecified' ? summary.duration : '';
+  const canonical = {
+    displayPositiveSymptoms: positives,
+    displayNegativeFindings: toArr(summary?.negativeFindings),
+    displayContext: toArr(summary?.context),
+    displayAdditionalContext: toArr(summary?.additionalContext),
+    displayDuration: rawDuration,
+  };
+
+  if (targetLanguage === 'en' || !targetLanguage || !summary) {
+    return canonical;
+  }
+
+  const langName = targetLanguage === 'si' ? 'Sinhala' : targetLanguage === 'ta' ? 'Tamil' : targetLanguage;
+
+  const systemPrompt = `You are MediHeal's medical translation mediator for elderly Sri Lankan patients.
+Translate the provided symptom summary into clear, simple, natural ${langName}.
+
+STRICT RULES:
+- Translate every array item one-to-one. Keep the same number of items and the same order.
+- Translate strictly into ${langName} ONLY. Do NOT append English in parentheses.
+- Text that is already in ${langName} must be kept as-is.
+- Do NOT add, remove, or reinterpret any symptom.
+- "displayDuration": translated duration string, or "" if the input is empty.
+- Do NOT alter any JSON keys.
+
+Respond strictly with JSON:
+{
+  "displayPositiveSymptoms": ["..."],
+  "displayNegativeFindings": ["..."],
+  "displayContext": ["..."],
+  "displayAdditionalContext": ["..."],
+  "displayDuration": "..."
+}`;
+
+  const userPrompt = `Target Language: ${langName} (${targetLanguage})
+Input Canonical English Summary:
+${JSON.stringify(canonical, null, 2)}
+
+Output JSON:`;
+
+  const parsed = await callGeminiJSONApi(systemPrompt, userPrompt, 7000);
+  if (!parsed) return canonical;
+
+  const pick = (key) =>
+    Array.isArray(parsed[key]) && parsed[key].length === canonical[key].length ? parsed[key] : canonical[key];
+
+  return {
+    displayPositiveSymptoms: pick('displayPositiveSymptoms'),
+    displayNegativeFindings: pick('displayNegativeFindings'),
+    displayContext: pick('displayContext'),
+    displayAdditionalContext: pick('displayAdditionalContext'),
+    displayDuration: rawDuration && typeof parsed.displayDuration === 'string' && parsed.displayDuration.trim()
+      ? parsed.displayDuration.trim()
+      : rawDuration,
+  };
+};
+
+/**
  * Deterministically normalizes common Sinhala/Tamil follow-up questions to canonical English.
  */
 const normalizeQuestionTextToEnglish = (questionText = '') => {
@@ -460,5 +525,6 @@ module.exports = {
   translateInputToCanonicalEnglish,
   translateFollowUpQuestion,
   translateAnalysisResult,
+  translateSymptomSummary,
   normalizeQuestionTextToEnglish,
 };

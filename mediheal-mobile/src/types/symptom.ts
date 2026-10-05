@@ -126,6 +126,14 @@ export interface SymptomSummaryData {
   duration: string;
   severity: SeverityLevel | null;
   additionalContext: string[];
+  // Localized display-only copies (canonical fields above remain English for analysis)
+  display?: {
+    displayPositiveSymptoms?: string[];
+    displayNegativeFindings?: string[];
+    displayContext?: string[];
+    displayAdditionalContext?: string[];
+    displayDuration?: string;
+  };
 }
 
 export interface SymptomFollowUpResponseData {

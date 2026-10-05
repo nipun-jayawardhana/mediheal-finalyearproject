@@ -753,6 +753,11 @@ const handleFollowUp = async (req, res, next) => {
       console.log(`[FOLLOWUP STORED SEMANTICS]\nDisplay question: "${result.displayQuestion}"\nCanonical question: "${result.canonicalQuestion}"\nClinical concept: "${result.clinicalConcept}"`);
     }
 
+    // Translate summary into patient target language for display (canonical fields stay English for Med42)
+    if (result && result.status === 'complete' && result.summary && targetLang !== 'en') {
+      result.summary.display = await geminiTranslationService.translateSymptomSummary(result.summary, targetLang);
+    }
+
     // Attach active canonical case state
     result.canonicalCase = {
       symptoms: activeCase.positiveSymptoms,

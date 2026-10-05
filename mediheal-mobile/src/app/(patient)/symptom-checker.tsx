@@ -404,7 +404,7 @@ export default function SymptomCheckerScreen() {
     setErrorMsg('');
     setIsAnalyzing(true);
     setLoading(true);
-    setLoadingText('Analyzing symptoms with Med42...');
+    setLoadingText(t('analyzingSymptomsLoading'));
 
     try {
       const res = await analyzeSymptomsApi({
@@ -427,15 +427,31 @@ export default function SymptomCheckerScreen() {
         router.replace(`/analysis-result?id=${encodeURIComponent(targetId)}`);
       } else {
         console.error(`[SYMPTOM CLIENT][${reqId}] ERROR: Successful analyze response missing _id`);
-        setErrorMsg('Unexpected response from symptom analysis service');
+        setErrorMsg(t('analysisUnexpectedResponse'));
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Symptom analysis failed. Please try again.');
+      setErrorMsg(language === 'en' && err.message ? err.message : t('analysisFailedTryAgain'));
     } finally {
       setLoading(false);
       setIsAnalyzing(false);
     }
   };
+
+  // Localized summary values for display (falls back to canonical English when translation unavailable)
+  const summaryDisplay = summaryData?.display;
+  const pickDisplayList = (localized: string[] | undefined, canonical: string[] | undefined): string[] =>
+    localized && localized.length > 0 ? localized : canonical || [];
+  const displayPositiveSymptoms = pickDisplayList(
+    summaryDisplay?.displayPositiveSymptoms,
+    summaryData?.positiveSymptoms && summaryData.positiveSymptoms.length > 0 ? summaryData.positiveSymptoms : summaryData?.symptoms
+  );
+  const displayNegativeFindings = pickDisplayList(summaryDisplay?.displayNegativeFindings, summaryData?.negativeFindings);
+  const displayContext = pickDisplayList(summaryDisplay?.displayContext, summaryData?.context);
+  const displayAdditionalContext = pickDisplayList(summaryDisplay?.displayAdditionalContext, summaryData?.additionalContext);
+  const displayDuration =
+    summaryData?.duration && summaryData.duration !== 'unspecified'
+      ? summaryDisplay?.displayDuration || summaryData.duration
+      : t('unspecified');
 
   return (
     <ScreenContainer scrollable backgroundColor={themeColors.background}>
@@ -811,9 +827,9 @@ export default function SymptomCheckerScreen() {
             </View>
 
             <View style={styles.summarySection}>
-              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>POSITIVE SYMPTOMS:</Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('positiveSymptomsLabel')}:</Text>
               <View style={styles.chipsContainer}>
-                {(summaryData.positiveSymptoms && summaryData.positiveSymptoms.length > 0 ? summaryData.positiveSymptoms : (summaryData.symptoms || [])).map((s, idx) => (
+                {displayPositiveSymptoms.map((s, idx) => (
                   <View
                     key={idx}
                     style={[
@@ -830,13 +846,13 @@ export default function SymptomCheckerScreen() {
               </View>
             </View>
 
-            {summaryData.negativeFindings && summaryData.negativeFindings.length > 0 && (
+            {displayNegativeFindings.length > 0 && (
               <View style={styles.summarySection}>
                 <Text style={[styles.summaryLabel, { color: isDark ? '#FCA5A5' : '#C62828' }]}>
-                  NEGATIVE FINDINGS (DENIED):
+                  {t('negativeFindingsLabel')}:
                 </Text>
                 <View style={styles.chipsContainer}>
-                  {summaryData.negativeFindings.map((neg, idx) => (
+                  {displayNegativeFindings.map((neg, idx) => (
                     <View
                       key={idx}
                       style={[
@@ -854,13 +870,13 @@ export default function SymptomCheckerScreen() {
               </View>
             )}
 
-            {summaryData.context && summaryData.context.length > 0 && (
+            {displayContext.length > 0 && (
               <View style={styles.summarySection}>
                 <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>
-                  CONTEXT / TRIGGERS:
+                  {t('contextTriggersLabel')}:
                 </Text>
                 <View style={styles.chipsContainer}>
-                  {summaryData.context.map((ctx, idx) => (
+                  {displayContext.map((ctx, idx) => (
                     <View
                       key={idx}
                       style={[
@@ -881,7 +897,7 @@ export default function SymptomCheckerScreen() {
             <View style={styles.summaryRow}>
               <View style={styles.summaryCol}>
                 <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('duration')}:</Text>
-                <Text style={[styles.summaryVal, { color: themeColors.textPrimary }]}>{summaryData.duration || t('unspecified') || 'Unspecified'}</Text>
+                <Text style={[styles.summaryVal, { color: themeColors.textPrimary }]}>{displayDuration}</Text>
               </View>
 
               <View style={styles.summaryCol}>
@@ -900,10 +916,10 @@ export default function SymptomCheckerScreen() {
               </View>
             </View>
 
-            {summaryData.additionalContext && summaryData.additionalContext.length > 0 && (
+            {displayAdditionalContext.length > 0 && (
               <View style={styles.summarySection}>
                 <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>{t('additionalNotes')}:</Text>
-                {summaryData.additionalContext.map((note, nIdx) => (
+                {displayAdditionalContext.map((note, nIdx) => (
                   <Text key={nIdx} style={[styles.summaryNoteText, { color: themeColors.textSecondary }]}>• {note}</Text>
                 ))}
               </View>
