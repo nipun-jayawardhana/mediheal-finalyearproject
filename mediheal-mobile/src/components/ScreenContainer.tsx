@@ -16,6 +16,7 @@ interface ScreenContainerProps {
   style?: ViewStyle;
   contentContainerStyle?: ViewStyle;
   backgroundColor?: string;
+  scrollRef?: React.Ref<ScrollView>;
 }
 
 export const ScreenContainer: React.FC<ScreenContainerProps> = ({
@@ -24,6 +25,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   style,
   contentContainerStyle,
   backgroundColor,
+  scrollRef,
 }) => {
   const { colors: themeColors, isDark } = useTheme();
   const effectiveBg = backgroundColor || themeColors.background;
@@ -33,6 +35,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={effectiveBg} />
       {scrollable ? (
         <ScrollView
+          ref={scrollRef}
           style={[styles.container, style]}
           contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
           showsVerticalScrollIndicator={false}

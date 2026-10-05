@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../components/ScreenContainer';
@@ -42,6 +43,7 @@ export default function SymptomCheckerScreen() {
   const { user } = useAuth();
   const { language, t } = useLanguage();
   const { colors: themeColors, isDark } = useTheme();
+  const scrollRef = useRef<ScrollView>(null);
 
   // Step Mode: 'initial' | 'conversing' | 'summary'
   const [stepMode, setStepMode] = useState<'initial' | 'conversing' | 'summary'>('initial');
@@ -97,6 +99,20 @@ export default function SymptomCheckerScreen() {
       }
     },
   });
+
+  // Keep the active follow-up question in view as the conversation grows
+  useEffect(() => {
+    if (stepMode !== 'conversing') return;
+    const timer = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+    return () => clearTimeout(timer);
+  }, [stepMode, conversation.length, currentQuestion, loading]);
+
+  // Bring the summary card and error messages (rendered at top) into view
+  useEffect(() => {
+    if (stepMode === 'summary' || errorMsg) {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [stepMode, errorMsg]);
 
   const handleToggleMic = () => {
     if (isListening) {
@@ -155,11 +171,11 @@ export default function SymptomCheckerScreen() {
     const clean = symptomInput.trim();
 
     if (!clean) {
-      setInputError('Please type a symptom name to add');
+      setInputError(t('typeSymptomToAdd'));
       return;
     }
     if (symptomsList.length >= 20) {
-      setInputError('Maximum 20 symptoms allowed per analysis request');
+      setInputError(t('maxSymptomsReached'));
       return;
     }
 
@@ -171,6 +187,11 @@ export default function SymptomCheckerScreen() {
       }
     });
 
+    if (updated.length === symptomsList.length) {
+      setInputError(t('symptomAlreadyAdded'));
+      return;
+    }
+
     setSymptomsList(updated);
     setSymptomInput('');
   };
@@ -181,19 +202,27 @@ export default function SymptomCheckerScreen() {
     setSymptomsList(updated);
   };
 
+  // Clear follow-up conversation, canonical case and summary so a new assessment starts clean
+  const resetAssessmentState = () => {
+    setConversation([]);
+    setQuestionCount(0);
+    setCurrentQuestion('');
+    setCurrentCanonicalQuestion('');
+    setCurrentClinicalConcept('');
+    setActiveCanonicalCase(null);
+    setCurrentQuickOptions([]);
+    setAnswerInput('');
+    setSummaryData(null);
+    setAnalysisRequestId('');
+  };
+
   // Reset entire conversation state
   const handleRestart = () => {
     resetVoice();
     setStepMode('initial');
     setSymptomInput('');
     setSymptomsList([]);
-    setConversation([]);
-    setQuestionCount(0);
-    setCurrentQuestion('');
-    setCurrentQuickOptions([]);
-    setAnswerInput('');
-    setSummaryData(null);
-    setAnalysisRequestId('');
+    resetAssessmentState();
     setIsAnalyzing(false);
     setIsEmergency(false);
     setEmergencyWarning('');
@@ -205,6 +234,7 @@ export default function SymptomCheckerScreen() {
 
   // Start Conversational Assessment
   const handleStartConversationalAssessment = async () => {
+    if (loading) return;
     setErrorMsg('');
     setInputError('');
 
@@ -222,12 +252,17 @@ export default function SymptomCheckerScreen() {
     }
 
     if (activeSymptoms.length === 0) {
-      setErrorMsg('Please add at least one symptom to start assessment');
+      setErrorMsg(t('addAtLeastOneSymptom'));
       return;
     }
 
+    resetVoice();
+    resetAssessmentState();
+    setIsEmergency(false);
+    setEmergencyWarning('');
+    setEmergencyWarningAcknowledged(false);
     setLoading(true);
-    setLoadingText('Preparing follow-up question...');
+    setLoadingText(t('preparingFollowUpLoading'));
 
     try {
       const res = await getSymptomFollowUpApi({
@@ -240,7 +275,7 @@ export default function SymptomCheckerScreen() {
       if (res && res.success && res.data) {
         if (res.data.status === 'emergency' || res.data.isEmergency) {
           setIsEmergency(true);
-          setEmergencyWarning(res.data.emergencyWarning || 'High risk symptoms detected! Seek immediate medical attention.');
+          setEmergencyWarning(res.data.emergencyWarning || '');
         }
 
         if (res.data.status === 'ask' && (res.data.question || res.data.displayQuestion)) {
@@ -287,7 +322,8 @@ export default function SymptomCheckerScreen() {
   };
 
   // Submit Answer to Current Question
-  const handleSendAnswer = async (providedAnswer?: string) => {
+  const handleSendAnswer = async (providedAnswer?: string, canonicalAnswerOverride?: string) => {
+    if (loading) return;
     const finalAnswer = (providedAnswer || answerInput || transcript).trim();
     if (!finalAnswer) return;
 
@@ -300,7 +336,7 @@ export default function SymptomCheckerScreen() {
       originalQuestion: currentQuestion,
       originalAnswer: finalAnswer,
       canonicalQuestion: currentCanonicalQuestion || currentQuestion,
-      canonicalAnswer: finalAnswer,
+      canonicalAnswer: canonicalAnswerOverride || finalAnswer,
       clinicalConcept: currentClinicalConcept || '',
     };
     const newHistory = [...conversation, updatedTurn];
@@ -310,7 +346,7 @@ export default function SymptomCheckerScreen() {
     const newQCount = questionCount;
 
     setLoading(true);
-    setLoadingText('Analyzing your answer...');
+    setLoadingText(t('analyzingAnswerLoading'));
 
     try {
       const res = await getSymptomFollowUpApi({
@@ -383,13 +419,14 @@ export default function SymptomCheckerScreen() {
 
   // Skip Optional Follow-Up Question
   const handleSkipQuestion = () => {
-    handleSendAnswer('Not sure / Skipped');
+    // Display localized text; keep the canonical English marker the backend recognizes
+    handleSendAnswer(t('skippedAnswerDisplay'), 'Not sure / Skipped');
   };
 
   // Helper to extract field value from history
   const extractFieldValue = (history: SymptomConversationTurn[], keyword: string): string => {
-    const found = history.find((h) => h.question.toLowerCase().includes(keyword));
-    return found ? found.answer : '';
+    const found = history.find((h) => (h.canonicalQuestion || h.question).toLowerCase().includes(keyword));
+    return found ? found.canonicalAnswer || found.answer : '';
   };
 
   // Final Med42 Analysis Call
@@ -447,14 +484,19 @@ export default function SymptomCheckerScreen() {
   );
   const displayNegativeFindings = pickDisplayList(summaryDisplay?.displayNegativeFindings, summaryData?.negativeFindings);
   const displayContext = pickDisplayList(summaryDisplay?.displayContext, summaryData?.context);
-  const displayAdditionalContext = pickDisplayList(summaryDisplay?.displayAdditionalContext, summaryData?.additionalContext);
+  // Build notes from the follow-up turns exactly as the patient saw them (already in their language);
+  // backend additionalContext pairs canonical English questions with original-language answers.
+  const displayAdditionalContext =
+    conversation.length > 0
+      ? conversation.map((turn) => `${turn.question}: ${turn.answer}`)
+      : pickDisplayList(summaryDisplay?.displayAdditionalContext, summaryData?.additionalContext);
   const displayDuration =
     summaryData?.duration && summaryData.duration !== 'unspecified'
       ? summaryDisplay?.displayDuration || summaryData.duration
       : t('unspecified');
 
   return (
-    <ScreenContainer scrollable backgroundColor={themeColors.background}>
+    <ScreenContainer scrollable scrollRef={scrollRef} backgroundColor={themeColors.background}>
       <AppHeader
         title={t('symptomCheckerTitle')}
         subtitle={t('whereDoesItHurt')}
@@ -465,7 +507,7 @@ export default function SymptomCheckerScreen() {
             onPress={handleRestart}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Restart symptom input"
+            accessibilityLabel={t('restart')}
           >
             <Text style={[styles.restartBtnText, { color: themeColors.textSecondary }]}>🔄 {t('restart').toUpperCase()}</Text>
           </TouchableOpacity>
@@ -540,11 +582,7 @@ export default function SymptomCheckerScreen() {
                 onPress={handleToggleMic}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  isListening
-                    ? 'Stop listening'
-                    : 'Tap microphone to speak your symptoms'
-                }
+                accessibilityLabel={isListening ? t('stopListening') : t('tapMicToSpeak')}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <View
@@ -571,12 +609,12 @@ export default function SymptomCheckerScreen() {
               >
                 <Text style={[styles.voiceFeedbackTitle, { color: themeColors.textPrimary }]}>
                   {isListening
-                    ? '🎙️ Listening...'
+                    ? t('symptomListeningTitle')
                     : voiceState === 'recognized'
                     ? `✅ ${t('speechRecognized')}`
                     : voiceState === 'no_speech'
-                    ? '⚠️ No Speech Detected'
-                    : 'ℹ️ Voice Notice'}
+                    ? t('symptomNoSpeechTitle')
+                    : t('symptomVoiceNoticeTitle')}
                 </Text>
 
                 {voiceError ? (
@@ -632,6 +670,9 @@ export default function SymptomCheckerScreen() {
                     setSymptomInput(val);
                     if (inputError) setInputError('');
                   }}
+                  onSubmitEditing={handleAddSymptom}
+                  returnKeyType="done"
+                  blurOnSubmit={false}
                   containerStyle={styles.flexInput}
                   error={inputError}
                 />
@@ -644,6 +685,8 @@ export default function SymptomCheckerScreen() {
                   ]}
                   onPress={handleToggleMic}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={isListening ? t('stopListening') : t('tapMicToSpeak')}
                 >
                   <Text style={styles.micIconButtonText}>{isListening ? '⏹️' : '🎙️'}</Text>
                 </TouchableOpacity>
@@ -657,7 +700,7 @@ export default function SymptomCheckerScreen() {
               </View>
 
               {/* Active Symptom Chips */}
-              <Text style={[styles.chipLabel, { color: themeColors.textSecondary }]}>{t('initialSymptoms')} ({symptomsList.length}):</Text>
+              <Text style={[styles.chipLabel, { color: themeColors.textSecondary }]}>{t('initialSymptoms')} ({symptomsList.length}/20):</Text>
               <View style={styles.chipsContainer}>
                 {symptomsList.length > 0 ? (
                   symptomsList.map((sym, idx) => (
@@ -672,6 +715,8 @@ export default function SymptomCheckerScreen() {
                       ]}
                       onPress={() => handleRemoveSymptom(idx)}
                       activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${t('removeSymptom')}: ${sym}`}
                     >
                       <Text style={[styles.symptomChipText, { color: isDark ? themeColors.textPrimary : colors.primary }]}>{sym}</Text>
                       <Text style={[styles.chipRemoveIcon, { color: isDark ? themeColors.textPrimary : colors.primary }]}>✕</Text>
@@ -683,11 +728,15 @@ export default function SymptomCheckerScreen() {
                   </Text>
                 )}
               </View>
+              {symptomsList.length > 0 && (
+                <Text style={[styles.chipHintText, { color: themeColors.textSecondary }]}>ⓘ {t('tapChipToRemove')}</Text>
+              )}
 
               <AppButton
                 title={t('startAssessmentBtn')}
                 onPress={handleStartConversationalAssessment}
                 loading={loading}
+                disabled={loading || (symptomsList.length === 0 && !symptomInput.trim())}
                 style={styles.startAssessmentBtn}
               />
             </View>
@@ -748,9 +797,13 @@ export default function SymptomCheckerScreen() {
                               backgroundColor: isDark ? themeColors.surfaceSecondary : colors.primaryLight,
                               borderColor: themeColors.primary,
                             },
+                            loading && styles.disabledControl,
                           ]}
                           onPress={() => handleSendAnswer(opt)}
                           activeOpacity={0.8}
+                          disabled={loading}
+                          accessibilityRole="button"
+                          accessibilityState={{ disabled: loading }}
                         >
                           <Text style={[styles.quickOptionText, { color: isDark ? themeColors.textPrimary : colors.primary }]}>{opt}</Text>
                         </TouchableOpacity>
@@ -764,6 +817,9 @@ export default function SymptomCheckerScreen() {
                       placeholder={t('tapMicOrType')}
                       value={answerInput}
                       onChangeText={setAnswerInput}
+                      onSubmitEditing={() => handleSendAnswer()}
+                      returnKeyType="send"
+                      editable={!loading}
                       containerStyle={styles.flexInput}
                     />
 
@@ -775,6 +831,9 @@ export default function SymptomCheckerScreen() {
                       ]}
                       onPress={handleToggleMic}
                       activeOpacity={0.8}
+                      disabled={loading}
+                      accessibilityRole="button"
+                      accessibilityLabel={isListening ? t('stopListening') : t('tapMicToSpeak')}
                     >
                       <Text style={styles.micIconButtonText}>{isListening ? '⏹️' : '🎙️'}</Text>
                     </TouchableOpacity>
@@ -783,22 +842,26 @@ export default function SymptomCheckerScreen() {
                       title={t('sendAnswer')}
                       onPress={() => handleSendAnswer()}
                       loading={loading}
+                      disabled={loading || !(answerInput.trim() || transcript.trim())}
                       style={styles.sendBtn}
                     />
                   </View>
 
                   {/* Voice Feedback inside question card */}
                   {isListening && (
-                    <Text style={styles.activeListeningText}>
-                      🎙️ Listening... Speak your answer
-                    </Text>
+                    <Text style={styles.activeListeningText}>{t('listeningSpeakAnswer')}</Text>
                   )}
+                  {!isListening && voiceError ? (
+                    <Text style={[styles.activeListeningText, { color: colors.warning }]}>⚠️ {voiceError}</Text>
+                  ) : null}
 
                   {/* Skip Question Button */}
                   <TouchableOpacity
-                    style={styles.skipBtn}
+                    style={[styles.skipBtn, loading && styles.disabledControl]}
                     onPress={handleSkipQuestion}
                     activeOpacity={0.7}
+                    disabled={loading}
+                    accessibilityRole="button"
                   >
                     <Text style={[styles.skipBtnText, { color: themeColors.primary }]}>{t('skipQuestion')}</Text>
                   </TouchableOpacity>
@@ -808,7 +871,7 @@ export default function SymptomCheckerScreen() {
               {loading && (
                 <View style={styles.loadingBox}>
                   <ActivityIndicator size="small" color={themeColors.primary} />
-                  <Text style={[styles.loadingBoxText, { color: themeColors.textSecondary }]}>{loadingText || 'Processing...'}</Text>
+                  <Text style={[styles.loadingBoxText, { color: themeColors.textSecondary }]}>{loadingText || t('processingLoading')}</Text>
                 </View>
               )}
             </View>
@@ -1259,6 +1322,15 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontStyle: 'italic',
     paddingVertical: spacing.xs,
+  },
+  chipHintText: {
+    ...typography.caption,
+    fontStyle: 'italic',
+    marginTop: -spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  disabledControl: {
+    opacity: 0.5,
   },
   startAssessmentBtn: {
     marginTop: spacing.xs,
